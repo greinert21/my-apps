@@ -129,6 +129,7 @@ a{color:var(--accent)}
   <button data-action="nav" data-v="workout" class="on"><span class="ico">🏋️</span>Workout</button>
   <button data-action="nav" data-v="history"><span class="ico">📅</span>History</button>
   <button data-action="nav" data-v="progress"><span class="ico">📈</span>Progress</button>
+  <button data-action="nav" data-v="exercises"><span class="ico">📋</span>Exercises</button>
   <button data-action="nav" data-v="more"><span class="ico">⚙️</span>More</button>
 </nav>
 <div id="modalWrap"></div>
@@ -168,6 +169,7 @@ if(T&&T.endsAt<=Date.now()){
 let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=null;          // active stretch routine {r,i,endsAt,paused,remaining}
 let previewIdx=null;  // day being previewed before starting
+let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
 
@@ -276,6 +278,7 @@ function render(){
   if(view==='workout')renderWorkout();
   else if(view==='history')renderHistory();
   else if(view==='progress')renderProgress();
+  else if(view==='exercises')renderExercises();
   else renderMore();
   renderTimer();
 }
@@ -659,6 +662,63 @@ function chart(pts){
   </svg>`;
 }
 
+/* ---- exercises ---- */
+function exerciseUniverse(){
+  const set=new Set(CATALOG);
+  D.customExercises.forEach(n=>set.add(n));
+  PROGRAM.forEach(p=>p.blocks.forEach(b=>b.exercises.forEach(e=>set.add(typeof e==='string'?e:e.n))));
+  D.sessions.forEach(s=>sessExercises(s).forEach(e=>set.add(e.name)));
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+function programUsage(name){
+  const n=name.toLowerCase(),out=[];
+  PROGRAM.forEach(p=>p.blocks.forEach((b,bi)=>b.exercises.forEach(e=>{
+    const en=typeof e==='string'?e:e.n;
+    if(en.toLowerCase()===n)out.push({day:p.day,tpl:p.name,interval:bi+1,
+      secs:(typeof e==='object'&&e.secs)?e.secs:null,
+      w:(typeof e==='object'&&e.w!=null)?e.w:null});
+  })));
+  return out;
+}
+function exListHTML(filter){
+  const f=(filter||'').toLowerCase();
+  const list=exerciseUniverse().filter(n=>!f||n.toLowerCase().includes(f));
+  if(!list.length)return '<div class="center">No matches — add it below.</div>';
+  return list.map(n=>{
+    const use=programUsage(n);
+    const logged=!!lastSets(n);
+    const custom=D.customExercises.includes(n);
+    const meta=use.length?use.map(u=>u.day).join(' · '):'';
+    return `<div class="exrow" data-action="exDetail" data-n="${esc(n)}">
+      <span class="dot${logged?' has':''}">${logged?'●':'○'}</span>
+      <span class="nm">${esc(n)}${custom?' <span class="hint">(custom)</span>':''}</span>
+      <span class="sum">${esc(meta)}</span></div>`;
+  }).join('');
+}
+function renderExercises(){
+  setHead('Exercises',exerciseUniverse().length+' in the library');
+  $('#main').innerHTML=`
+  <input class="search" data-input="exSearch" placeholder="Search exercises…" value="${esc(exFilter)}" autocomplete="off">
+  <button class="btn btn-ghost" data-action="exAddOpen">+ Add new exercise</button>
+  <div class="card" style="padding:4px 14px;margin-top:10px" id="exList">${exListHTML(exFilter)}</div>
+  <p class="hint" style="text-align:center">● = logged before · days show where it lives in your week</p>`;
+}
+function showExDetail(name){
+  const use=programUsage(name);
+  const last=lastSets(name);
+  const pr=maxWeight(name);
+  const lastSess=sortedSessions().find(s=>sessExercises(s).some(e=>e.name.toLowerCase()===name.toLowerCase()&&e.sets.length));
+  const custom=D.customExercises.includes(name);
+  const removable=custom&&!use.length&&!lastSess;
+  showModal(`<h3>${esc(name)}</h3>
+   ${use.length?use.map(u=>`<div class="stat"><span>${u.day} · ${esc(u.tpl)} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs):'reps'}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
+   ${last?`<div class="stat"><span>Last logged${lastSess?' · '+fmtDate(lastSess.date):''}</span><b>${esc(fmtSets(last))}</b></div>`:''}
+   ${pr>0?`<div class="stat"><span>Heaviest</span><b>${pr} ${unit()}</b></div>`:''}
+   ${last?`<button class="btn btn-primary" data-action="exProgress" data-n="${esc(name)}">📈 View progress</button>`:''}
+   ${removable?`<button class="btn btn-danger" data-action="exDelete" data-n="${esc(name)}">Delete custom exercise</button>`:''}
+   <button class="btn" data-action="closeModal">Close</button>`);
+}
+
 /* ---- more ---- */
 function renderMore(){
   setHead('More','Sync · backup · settings');
@@ -965,6 +1025,16 @@ document.addEventListener('click',e=>{
   else if(a==='metric'){progressMetric=el.dataset.m;render()}
   else if(a==='timer')startTimer(+el.dataset.s);
   else if(a==='workDone')finishWorkEarly();
+  else if(a==='exDetail')showExDetail(el.dataset.n);
+  else if(a==='exAddOpen')showModal(`<h3>New exercise</h3>
+    <input class="search" id="newExName" placeholder="e.g. DB Floor Press" autocomplete="off">
+    <button class="btn btn-primary" data-action="exAdd">Add to library</button>`);
+  else if(a==='exAdd'){const n=($('#newExName').value||'').trim();
+    if(!n){toast('Type a name first');return}
+    if(exerciseUniverse().some(x=>x.toLowerCase()===n.toLowerCase())){toast('Already in the library');return}
+    D.customExercises.push(n);persist();closeModal();toast('Added '+n);render()}
+  else if(a==='exDelete'){const n=el.dataset.n;D.customExercises=D.customExercises.filter(x=>x!==n);persist();closeModal();toast('Deleted '+n);render()}
+  else if(a==='exProgress'){progressEx=el.dataset.n;view='progress';closeModal();render()}
   else if(a==='goNow'){if(T&&T.mode==='next'){const nb=T.b,ne=T.e;T=null;localStorage.removeItem(TIMER_KEY);beepN(1);startWorkFor(nb,ne)}}
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
@@ -1000,6 +1070,7 @@ document.addEventListener('input',e=>{
     if(t.dataset.input==='w')ex._w=t.value;else ex._r=t.value;persistA()}
   else if(t.dataset.input==='notes'){A.notes=t.value;persistA()}
   else if(t.dataset.input==='pickerSearch'){const pl=$('#pickList');if(pl)pl.innerHTML=pickListHTML(t.value)}
+  else if(t.dataset.input==='exSearch'){exFilter=t.value;const xl=$('#exList');if(xl)xl.innerHTML=exListHTML(exFilter)}
 });
 
 /* ============ boot ============ */
