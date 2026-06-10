@@ -153,8 +153,16 @@ if(A&&!A.blocks){                       // migrate any v1 in-flight session
   A.blocks=[{rounds:3,round:1,done:false,exercises:A.exercises||[]}];
   delete A.exercises;A.cur={b:0,e:0};
 }
-let T=load(TIMER_KEY,null);             // rest timer {endsAt,total,done}
-if(T&&T.endsAt<=Date.now())T=null;
+let T=load(TIMER_KEY,null);             // timer {endsAt,total,done} (+mode:'work',b,e for work intervals)
+if(T&&T.endsAt<=Date.now()){
+  // a work interval that finished while the app was closed still counts — log it
+  if(T.mode==='work'&&A&&A.blocks&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e]){
+    const ex=A.blocks[T.b].exercises[T.e];
+    ex.sets.push({w:parseFloat(ex._w)||0,secs:T.total});
+    persistA();
+  }
+  T=null;localStorage.removeItem(TIMER_KEY);
+}
 let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=null;   // active stretch routine {i,endsAt,paused,remaining}
 function persist(){return save(DATA_KEY,D)}
@@ -171,9 +179,9 @@ const PROGRAM=[
    {rounds:3,exercises:['DB Lateral Raise','DB Front Raise','DB Hammer Curl','Barbell Bench Press']},
    {rounds:3,exercises:['Incline DB Bench Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Curl']}]},
  {day:'Wed',name:'Posterior Chain & Core',blocks:[
-   {rounds:3,exercises:['DB Single-Leg RDL','Rack Pull']},
-   {rounds:3,exercises:['DB Shrug','Barbell Deadlift']},
-   {rounds:3,exercises:['Landmine Core Rotation','Crunch']}]},
+   {rounds:3,exercises:[{n:'DB Single-Leg RDL',secs:60,w:65},{n:'Rack Pull',secs:45,w:185}]},
+   {rounds:3,exercises:[{n:'DB Shrug',secs:45,w:65},{n:'Barbell Deadlift',secs:90,w:285}]},
+   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
  {day:'Thu',name:'Upper Body B',blocks:[
    {rounds:3,exercises:['Chin-Up','Landmine Squat to Press']},
    {rounds:3,exercises:['DB Rear Delt Raise','DB Front Raise','Landmine Row']},
@@ -220,9 +228,9 @@ function fmtDate(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}/.test(s))return
 function fmtClock(sec){sec=Math.max(0,Math.round(sec));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}
 function unit(){return D.settings.unit}
 function setW(s){return s.w>0?s.w+' '+unit():'BW'}
-function fmtSets(sets){return sets.map(s=>(s.w>0?s.w:'BW')+'×'+s.r).join(', ')}
+function fmtSets(sets){return sets.map(s=>(s.w>0?s.w:'BW')+'×'+(s.secs?fmtClock(s.secs):s.r)).join(', ')}
 function sessExercises(s){return s.blocks?s.blocks.flatMap(b=>b.exercises):(s.exercises||[])}
-function volume(s){let v=0;sessExercises(s).forEach(e=>e.sets.forEach(x=>v+=(x.w||0)*(x.r||0)));return v}
+function volume(s){let v=0;sessExercises(s).forEach(e=>e.sets.forEach(x=>v+=(x.w||0)*(x.r!=null?x.r:(x.secs||0)/60)));return v}
 function setCount(s){let n=0;sessExercises(s).forEach(e=>n+=e.sets.length);return n}
 function sortedSessions(){return D.sessions.slice().sort((a,b)=>(b.startedAt||'').localeCompare(a.startedAt||''))}
 function lastSets(name){const n=name.toLowerCase();
@@ -319,8 +327,15 @@ function renderStart(){
   }
   $('#main').innerHTML=h;
 }
-function mkEx(name){const last=lastSets(name);const ls=last?last[last.length-1]:null;
-  return {name,sets:[],_w:ls?String(ls.w):'',_r:ls?String(ls.r):''}}
+function mkEx(entry){
+  const name=typeof entry==='string'?entry:entry.n;
+  const secs=(typeof entry==='object'&&entry.secs)?entry.secs:null;
+  const defW=(typeof entry==='object'&&entry.w!=null)?entry.w:null;
+  const last=lastSets(name);const ls=last?last[last.length-1]:null;
+  return {name,secs,sets:[],
+    _w:ls?String(ls.w):(defW!=null?String(defW):''),
+    _r:(ls&&ls.r!=null)?String(ls.r):''};
+}
 function startSession(i){
   const p=i==='empty'?null:PROGRAM[i];
   A={id:uid(),date:todayStr(),startedAt:new Date().toISOString(),template:p?p.name:'Custom',
@@ -354,18 +369,23 @@ function renderActive(){
           <div class="row"><span class="nm grow">▶ ${esc(ex.name)}</span>
             <button style="border:none;background:none;color:var(--dim);font-size:18px;padding:4px 8px" data-action="rmEx" data-b="${bi}" data-e="${ei}">✕</button></div>
           ${last?`<div class="hint">Last time: ${esc(fmtSets(last))} ${unit()}</div>`:''}
-          ${ex.sets.length?`<div class="setchips">${ex.sets.map((s,j)=>`<button class="setchip" data-action="delSet" data-b="${bi}" data-e="${ei}" data-j="${j}">${setW(s)}×${s.r}<span>✕</span></button>`).join('')}</div>`:''}
+          ${ex.sets.length?`<div class="setchips">${ex.sets.map((s,j)=>`<button class="setchip" data-action="delSet" data-b="${bi}" data-e="${ei}" data-j="${j}">${setW(s)}×${s.secs?fmtClock(s.secs):s.r}<span>✕</span></button>`).join('')}</div>`:''}
           <div class="inrow">
             <div class="grow"><div class="lbl">Weight (${unit()})</div>
               <div class="group"><button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="w" data-d="-1">−</button>
               <input data-input="w" data-b="${bi}" data-e="${ei}" inputmode="decimal" value="${esc(ex._w||'')}" placeholder="0">
               <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="w" data-d="1">+</button></div></div>
-            <div class="grow"><div class="lbl">Reps</div>
+            ${ex.secs?`<div class="grow"><div class="lbl">Interval</div>
+              <div class="group"><button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="s" data-d="-1">−</button>
+              <input readonly value="${fmtClock(ex.secs)}" style="pointer-events:none">
+              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="s" data-d="1">+</button></div></div>`
+            :`<div class="grow"><div class="lbl">Reps</div>
               <div class="group"><button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="-1">−</button>
               <input data-input="r" data-b="${bi}" data-e="${ei}" inputmode="numeric" value="${esc(ex._r||'')}" placeholder="0">
-              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>
+              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>`}
           </div>
-          <button class="btn btn-primary" data-action="logSet" data-b="${bi}" data-e="${ei}">Log Set ${ex.sets.length+1}</button>
+          ${ex.secs?`<button class="btn btn-primary" data-action="startWork" data-b="${bi}" data-e="${ei}">${(T&&T.mode==='work'&&T.b===bi&&T.e===ei)?'🔥 Interval running…':'▶ Start '+fmtClock(ex.secs)+' interval — Round '+(ex.sets.length+1)}</button>`
+          :`<button class="btn btn-primary" data-action="logSet" data-b="${bi}" data-e="${ei}">Log Set ${ex.sets.length+1}</button>`}
         </div>`;
       }else{
         h+=`<div class="exrow" data-action="focus" data-b="${bi}" data-e="${ei}">
@@ -387,6 +407,20 @@ function renderActive(){
   const f=$('#main .exfocus');
   if(f&&renderActive.scrollNext)f.scrollIntoView({block:'center',behavior:'smooth'});
   renderActive.scrollNext=false;
+}
+function workComplete(bi,ei,secs){
+  if(!A||!A.blocks[bi]||!A.blocks[bi].exercises[ei]){renderTimer();return}
+  const ex=A.blocks[bi].exercises[ei];
+  const w=parseFloat(ex._w)||0;
+  const n=ex.name.toLowerCase();
+  const sessMax=Math.max(0,...A.blocks.flatMap(b=>b.exercises).filter(x=>x.name.toLowerCase()===n).flatMap(x=>x.sets.map(s=>s.w||0)));
+  const prevMax=Math.max(maxWeight(ex.name),sessMax);
+  ex.sets.push({w,secs});
+  if(w>0&&w>prevMax)toast('🎉 New PR on '+ex.name+'!');
+  else toast('Interval done — '+(w>0?w+' '+unit():'BW')+' × '+fmtClock(secs));
+  advance(bi,ei);
+  renderActive.scrollNext=true;
+  persistA();render();
 }
 function logSet(bi,ei){
   const blk=A.blocks[bi],ex=blk.exercises[ei];
@@ -485,7 +519,7 @@ function renderProgress(){
     let y=0;
     if(progressMetric==='top')y=Math.max(...e.sets.map(x=>x.w||0));
     else if(progressMetric==='1rm')y=Math.max(...e.sets.map(x=>(x.w||0)*(1+(x.r||0)/30)));
-    else y=e.sets.reduce((a,x)=>a+(x.w||0)*(x.r||0),0);
+    else y=e.sets.reduce((a,x)=>a+(x.w||0)*(x.r!=null?x.r:(x.secs||0)/60),0);
     pts.push({d:s.date,y:Math.round(y*10)/10});
   });
   const best=Math.max(...pts.map(p=>p.y));
@@ -656,11 +690,15 @@ function renderTimer(){
   const w=$('#timerWrap');
   if(!T){w.innerHTML='';return}
   const left=Math.max(0,Math.ceil((T.endsAt-Date.now())/1000));
-  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}">
-    <span style="font-size:20px">⏱️</span><span class="t">${fmtClock(left)}</span>
+  const work=T.mode==='work';
+  let label='';
+  if(work&&A&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e])label=A.blocks[T.b].exercises[T.e].name;
+  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}"${work?' style="background:#b45309"':''}>
+    <span style="font-size:20px">${work?'🔥':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
+    ${work?`<span style="font-size:13px;font-weight:700;opacity:.9;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span>`:''}
     <span class="grow" style="flex:1"></span>
     <button data-action="timerPlus">+30s</button>
-    <button data-action="timerStop">Stop</button></div>`;
+    <button data-action="timerStop">${work?'Cancel':'Stop'}</button></div>`;
 }
 setInterval(()=>{
   if(ST&&!ST.paused){
@@ -672,8 +710,17 @@ setInterval(()=>{
     el.classList.toggle('over',(Date.now()-new Date(A.startedAt).getTime())/1000>D.settings.sessionTarget*60)}}
   if(!T)return;
   const left=T.endsAt-Date.now();
-  if(left<=0&&!T.done){T.done=true;save(TIMER_KEY,T);
-    if(Date.now()-T.endsAt<5000){beep();
+  if(left<=0&&!T.done){
+    const late=Date.now()-T.endsAt>=5000;
+    if(T.mode==='work'){
+      const wb=T.b,we=T.e,secs=T.total;
+      T=null;localStorage.removeItem(TIMER_KEY);
+      if(!late){beep();if(navigator.vibrate)navigator.vibrate([250,120,250]);}
+      workComplete(wb,we,secs);
+      return;
+    }
+    T.done=true;save(TIMER_KEY,T);
+    if(!late){beep();
       if(navigator.vibrate)navigator.vibrate([250,120,250]);
       toast('Rest over — go! 💪');}
     else toast('Rest ended while away');
@@ -718,7 +765,7 @@ async function copyData(){
   try{await navigator.clipboard.writeText(JSON.stringify(D));toast('Copied — paste somewhere safe')}
   catch(e){toast('Copy failed — use Download instead')}
 }
-function cleanSets(arr){return Array.isArray(arr)?arr.filter(x=>x&&typeof x==='object').map(x=>({w:+x.w||0,r:+x.r||0})):[]}
+function cleanSets(arr){return Array.isArray(arr)?arr.filter(x=>x&&typeof x==='object').map(x=>x.secs?{w:+x.w||0,secs:+x.secs||0}:{w:+x.w||0,r:+x.r||0}):[]}
 function sanitizeSession(s){
   if(!s||typeof s!=='object')return null;
   if(typeof s.id!=='string'||!s.id)return null;
@@ -785,9 +832,17 @@ document.addEventListener('click',e=>{
     if(ex.sets.length)showConfirm('Remove '+ex.name+'?',ex.sets.length+' logged set(s) will be lost.',doRm);
     else doRm()}
   else if(a==='logSet')logSet(bi,ei);
+  else if(a==='startWork'){
+    if(T&&T.mode==='work'){toast('Interval already running');return}
+    unlockAudio();
+    const ex=A.blocks[bi].exercises[ei];
+    A.cur={b:bi,e:ei};persistA();
+    T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei};
+    save(TIMER_KEY,T);render()}
   else if(a==='delSet'){const ex=A.blocks[bi].exercises[ei];const j=+el.dataset.j;const s=ex.sets[j];
-    showConfirm('Delete set?',setW(s)+' × '+s.r+' will be removed.',()=>{ex.sets.splice(j,1);persistA();closeModal();render()})}
+    showConfirm('Delete set?',setW(s)+' × '+(s.secs?fmtClock(s.secs):s.r)+' will be removed.',()=>{ex.sets.splice(j,1);persistA();closeModal();render()})}
   else if(a==='step'){const ex=A.blocks[bi].exercises[ei],f=el.dataset.f,d=+el.dataset.d;
+    if(f==='s'){ex.secs=Math.max(15,(ex.secs||60)+d*15);persistA();render();return}
     let val;
     if(f==='w'){const stepBy=unit()==='kg'?2.5:5;let v=(parseFloat(ex._w)||0)+d*stepBy;if(v<0)v=0;ex._w=val=String(Math.round(v*100)/100)}
     else{let v=(parseInt(ex._r,10)||0)+d;if(v<0)v=0;ex._r=val=String(v)}
@@ -802,7 +857,7 @@ document.addEventListener('click',e=>{
   else if(a==='metric'){progressMetric=el.dataset.m;render()}
   else if(a==='timer')startTimer(+el.dataset.s);
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
-  else if(a==='timerStop')stopTimer();
+  else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
   else if(a==='sync')syncNotion();
   else if(a==='relayCfg')showModal(`<h3>Relay URL</h3>
     <p class="hint">Paste the URL of your deployed relay function (Cloudflare Worker / Netlify Function). Leave blank until step 4.</p>
