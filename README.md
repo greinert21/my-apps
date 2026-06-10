@@ -15,7 +15,7 @@ Matt's personal apps — plain HTML, no build step, hosted on GitHub Pages.
 Mobile-first workout logger built for iPhone (add to Home Screen for the app-like experience).
 
 - **Local-first:** every workout saves to the device immediately (`localStorage`) — works offline at the gym via a small service worker.
-- **Features:** workout templates (Push/Pull/Legs/Full Body), set logging with last-time hints and PR detection, rest timers with auto-start, history, progress charts (top set / est. 1RM / volume), JSON backup/restore.
+- **Features:** Matt's Mon–Fri superset program (2 blocks × 3 exercises × 3 rounds, 25-min sessions) with a circuit engine — the app highlights the next exercise, auto-advances as sets are logged, and auto-starts the between-rounds rest timer. Plus: "today's workout" suggestion, session countdown, last-time hints, PR detection, history, progress charts (top set / est. 1RM / volume), JSON backup/restore.
 - **Notion sync:** the Sync button is stubbed until the relay function is deployed (step 4 of the plan). The app POSTs unsynced sessions as JSON to a configurable relay URL that holds the Notion API key.
 
 ### Roadmap (from the project brief)
