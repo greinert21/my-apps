@@ -169,6 +169,8 @@ if(T&&T.endsAt<=Date.now()){
 let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=null;          // active stretch routine {r,i,endsAt,paused,remaining}
 let previewIdx=null;  // day being previewed before starting
+let previewDraft=null;// editable copy of that day's blocks (session-only swaps live here)
+let swapCtx=null;     // {b,e,name} mid-swap
 let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
@@ -196,6 +198,13 @@ const PROGRAM=[
    {rounds:3,exercises:[{n:'DB Lunge',secs:60,w:25},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:135}]},
    {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]}
 ];
+/* Effective program: Matt's persistent edits (D.program) win over the built-in default */
+function PROG(){return (Array.isArray(D.program)&&D.program.length===PROGRAM.length)?D.program:PROGRAM}
+function editableProgram(){
+  if(!Array.isArray(D.program)||D.program.length!==PROGRAM.length)D.program=JSON.parse(JSON.stringify(PROGRAM));
+  return D.program;
+}
+
 /* Matt's stretch routines: timed items auto-advance, rep items wait for a Done tap */
 const ROUTINES=[
  {key:'morning',name:'Morning Stretch',emoji:'🧘',mins:8,items:[
@@ -294,21 +303,62 @@ function renderWorkout(){
   renderStart();
 }
 function renderPreview(){
-  const p=PROGRAM[previewIdx];
-  setHead(p.name,p.day+' · '+p.blocks.length+' intervals · '+p.blocks[0].rounds+' rounds each');
+  const p=PROG()[previewIdx];
+  setHead(p.name,p.day+' · '+previewDraft.length+' intervals · '+previewDraft[0].rounds+' rounds each');
   let h='';
-  p.blocks.forEach((blk,bi)=>{
+  previewDraft.forEach((blk,bi)=>{
     h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b><span class="rounds">${blk.rounds} rounds</span></div>`;
-    blk.exercises.forEach(e=>{
+    blk.exercises.forEach((e,ei)=>{
       const ex=mkEx(e,p.name);
       const meta=(ex.secs?fmtClock(ex.secs):'reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
-      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span><span class="nm">${esc(ex.name)}</span><span class="sum">${meta}</span></div>`;
+      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span><span class="nm">${esc(ex.name)}</span><span class="sum">${meta}</span>
+        <button class="addex" style="padding:2px 4px 2px 12px;font-size:18px;margin:0" data-action="swapOpen" data-b="${bi}" data-e="${ei}">⇄</button></div>`;
     });
     h+='</div>';
   });
   h+=`<button class="btn btn-primary" style="padding:17px" data-action="previewStart">▶ Start Workout</button>`;
   h+=`<button class="btn" data-action="previewBack">← Back</button>`;
   $('#main').innerHTML=h;
+}
+function swapName(e){return typeof e==='string'?e:e.n}
+function swapListHTML(filter){
+  const f=(filter||'').toLowerCase();
+  const inDay=new Set(previewDraft.flatMap(b=>b.exercises.map(swapName)));
+  const list=exerciseUniverse().filter(n=>!inDay.has(n)&&(!f||n.toLowerCase().includes(f)));
+  let h='';
+  list.slice(0,30).forEach(n=>{h+=`<button class="pick" data-action="swapPick" data-n="${esc(n)}">${esc(n)}</button>`});
+  if(f&&!list.some(n=>n.toLowerCase()===f))
+    h+=`<button class="pick" style="color:var(--accent)" data-action="swapNew" data-n="${esc(filter)}">+ Add “${esc(filter)}”</button>`;
+  return h;
+}
+function showSwapPicker(filter){
+  const old=previewDraft[swapCtx.b].exercises[swapCtx.e];
+  showModal(`<h3>Swap ${esc(swapName(old))}</h3>
+  <input class="search" data-input="swapSearch" placeholder="Search or type a new one…" value="${esc(filter||'')}" autocomplete="off">
+  <div id="swapList">${swapListHTML(filter)}</div>`);
+  const inp=document.querySelector('[data-input="swapSearch"]');
+  if(inp)inp.focus();
+}
+function showSwapScope(){
+  const old=previewDraft[swapCtx.b].exercises[swapCtx.e];
+  showModal(`<h3>${esc(swapName(old))} → ${esc(swapCtx.name)}</h3>
+  <p class="hint">Swap it for just this session, or rewrite your weekly program?</p>
+  <button class="btn btn-primary" data-action="swapToday">Just today</button>
+  <button class="btn" data-action="swapAlways">Every week</button>
+  <button class="btn btn-ghost" data-action="closeModal">Cancel</button>`);
+}
+function applySwap(always){
+  const old=previewDraft[swapCtx.b].exercises[swapCtx.e];
+  const secs=(typeof old==='object'&&old.secs)?old.secs:null;
+  const entry=secs?{n:swapCtx.name,secs}:swapCtx.name;
+  previewDraft[swapCtx.b].exercises[swapCtx.e]=entry;
+  if(always){
+    const prog=editableProgram();
+    prog[previewIdx].blocks[swapCtx.b].exercises[swapCtx.e]=JSON.parse(JSON.stringify(entry));
+    persist();
+  }
+  toast((always?'Swapped every week: ':'Swapped for today: ')+swapCtx.name);
+  swapCtx=null;closeModal();render();
 }
 function stretchSetup(){
   const it=ROUTINES[ST.r].items[ST.i];
@@ -358,12 +408,12 @@ function stretchAdvance(){
 function renderStart(){
   const dow=new Date().getDay(); // 0 Sun .. 6 Sat
   const idx=dow>=1&&dow<=5?dow-1:-1;
-  setHead('Workout',idx>=0?'Today is '+PROGRAM[idx].day+' — '+PROGRAM[idx].name:'Weekend — rest day or bonus session');
+  setHead('Workout',idx>=0?'Today is '+PROG()[idx].day+' — '+PROG()[idx].name:'Weekend — rest day or bonus session');
   const wk=mondayStr();
   const doneThisWeek=name=>D.sessions.some(s=>s.template===name&&s.date>=wk);
   let h='';
   if(idx>=0){
-    const p=PROGRAM[idx];
+    const p=PROG()[idx];
     h+=`<button class="btn btn-primary tpl-btn" style="padding:18px 16px" data-action="preview" data-i="${idx}">
       <span>▶ Today: ${esc(p.name)}${doneThisWeek(p.name)?' ✓':''}</span><span class="hint" style="color:rgba(255,255,255,.8)">${p.blocks.length}×${p.blocks[0].rounds} rounds</span></button>`;
   }
@@ -373,7 +423,7 @@ function renderStart(){
       <span>${r.emoji} ${esc(r.name)}${done?' ✓':''}</span><span class="hint">${r.items.length} moves · ~${r.mins} min</span></button>`;
   });
   h+='<p class="hint" style="margin:16px 0 4px">This week</p>';
-  PROGRAM.forEach((p,i)=>{
+  PROG().forEach((p,i)=>{
     if(i===idx)return;
     h+=`<button class="btn tpl-btn" data-action="preview" data-i="${i}">
       <span>${doneThisWeek(p.name)?'✅':'<span style="opacity:.5">'+p.day+'</span>'} ${esc(p.name)}</span>
@@ -406,10 +456,10 @@ function mkEx(entry,tpl){
   const rSrc=ls||fb;
   return {name,secs,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
 }
-function startSession(i){
-  const p=i==='empty'?null:PROGRAM[i];
+function startSession(i,draftBlocks){
+  const p=i==='empty'?null:PROG()[i];
   A={id:uid(),date:todayStr(),startedAt:new Date().toISOString(),template:p?p.name:'Custom',
-     blocks:p?p.blocks.map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(e=>mkEx(e,p.name))}))
+     blocks:p?(draftBlocks||p.blocks).map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(e=>mkEx(e,p.name))}))
              :[{rounds:3,round:1,done:false,exercises:[]}],
      cur:{b:0,e:0},notes:'',synced:false};
   persistA();acquireWake();render();
@@ -666,13 +716,13 @@ function chart(pts){
 function exerciseUniverse(){
   const set=new Set(CATALOG);
   D.customExercises.forEach(n=>set.add(n));
-  PROGRAM.forEach(p=>p.blocks.forEach(b=>b.exercises.forEach(e=>set.add(typeof e==='string'?e:e.n))));
+  PROG().forEach(p=>p.blocks.forEach(b=>b.exercises.forEach(e=>set.add(typeof e==='string'?e:e.n))));
   D.sessions.forEach(s=>sessExercises(s).forEach(e=>set.add(e.name)));
   return [...set].sort((a,b)=>a.localeCompare(b));
 }
 function programUsage(name){
   const n=name.toLowerCase(),out=[];
-  PROGRAM.forEach(p=>p.blocks.forEach((b,bi)=>b.exercises.forEach(e=>{
+  PROG().forEach(p=>p.blocks.forEach((b,bi)=>b.exercises.forEach(e=>{
     const en=typeof e==='string'?e:e.n;
     if(en.toLowerCase()===n)out.push({day:p.day,tpl:p.name,interval:bi+1,
       secs:(typeof e==='object'&&e.secs)?e.secs:null,
@@ -752,6 +802,7 @@ function renderMore(){
     </div>
   </div>
   <div class="card"><h3>🗑️ Danger zone</h3>
+    ${Array.isArray(D.program)?'<button class="btn btn-danger" data-action="resetProgram">Reset weekly program to defaults</button>':''}
     <button class="btn btn-danger" data-action="clearAll">Erase all data on this device</button>
   </div>
   <p class="hint" style="text-align:center">Workout Tracker v2.0 · circuits edition · data lives in this browser<br>
@@ -961,6 +1012,9 @@ function importData(txt){
   });
   if(Array.isArray(obj.customExercises))
     obj.customExercises.forEach(n=>{if(typeof n==='string'&&n&&!D.customExercises.includes(n))D.customExercises.push(n)});
+  if(Array.isArray(obj.program)&&obj.program.length===PROGRAM.length&&
+     obj.program.every(d=>d&&typeof d.name==='string'&&Array.isArray(d.blocks)))
+    D.program=obj.program;
   persist();closeModal();
   toast(added?'Restored '+added+' workout'+(added===1?'':'s')+(skipped?' ('+skipped+' invalid skipped)':''):'Nothing new to restore');render();
 }
@@ -974,9 +1028,17 @@ document.addEventListener('click',e=>{
   const ei=el.dataset.e!==undefined?+el.dataset.e:null;
   if(a==='nav'){view=el.dataset.v;render()}
   else if(a==='start')startSession(el.dataset.i==='empty'?'empty':+el.dataset.i);
-  else if(a==='preview'){previewIdx=+el.dataset.i;render()}
-  else if(a==='previewBack'){previewIdx=null;render()}
-  else if(a==='previewStart'){const i=previewIdx;previewIdx=null;startSession(i)}
+  else if(a==='preview'){previewIdx=+el.dataset.i;previewDraft=JSON.parse(JSON.stringify(PROG()[previewIdx].blocks));render()}
+  else if(a==='previewBack'){previewIdx=null;previewDraft=null;render()}
+  else if(a==='previewStart'){const i=previewIdx,d=previewDraft;previewIdx=null;previewDraft=null;startSession(i,d)}
+  else if(a==='swapOpen'){swapCtx={b:+el.dataset.b,e:+el.dataset.e};showSwapPicker('')}
+  else if(a==='swapPick'){swapCtx.name=el.dataset.n;showSwapScope()}
+  else if(a==='swapNew'){const n=el.dataset.n.trim();if(!n)return;
+    if(!D.customExercises.some(x=>x.toLowerCase()===n.toLowerCase()))D.customExercises.push(n);persist();
+    swapCtx.name=n;showSwapScope()}
+  else if(a==='swapToday')applySwap(false);
+  else if(a==='swapAlways')applySwap(true);
+  else if(a==='resetProgram')showConfirm('Reset weekly program?','All every-week swaps go back to the original program. Your workout history is untouched.',()=>{delete D.program;persist();closeModal();render();toast('Program reset to defaults')});
   else if(a==='stretchStart'){unlockAudio();ST={r:+el.dataset.r||0,i:0,paused:false,remaining:0,endsAt:null};stretchSetup();acquireWake();view='workout';render()}
   else if(a==='stretchPause'){if(!ST.endsAt&&!ST.paused)return;
     if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}render()}
@@ -1071,6 +1133,7 @@ document.addEventListener('input',e=>{
   else if(t.dataset.input==='notes'){A.notes=t.value;persistA()}
   else if(t.dataset.input==='pickerSearch'){const pl=$('#pickList');if(pl)pl.innerHTML=pickListHTML(t.value)}
   else if(t.dataset.input==='exSearch'){exFilter=t.value;const xl=$('#exList');if(xl)xl.innerHTML=exListHTML(exFilter)}
+  else if(t.dataset.input==='swapSearch'){const sl=$('#swapList');if(sl)sl.innerHTML=swapListHTML(t.value)}
 });
 
 /* ============ boot ============ */
