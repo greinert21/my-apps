@@ -481,6 +481,15 @@ function finishWorkEarly(){
   T=null;localStorage.removeItem(TIMER_KEY);
   workComplete(wb,we,elapsed);
 }
+function startWorkFor(bi,ei){
+  if(!A||!A.blocks[bi]||!A.blocks[bi].exercises[ei])return;
+  const ex=A.blocks[bi].exercises[ei];
+  if(!ex.secs){render();return}   // rep-based: focus and wait for a manual log
+  A.cur={b:bi,e:ei};persistA();
+  T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei};
+  save(TIMER_KEY,T);
+  renderActive.scrollNext=true;render();
+}
 function workComplete(bi,ei,secs){
   if(!A||!A.blocks[bi]||!A.blocks[bi].exercises[ei]){renderTimer();return}
   const ex=A.blocks[bi].exercises[ei];
@@ -492,6 +501,14 @@ function workComplete(bi,ei,secs){
   if(w>0&&w>prevMax)toast('🎉 New PR on '+ex.name+'!');
   else toast('Interval done — '+(w>0?w+' '+unit():'BW')+' × '+fmtClock(secs));
   advance(bi,ei);
+  // auto-flow: if no rest started and the next exercise is timed, run a 5s get-ready countdown
+  if(!T&&A.cur){
+    const nx=A.blocks[A.cur.b]&&A.blocks[A.cur.b].exercises[A.cur.e];
+    if(nx&&nx.secs&&!A.blocks[A.cur.b].done){
+      T={mode:'next',endsAt:Date.now()+5000,total:5,done:false,b:A.cur.b,e:A.cur.e};
+      save(TIMER_KEY,T);
+    }
+  }
   renderActive.scrollNext=true;
   persistA();render();
 }
@@ -516,6 +533,7 @@ function advance(bi,ei){
   if(blk.round<blk.rounds){
     blk.round++;A.cur={b:bi,e:0};
     startTimer(D.settings.roundRest);
+    if(T&&!T.mode){T.next={b:bi,e:0};save(TIMER_KEY,T)}  // auto-start round when rest ends
     toast('Round done — rest '+D.settings.roundRest+'s');
     return;
   }
@@ -763,16 +781,17 @@ function renderTimer(){
   const w=$('#timerWrap');
   if(!T){w.innerHTML='';return}
   const left=Math.max(0,Math.ceil((T.endsAt-Date.now())/1000));
-  const work=T.mode==='work';
+  const work=T.mode==='work',nxt=T.mode==='next';
   let label='';
-  if(work&&A&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e])label=A.blocks[T.b].exercises[T.e].name;
-  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}"${work?' style="background:#b45309"':''}>
-    <span style="font-size:20px">${work?'🔥':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
-    ${work?`<span style="font-size:13px;font-weight:700;opacity:.9;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span>`:''}
+  if((work||nxt)&&A&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e])label=A.blocks[T.b].exercises[T.e].name;
+  const bg=work?' style="background:#b45309"':nxt?' style="background:#6d28d9"':'';
+  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}"${bg}>
+    <span style="font-size:20px">${work?'🔥':nxt?'🚀':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
+    ${(work||nxt)?`<span style="font-size:13px;font-weight:700;opacity:.9;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nxt?'Next: ':''}${esc(label)}</span>`:''}
     <span class="grow" style="flex:1"></span>
     ${work?'<button data-action="workDone">✓ Done</button>':''}
-    <button data-action="timerPlus">+30s</button>
-    <button data-action="timerStop">${work?'Cancel':'Stop'}</button></div>`;
+    ${nxt?'<button data-action="goNow">Go now</button>':'<button data-action="timerPlus">+30s</button>'}
+    <button data-action="timerStop">${work?'Cancel':nxt?'Stop':'Stop'}</button></div>`;
 }
 setInterval(()=>{
   if(ST&&!ST.paused&&ST.endsAt){
@@ -793,9 +812,18 @@ setInterval(()=>{
       workComplete(wb,we,secs);
       return;
     }
+    if(T.mode==='next'){
+      const nb=T.b,ne=T.e;
+      T=null;localStorage.removeItem(TIMER_KEY);
+      if(!late){beepN(1);startWorkFor(nb,ne)}
+      else{toast('Ready when you are — tap Start');render()}
+      return;
+    }
+    const nx=T.next;
     T.done=true;save(TIMER_KEY,T);
     if(!late){beep();
       if(navigator.vibrate)navigator.vibrate([250,120,250]);
+      if(nx){T=null;localStorage.removeItem(TIMER_KEY);startWorkFor(nx.b,nx.e);return}
       toast('Rest over — go! 💪');}
     else toast('Rest ended while away');
     renderTimer();
@@ -937,6 +965,7 @@ document.addEventListener('click',e=>{
   else if(a==='metric'){progressMetric=el.dataset.m;render()}
   else if(a==='timer')startTimer(+el.dataset.s);
   else if(a==='workDone')finishWorkEarly();
+  else if(a==='goNow'){if(T&&T.mode==='next'){const nb=T.b,ne=T.e;T=null;localStorage.removeItem(TIMER_KEY);beepN(1);startWorkFor(nb,ne)}}
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
   else if(a==='sync')syncNotion();
