@@ -170,40 +170,105 @@ let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=null;          // active stretch routine {r,i,endsAt,paused,remaining}
 let previewIdx=null;  // day being previewed before starting
 let previewDraft=null;// editable copy of that day's blocks (session-only swaps live here)
+let previewVar=0;     // which variant the preview is showing
 let swapCtx=null;     // {b,e,name} mid-swap
 let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
 
-/* ============ Matt's program (Mon-Fri, 25-min superset blocks) ============ */
+/* ============ Matt's program (Mon-Fri, 25-min superset blocks) ============
+   Each day has variants (A = his original; B/C rotate weekly so the body never settles). */
 const PROGRAM=[
- {day:'Mon',name:'Heavy Legs & Abs',blocks:[
+ {day:'Mon',name:'Heavy Legs & Abs',variants:[
+  {label:'A',blocks:[
    {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Ab Rollout',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
    {rounds:3,exercises:[{n:'Barbell Back Squat',secs:60,w:135},{n:'Toe Touches',secs:45,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:185}]},
    {rounds:3,exercises:[{n:'Barbell Deadlift',secs:60,w:135},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'DB Lunge',secs:60,w:25}]}]},
- {day:'Tue',name:'Upper Body A',blocks:[
+  {label:'B',blocks:[
+   {rounds:3,exercises:[{n:'DB Goblet Squat',secs:45,w:50},{n:'V-Up',secs:45,w:0},{n:'DB Romanian Deadlift',secs:45,w:50}]},
+   {rounds:3,exercises:[{n:'Barbell Front Squat',secs:60,w:95},{n:'Hollow Body Hold',secs:45,w:0},{n:'DB Standing Calf Raise',secs:45,w:65}]},
+   {rounds:3,exercises:[{n:'Barbell Hip Thrust',secs:60,w:135},{n:'Band Pallof Press',secs:60,w:0},{n:'DB Bulgarian Split Squat',secs:60,w:20}]}]},
+  {label:'C',blocks:[
+   {rounds:3,exercises:[{n:'Landmine Squat',secs:45,w:70},{n:'Dead Bug',secs:45,w:0},{n:'Landmine Single-Leg RDL',secs:45,w:70}]},
+   {rounds:3,exercises:[{n:'Barbell Pause Back Squat',secs:60,w:115},{n:'Hanging Knee Raise',secs:45,w:0},{n:'DB Single-Leg Calf Raise',secs:45,w:45}]},
+   {rounds:3,exercises:[{n:'Barbell Romanian Deadlift',secs:60,w:115},{n:'Side Plank',secs:60,w:0},{n:'DB Reverse Lunge',secs:60,w:25}]}]}
+ ]},
+ {day:'Tue',name:'Upper Body A',variants:[
+  {label:'A',blocks:[
    {rounds:3,exercises:[{n:'DB Bench Press',secs:45,w:65},{n:'Bent-Over Barbell Row',secs:45,w:135},{n:'Biceps Curl to Shoulder Press',secs:45,w:35},{n:'DB Skullcrusher',secs:45,w:25}]},
    {rounds:3,exercises:[{n:'DB Lateral Raise',secs:45,w:15},{n:'DB Front Raise',secs:45,w:15},{n:'DB Hammer Curl',secs:45,w:35},{n:'Barbell Bench Press',secs:45,w:185}]},
    {rounds:3,exercises:[{n:'Incline DB Bench Press',secs:45,w:65},{n:'Concentration Curl',secs:45,w:35},{n:'Bent-Over DB Row',secs:45,w:35},{n:'Cable Rope Tricep Extension',secs:45,w:80}]}]},
- {day:'Wed',name:'Posterior Chain & Core',blocks:[
+  {label:'B',blocks:[
+   {rounds:3,exercises:[{n:'Barbell Incline Bench Press',secs:45,w:135},{n:'Pull-Up',secs:45,w:0},{n:'DB Hammer Curl to Press',secs:45,w:35},{n:'Band Triceps Pushdown',secs:45,w:0}]},
+   {rounds:3,exercises:[{n:'Band Lateral Raise',secs:45,w:0},{n:'Plate Front Raise',secs:45,w:25},{n:'Barbell Curl',secs:45,w:65},{n:'DB Floor Press',secs:45,w:65}]},
+   {rounds:3,exercises:[{n:'Landmine Press',secs:45,w:65},{n:'DB Incline Curl',secs:45,w:25},{n:'DB Chest-Supported Incline Row',secs:45,w:35},{n:'Overhead DB Triceps Extension',secs:45,w:40}]}]},
+  {label:'C',blocks:[
+   {rounds:3,exercises:[{n:'Barbell Bench Press',secs:45,w:185},{n:'Landmine Row',secs:45,w:135},{n:'Band Curl to Press',secs:45,w:0},{n:'Bench Dip',secs:45,w:0}]},
+   {rounds:3,exercises:[{n:'DB Upright Row',secs:45,w:25},{n:'Band Front Raise',secs:45,w:0},{n:'DB Zottman Curl',secs:45,w:25},{n:'DB Flye',secs:45,w:20}]},
+   {rounds:3,exercises:[{n:'DB Neutral-Grip Incline Press',secs:45,w:60},{n:'DB Spider Curl',secs:45,w:25},{n:'Rope Lat Pulldown',secs:45,w:90},{n:'Band Overhead Triceps Extension',secs:45,w:0}]}]}
+ ]},
+ {day:'Wed',name:'Posterior Chain & Core',variants:[
+  {label:'A',blocks:[
    {rounds:3,exercises:[{n:'DB Single-Leg RDL',secs:60,w:65},{n:'Rack Pull',secs:45,w:185}]},
    {rounds:3,exercises:[{n:'DB Shrug',secs:45,w:65},{n:'Barbell Deadlift',secs:90,w:285}]},
    {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
- {day:'Thu',name:'Upper Body B',blocks:[
+  {label:'B',blocks:[
+   {rounds:3,exercises:[{n:'Barbell Romanian Deadlift',secs:60,w:135},{n:'Bent-Over Barbell Row',secs:45,w:135}]},
+   {rounds:3,exercises:[{n:'DB Upright Row',secs:45,w:25},{n:'Barbell Sumo Deadlift',secs:90,w:225}]},
+   {rounds:3,exercises:[{n:'Band Wood Chop',secs:60},{n:'Lying Leg Raise',secs:60,w:0}]}]},
+  {label:'C',blocks:[
+   {rounds:3,exercises:[{n:'Band Lying Hamstring Curl',secs:60},{n:'Rack Pull',secs:45,w:185}]},
+   {rounds:3,exercises:[{n:'DB Farmer\'s Carry',secs:45,w:75},{n:'Barbell Snatch-Grip Deadlift',secs:90,w:185}]},
+   {rounds:3,exercises:[{n:'Band Pallof Press',secs:60},{n:'DB Weighted Sit-Up',secs:60,w:10}]}]}
+ ]},
+ {day:'Thu',name:'Upper Body B',variants:[
+  {label:'A',blocks:[
    {rounds:3,exercises:[{n:'Push-Up',secs:45,w:0},{n:'Pull-Up',secs:45,w:0},{n:'Biceps Curl to Shoulder Press',secs:45,w:40},{n:'DB Skullcrusher',secs:45,w:30}]},
    {rounds:3,exercises:[{n:'DB Lateral Raise',secs:45,w:10},{n:'DB Front Raise',secs:45,w:10},{n:'DB Hammer Curl',secs:45,w:40},{n:'Barbell Bench Press',secs:45,w:185},{n:'Landmine Row',secs:45,w:135}]},
    {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:45,w:50},{n:'Incline DB Bench Press',secs:45,w:65},{n:'Concentration Curl',secs:45,w:35},{n:'Cable Rope Tricep Extension',secs:45,w:80}]}]},
- {day:'Fri',name:'Light Legs',blocks:[
+  {label:'B',blocks:[
+   {rounds:3,exercises:[{n:'DB Floor Press',secs:45,w:60},{n:'Wide-Grip Lat Pulldown',secs:45,w:90},{n:'DB Hammer Curl to Press',secs:45,w:35},{n:'Band Overhead Triceps Extension',secs:45,w:0}]},
+   {rounds:3,exercises:[{n:'Band Lateral Raise',secs:45,w:0},{n:'Plate Front Raise',secs:45,w:25},{n:'DB Zottman Curl',secs:45,w:25},{n:'DB Bench Press',secs:45,w:65},{n:'Bent-Over Barbell Row',secs:45,w:135}]},
+   {rounds:3,exercises:[{n:'Band Wood Chop',secs:45,w:0},{n:'Barbell Incline Bench Press',secs:45,w:135},{n:'DB Incline Curl',secs:45,w:25},{n:'Band Triceps Pushdown',secs:45,w:0}]}]},
+  {label:'C',blocks:[
+   {rounds:3,exercises:[{n:'Band Push-Up',secs:45,w:0},{n:'Chin-Up',secs:45,w:0},{n:'Seated DB Curl-to-Press',secs:45,w:35},{n:'Overhead DB Triceps Extension',secs:45,w:20}]},
+   {rounds:3,exercises:[{n:'DB Leaning Lateral Raise',secs:45,w:10},{n:'Band Front Raise',secs:45,w:0},{n:'Barbell Curl',secs:45,w:65},{n:'Barbell Bench Press',secs:45,w:185},{n:'One-Arm DB Row',secs:45,w:40}]},
+   {rounds:3,exercises:[{n:'Band Pallof Press',secs:45,w:0},{n:'Landmine Press',secs:45,w:90},{n:'DB Spider Curl',secs:45,w:25},{n:'Diamond Push-Up',secs:45,w:0}]}]}
+ ]},
+ {day:'Fri',name:'Light Legs',variants:[
+  {label:'A',blocks:[
    {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Toe Touches',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
    {rounds:3,exercises:[{n:'DB Lunge',secs:60,w:25},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:135}]},
-   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]}
+   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
+  {label:'B',blocks:[
+   {rounds:3,exercises:[{n:'DB Goblet Squat',secs:45,w:40},{n:'Dead Bug',secs:45,w:0},{n:'Single-Leg Glute Bridge',secs:45,w:0}]},
+   {rounds:3,exercises:[{n:'DB Split Squat',secs:60,w:25},{n:'Band Pallof Press',secs:60,w:0},{n:'DB Single-Leg Calf Raise',secs:45,w:25}]},
+   {rounds:3,exercises:[{n:'Band Wood Chop',secs:60,w:0},{n:'Lying Leg Raise',secs:60,w:0}]}]},
+  {label:'C',blocks:[
+   {rounds:3,exercises:[{n:'Landmine Squat',secs:45,w:70},{n:'Plank',secs:45,w:0},{n:'Band Pull-Through',secs:45,w:0}]},
+   {rounds:3,exercises:[{n:'DB Reverse Lunge',secs:60,w:25},{n:'DB Standing Wood Chop',secs:60,w:15},{n:'DB Standing Calf Raise',secs:45,w:50}]},
+   {rounds:3,exercises:[{n:'Side Plank',secs:60,w:0},{n:'Reverse Crunch',secs:60,w:0}]}]}
+ ]}
 ];
 /* Effective program: Matt's persistent edits (D.program) win over the built-in default */
-function PROG(){return (Array.isArray(D.program)&&D.program.length===PROGRAM.length)?D.program:PROGRAM}
+function PROG(){return (Array.isArray(D.program)&&D.program.length===PROGRAM.length&&D.program.every(d=>d&&Array.isArray(d.variants)&&d.variants.length))?D.program:PROGRAM}
 function editableProgram(){
-  if(!Array.isArray(D.program)||D.program.length!==PROGRAM.length)D.program=JSON.parse(JSON.stringify(PROGRAM));
+  if(!Array.isArray(D.program)||D.program.length!==PROGRAM.length||!D.program.every(d=>d&&Array.isArray(d.variants)&&d.variants.length))
+    D.program=JSON.parse(JSON.stringify(PROGRAM));
   return D.program;
 }
+function migrateProgram(){
+  if(!Array.isArray(D.program)||D.program.length!==PROGRAM.length){if(D.program!==undefined)delete D.program;return}
+  D.program=D.program.map((d,i)=>{
+    if(d&&Array.isArray(d.variants)&&d.variants.length)return d;
+    const def=JSON.parse(JSON.stringify(PROGRAM[i].variants));
+    if(d&&Array.isArray(d.blocks))def[0]={label:'A',blocks:d.blocks};
+    return {day:PROGRAM[i].day,name:(d&&d.name)||PROGRAM[i].name,variants:def};
+  });
+}
+/* which variant this week suggests: rotates every Monday */
+function weekVariant(p){const wk=Math.floor(Date.parse(mondayStr())/604800000);return ((wk%p.variants.length)+p.variants.length)%p.variants.length}
+migrateProgram();persist();   // upgrade any pre-variant D.program in place
 
 /* Matt's stretch routines: timed items auto-advance, rep items wait for a Done tap */
 const ROUTINES=[
@@ -306,6 +371,12 @@ function renderPreview(){
   const p=PROG()[previewIdx];
   setHead(p.name,p.day+' · '+previewDraft.length+' intervals · '+previewDraft[0].rounds+' rounds each');
   let h='';
+  if(p.variants.length>1){
+    const sug=weekVariant(p);
+    h+=`<div class="seg" style="margin-bottom:12px">${p.variants.map((v,vi)=>
+      `<button class="${vi===previewVar?'on':''}" data-action="previewVar" data-v="${vi}">${esc(v.label)}${vi===sug?' ★':''}</button>`).join('')}</div>`;
+    if(previewVar===weekVariant(p))h+=`<p class="hint" style="margin:-4px 0 10px;text-align:center">★ = this week's rotation</p>`;
+  }
   previewDraft.forEach((blk,bi)=>{
     h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b><span class="rounds">${blk.rounds} rounds</span></div>`;
     blk.exercises.forEach((e,ei)=>{
@@ -354,7 +425,7 @@ function applySwap(always){
   previewDraft[swapCtx.b].exercises[swapCtx.e]=entry;
   if(always){
     const prog=editableProgram();
-    prog[previewIdx].blocks[swapCtx.b].exercises[swapCtx.e]=JSON.parse(JSON.stringify(entry));
+    prog[previewIdx].variants[previewVar].blocks[swapCtx.b].exercises[swapCtx.e]=JSON.parse(JSON.stringify(entry));
     persist();
   }
   toast((always?'Swapped every week: ':'Swapped for today: ')+swapCtx.name);
@@ -415,7 +486,7 @@ function renderStart(){
   if(idx>=0){
     const p=PROG()[idx];
     h+=`<button class="btn btn-primary tpl-btn" style="padding:18px 16px" data-action="preview" data-i="${idx}">
-      <span>▶ Today: ${esc(p.name)}${doneThisWeek(p.name)?' ✓':''}</span><span class="hint" style="color:rgba(255,255,255,.8)">${p.blocks.length}×${p.blocks[0].rounds} rounds</span></button>`;
+      <span>▶ Today: ${esc(p.name)}${doneThisWeek(p.name)?' ✓':''}</span><span class="hint" style="color:rgba(255,255,255,.8)">${p.variants.length>1?'Variant '+p.variants[weekVariant(p)].label+' · ':''}${p.variants[weekVariant(p)].blocks.length}×${p.variants[weekVariant(p)].blocks[0].rounds} rounds</span></button>`;
   }
   ROUTINES.forEach((r,ri)=>{
     const done=D.routineDates[r.key].includes(todayStr());
@@ -427,7 +498,7 @@ function renderStart(){
     if(i===idx)return;
     h+=`<button class="btn tpl-btn" data-action="preview" data-i="${i}">
       <span>${doneThisWeek(p.name)?'✅':'<span style="opacity:.5">'+p.day+'</span>'} ${esc(p.name)}</span>
-      <span class="hint">${p.blocks.reduce((a,b)=>a+b.exercises.length,0)} exercises</span></button>`;
+      <span class="hint">${p.variants[weekVariant(p)].blocks.reduce((a,b)=>a+b.exercises.length,0)} exercises</span></button>`;
   });
   h+=`<button class="btn btn-ghost" data-action="start" data-i="empty">+ Start Empty Workout</button>`;
   const last=sortedSessions()[0];
@@ -456,10 +527,12 @@ function mkEx(entry,tpl){
   const rSrc=ls||fb;
   return {name,secs,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
 }
-function startSession(i,draftBlocks){
+function startSession(i,draftBlocks,variantLabel){
   const p=i==='empty'?null:PROG()[i];
+  const src=p?(draftBlocks||p.variants[weekVariant(p)].blocks):null;
   A={id:uid(),date:todayStr(),startedAt:new Date().toISOString(),template:p?p.name:'Custom',
-     blocks:p?(draftBlocks||p.blocks).map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(e=>mkEx(e,p.name))}))
+     variant:p?(variantLabel||p.variants[weekVariant(p)].label):undefined,
+     blocks:p?src.map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(e=>mkEx(e,p.name))}))
              :[{rounds:3,round:1,done:false,exercises:[]}],
      cur:{b:0,e:0},notes:'',synced:false};
   persistA();acquireWake();render();
@@ -607,7 +680,7 @@ function finishSession(){
     .filter(b=>b.exercises.length>0);
   if(!keptBlocks.length){showConfirm('No sets logged','Nothing was logged. Discard this workout?',()=>{A=null;persistA();closeModal();render()});return}
   const sess={id:A.id,date:A.date,startedAt:A.startedAt,finishedAt:new Date().toISOString(),
-    template:A.template,blocks:keptBlocks,notes:(A.notes||'').trim(),synced:false};
+    template:A.template,variant:A.variant,blocks:keptBlocks,notes:(A.notes||'').trim(),synced:false};
   if(!D.sessions.some(s=>s.id===sess.id))D.sessions.push(sess);
   if(!persist()){D.sessions=D.sessions.filter(s=>s!==sess);return}
   A=null;persistA();stopTimer();releaseWake();
@@ -625,7 +698,7 @@ function renderHistory(){
     const exs=sessExercises(s),sc=setCount(s);
     h+=`<div class="card">
       <div class="sess-head" data-action="toggle" data-id="${esc(s.id)}">
-        <div><b>${fmtDate(s.date)}</b><div class="hint">${esc(s.template||'Custom')} · ${exs.length} exercise${exs.length===1?'':'s'} · ${sc} set${sc===1?'':'s'}${volume(s)>0?' · '+Math.round(volume(s)).toLocaleString()+' '+unit():''}</div></div>
+        <div><b>${fmtDate(s.date)}</b><div class="hint">${esc(s.template||'Custom')}${s.variant?' · '+esc(s.variant):''} · ${exs.length} exercise${exs.length===1?'':'s'} · ${sc} set${sc===1?'':'s'}${volume(s)>0?' · '+Math.round(volume(s)).toLocaleString()+' '+unit():''}</div></div>
         <span class="badge ${s.synced?'ok':''}">${s.synced?'✓ synced':'local'}</span>
       </div>`;
     if(open){
@@ -716,18 +789,18 @@ function chart(pts){
 function exerciseUniverse(){
   const set=new Set(CATALOG);
   D.customExercises.forEach(n=>set.add(n));
-  PROG().forEach(p=>p.blocks.forEach(b=>b.exercises.forEach(e=>set.add(typeof e==='string'?e:e.n))));
+  PROG().forEach(p=>p.variants.forEach(v=>v.blocks.forEach(b=>b.exercises.forEach(e=>set.add(typeof e==='string'?e:e.n)))));
   D.sessions.forEach(s=>sessExercises(s).forEach(e=>set.add(e.name)));
   return [...set].sort((a,b)=>a.localeCompare(b));
 }
 function programUsage(name){
   const n=name.toLowerCase(),out=[];
-  PROG().forEach(p=>p.blocks.forEach((b,bi)=>b.exercises.forEach(e=>{
+  PROG().forEach(p=>p.variants.forEach(v=>v.blocks.forEach((b,bi)=>b.exercises.forEach(e=>{
     const en=typeof e==='string'?e:e.n;
-    if(en.toLowerCase()===n)out.push({day:p.day,tpl:p.name,interval:bi+1,
+    if(en.toLowerCase()===n)out.push({day:p.day,tpl:p.name,variant:v.label,interval:bi+1,
       secs:(typeof e==='object'&&e.secs)?e.secs:null,
       w:(typeof e==='object'&&e.w!=null)?e.w:null});
-  })));
+  }))));
   return out;
 }
 function exListHTML(filter){
@@ -738,7 +811,7 @@ function exListHTML(filter){
     const use=programUsage(n);
     const logged=!!lastSets(n);
     const custom=D.customExercises.includes(n);
-    const meta=use.length?use.map(u=>u.day).join(' · '):'';
+    const meta=use.length?[...new Set(use.map(u=>u.day))].join(' · '):'';
     return `<div class="exrow" data-action="exDetail" data-n="${esc(n)}">
       <span class="dot${logged?' has':''}">${logged?'●':'○'}</span>
       <span class="nm">${esc(n)}${custom?' <span class="hint">(custom)</span>':''}</span>
@@ -761,7 +834,7 @@ function showExDetail(name){
   const custom=D.customExercises.includes(name);
   const removable=custom&&!use.length&&!lastSess;
   showModal(`<h3>${esc(name)}</h3>
-   ${use.length?use.map(u=>`<div class="stat"><span>${u.day} · ${esc(u.tpl)} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs):'reps'}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
+   ${use.length?use.map(u=>`<div class="stat"><span>${u.day}${u.variant?' '+esc(u.variant):''} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs):'reps'}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
    ${last?`<div class="stat"><span>Last logged${lastSess?' · '+fmtDate(lastSess.date):''}</span><b>${esc(fmtSets(last))}</b></div>`:''}
    ${pr>0?`<div class="stat"><span>Heaviest</span><b>${pr} ${unit()}</b></div>`:''}
    ${last?`<button class="btn btn-primary" data-action="exProgress" data-n="${esc(name)}">📈 View progress</button>`:''}
@@ -1013,8 +1086,8 @@ function importData(txt){
   if(Array.isArray(obj.customExercises))
     obj.customExercises.forEach(n=>{if(typeof n==='string'&&n&&!D.customExercises.includes(n))D.customExercises.push(n)});
   if(Array.isArray(obj.program)&&obj.program.length===PROGRAM.length&&
-     obj.program.every(d=>d&&typeof d.name==='string'&&Array.isArray(d.blocks)))
-    D.program=obj.program;
+     obj.program.every(d=>d&&typeof d.name==='string'&&(Array.isArray(d.variants)||Array.isArray(d.blocks))))
+    {D.program=obj.program;migrateProgram()}
   persist();closeModal();
   toast(added?'Restored '+added+' workout'+(added===1?'':'s')+(skipped?' ('+skipped+' invalid skipped)':''):'Nothing new to restore');render();
 }
@@ -1028,9 +1101,13 @@ document.addEventListener('click',e=>{
   const ei=el.dataset.e!==undefined?+el.dataset.e:null;
   if(a==='nav'){view=el.dataset.v;render()}
   else if(a==='start')startSession(el.dataset.i==='empty'?'empty':+el.dataset.i);
-  else if(a==='preview'){previewIdx=+el.dataset.i;previewDraft=JSON.parse(JSON.stringify(PROG()[previewIdx].blocks));render()}
+  else if(a==='preview'){previewIdx=+el.dataset.i;const pp=PROG()[previewIdx];previewVar=weekVariant(pp);
+    previewDraft=JSON.parse(JSON.stringify(pp.variants[previewVar].blocks));render()}
+  else if(a==='previewVar'){previewVar=+el.dataset.v;
+    previewDraft=JSON.parse(JSON.stringify(PROG()[previewIdx].variants[previewVar].blocks));render()}
   else if(a==='previewBack'){previewIdx=null;previewDraft=null;render()}
-  else if(a==='previewStart'){const i=previewIdx,d=previewDraft;previewIdx=null;previewDraft=null;startSession(i,d)}
+  else if(a==='previewStart'){const i=previewIdx,d=previewDraft,vl=PROG()[i].variants[previewVar].label;
+    previewIdx=null;previewDraft=null;startSession(i,d,vl)}
   else if(a==='swapOpen'){swapCtx={b:+el.dataset.b,e:+el.dataset.e};showSwapPicker('')}
   else if(a==='swapPick'){swapCtx.name=el.dataset.n;showSwapScope()}
   else if(a==='swapNew'){const n=el.dataset.n.trim();if(!n)return;
