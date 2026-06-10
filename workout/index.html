@@ -166,7 +166,8 @@ if(T&&T.endsAt<=Date.now()){
   T=null;localStorage.removeItem(TIMER_KEY);
 }
 let view='workout', expanded={}, progressEx='', progressMetric='top';
-let ST=null;   // active stretch routine {i,endsAt,paused,remaining}
+let ST=null;          // active stretch routine {r,i,endsAt,paused,remaining}
+let previewIdx=null;  // day being previewed before starting
 function persist(){return save(DATA_KEY,D)}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
 
@@ -285,8 +286,26 @@ function setHead(t,sub){$('#title').textContent=t;$('#subtitle').textContent=sub
 /* ---- workout: start screen ---- */
 function renderWorkout(){
   if(ST){renderStretch();return}
-  if(!A){renderStart();return}
-  renderActive();
+  if(A){renderActive();return}
+  if(previewIdx!=null){renderPreview();return}
+  renderStart();
+}
+function renderPreview(){
+  const p=PROGRAM[previewIdx];
+  setHead(p.name,p.day+' · '+p.blocks.length+' intervals · '+p.blocks[0].rounds+' rounds each');
+  let h='';
+  p.blocks.forEach((blk,bi)=>{
+    h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b><span class="rounds">${blk.rounds} rounds</span></div>`;
+    blk.exercises.forEach(e=>{
+      const ex=mkEx(e,p.name);
+      const meta=(ex.secs?fmtClock(ex.secs):'reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
+      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span><span class="nm">${esc(ex.name)}</span><span class="sum">${meta}</span></div>`;
+    });
+    h+='</div>';
+  });
+  h+=`<button class="btn btn-primary" style="padding:17px" data-action="previewStart">▶ Start Workout</button>`;
+  h+=`<button class="btn" data-action="previewBack">← Back</button>`;
+  $('#main').innerHTML=h;
 }
 function stretchSetup(){
   const it=ROUTINES[ST.r].items[ST.i];
@@ -342,7 +361,7 @@ function renderStart(){
   let h='';
   if(idx>=0){
     const p=PROGRAM[idx];
-    h+=`<button class="btn btn-primary tpl-btn" style="padding:18px 16px" data-action="start" data-i="${idx}">
+    h+=`<button class="btn btn-primary tpl-btn" style="padding:18px 16px" data-action="preview" data-i="${idx}">
       <span>▶ Today: ${esc(p.name)}${doneThisWeek(p.name)?' ✓':''}</span><span class="hint" style="color:rgba(255,255,255,.8)">${p.blocks.length}×${p.blocks[0].rounds} rounds</span></button>`;
   }
   ROUTINES.forEach((r,ri)=>{
@@ -353,7 +372,7 @@ function renderStart(){
   h+='<p class="hint" style="margin:16px 0 4px">This week</p>';
   PROGRAM.forEach((p,i)=>{
     if(i===idx)return;
-    h+=`<button class="btn tpl-btn" data-action="start" data-i="${i}">
+    h+=`<button class="btn tpl-btn" data-action="preview" data-i="${i}">
       <span>${doneThisWeek(p.name)?'✅':'<span style="opacity:.5">'+p.day+'</span>'} ${esc(p.name)}</span>
       <span class="hint">${p.blocks.reduce((a,b)=>a+b.exercises.length,0)} exercises</span></button>`;
   });
@@ -394,7 +413,6 @@ function startSession(i){
 }
 
 /* ---- workout: active circuit ---- */
-function blockLetter(i){return String.fromCharCode(65+i)}
 function sessionClockText(){
   const elapsed=(Date.now()-new Date(A.startedAt).getTime())/1000;
   const left=D.settings.sessionTarget*60-elapsed;
@@ -404,10 +422,10 @@ function renderActive(){
   setHead(A.template||'Workout',fmtDate(A.date)+' · started '+new Date(A.startedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}));
   const allDone=A.blocks.some(b=>b.exercises.length>0)&&A.blocks.every(b=>b.done||!b.exercises.length);
   let h=`<div class="clock${(Date.now()-new Date(A.startedAt))/1000>D.settings.sessionTarget*60?' over':''}" id="sessClock">${sessionClockText()}</div>`;
-  if(allDone)h+=`<div class="banner">🎉 All blocks complete — finish up!</div>`;
+  if(allDone)h+=`<div class="banner">🎉 All intervals complete — finish up!</div>`;
   A.blocks.forEach((blk,bi)=>{
     h+=`<div class="card block${blk.done?' done-blk':''}">
-      <div class="block-head"><b>Block ${blockLetter(bi)}</b>
+      <div class="block-head"><b>Interval ${bi+1}</b>
         <span class="rounds">${blk.done?'✓ done':'Round '+blk.round+' of '+blk.rounds}</span></div>`;
     blk.exercises.forEach((ex,ei)=>{
       const focused=A.cur&&A.cur.b===bi&&A.cur.e===ei&&!blk.done;
@@ -432,19 +450,19 @@ function renderActive(){
               <input data-input="r" data-b="${bi}" data-e="${ei}" inputmode="numeric" value="${esc(ex._r||'')}" placeholder="0">
               <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>`}
           </div>
-          ${ex.secs?`<button class="btn btn-primary" data-action="startWork" data-b="${bi}" data-e="${ei}">${(T&&T.mode==='work'&&T.b===bi&&T.e===ei)?'🔥 Interval running…':'▶ Start '+fmtClock(ex.secs)+' interval — Round '+(ex.sets.length+1)}</button>`
+          ${ex.secs?`<button class="btn btn-primary" data-action="startWork" data-b="${bi}" data-e="${ei}">${(T&&T.mode==='work'&&T.b===bi&&T.e===ei)?'✓ Done — next exercise':'▶ Start '+fmtClock(ex.secs)+' interval — Round '+(ex.sets.length+1)}</button>`
           :`<button class="btn btn-primary" data-action="logSet" data-b="${bi}" data-e="${ei}">Log Set ${ex.sets.length+1}</button>`}
         </div>`;
       }else{
         h+=`<div class="exrow" data-action="focus" data-b="${bi}" data-e="${ei}">
           <span class="dot${ex.sets.length?' has':''}">${ex.sets.length?'●':'○'}</span>
           <span class="nm">${esc(ex.name)}</span>
-          <span class="sum">${ex.sets.length?esc(fmtSets(ex.sets)):''}</span></div>`;
+          <span class="sum">${ex.sets.length?esc(fmtSets(ex.sets)):(ex.secs?fmtClock(ex.secs):'')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''))}</span></div>`;
       }
     });
     h+=`<button class="addex" data-action="addEx" data-b="${bi}">+ exercise</button></div>`;
   });
-  h+=`<button class="btn btn-ghost" data-action="addBlock">+ Add Block</button>`;
+  h+=`<button class="btn btn-ghost" data-action="addBlock">+ Add Interval</button>`;
   h+=`<div class="card" style="margin-top:12px"><div class="lbl" style="text-align:left">Rest timer</div>
     <div class="chips">${[30,60,90,120].map(s=>`<button class="chip" data-action="timer" data-s="${s}">${s>=120?(s/60)+' min':s+'s'}</button>`).join('')}</div></div>`;
   h+=`<div class="card"><div class="lbl" style="text-align:left">Notes</div>
@@ -455,6 +473,13 @@ function renderActive(){
   const f=$('#main .exfocus');
   if(f&&renderActive.scrollNext)f.scrollIntoView({block:'center',behavior:'smooth'});
   renderActive.scrollNext=false;
+}
+function finishWorkEarly(){
+  if(!T||T.mode!=='work')return;
+  const elapsed=Math.max(1,Math.round(T.total-Math.max(0,(T.endsAt-Date.now())/1000)));
+  const wb=T.b,we=T.e;
+  T=null;localStorage.removeItem(TIMER_KEY);
+  workComplete(wb,we,elapsed);
 }
 function workComplete(bi,ei,secs){
   if(!A||!A.blocks[bi]||!A.blocks[bi].exercises[ei]){renderTimer();return}
@@ -500,7 +525,7 @@ function advance(bi,ei){
   if(nxt>=0){
     A.cur={b:nxt,e:0};
     startTimer(D.settings.roundRest);
-    toast('Block '+blockLetter(bi)+' complete! 💪');
+    toast('Interval '+(bi+1)+' complete! 💪');
   }else{
     A.cur=null;
     stopTimer();
@@ -535,7 +560,7 @@ function renderHistory(){
     if(open){
       if(s.blocks){
         s.blocks.forEach((b,bi)=>{
-          h+=`<div style="margin-top:10px"><span class="hint" style="font-weight:700">BLOCK ${blockLetter(bi)}</span>`;
+          h+=`<div style="margin-top:10px"><span class="hint" style="font-weight:700">INTERVAL ${bi+1}</span>`;
           b.exercises.forEach(e=>{h+=`<div style="margin-top:5px"><b>${esc(e.name)}</b><div class="hint">${esc(fmtSets(e.sets))} ${unit()}</div></div>`});
           h+='</div>';
         });
@@ -684,7 +709,7 @@ function pickListHTML(filter){
   return h;
 }
 function showPicker(filter){
-  showModal(`<h3>Add to Block ${blockLetter(pickerBlock)}</h3>
+  showModal(`<h3>Add to Interval ${pickerBlock+1}</h3>
   <input class="search" data-input="pickerSearch" placeholder="Search or type a new one…" value="${esc(filter||'')}" autocomplete="off">
   <div id="pickList">${pickListHTML(filter)}</div>`);
   const inp=document.querySelector('[data-input="pickerSearch"]');
@@ -745,6 +770,7 @@ function renderTimer(){
     <span style="font-size:20px">${work?'🔥':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
     ${work?`<span style="font-size:13px;font-weight:700;opacity:.9;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span>`:''}
     <span class="grow" style="flex:1"></span>
+    ${work?'<button data-action="workDone">✓ Done</button>':''}
     <button data-action="timerPlus">+30s</button>
     <button data-action="timerStop">${work?'Cancel':'Stop'}</button></div>`;
 }
@@ -860,6 +886,9 @@ document.addEventListener('click',e=>{
   const ei=el.dataset.e!==undefined?+el.dataset.e:null;
   if(a==='nav'){view=el.dataset.v;render()}
   else if(a==='start')startSession(el.dataset.i==='empty'?'empty':+el.dataset.i);
+  else if(a==='preview'){previewIdx=+el.dataset.i;render()}
+  else if(a==='previewBack'){previewIdx=null;render()}
+  else if(a==='previewStart'){const i=previewIdx;previewIdx=null;startSession(i)}
   else if(a==='stretchStart'){unlockAudio();ST={r:+el.dataset.r||0,i:0,paused:false,remaining:0,endsAt:null};stretchSetup();acquireWake();view='workout';render()}
   else if(a==='stretchPause'){if(!ST.endsAt&&!ST.paused)return;
     if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}render()}
@@ -882,7 +911,9 @@ document.addEventListener('click',e=>{
     else doRm()}
   else if(a==='logSet')logSet(bi,ei);
   else if(a==='startWork'){
-    if(T&&T.mode==='work'){toast('Interval already running');return}
+    if(T&&T.mode==='work'){
+      if(T.b===bi&&T.e===ei){finishWorkEarly();return}
+      toast('Interval already running');return}
     unlockAudio();
     const ex=A.blocks[bi].exercises[ei];
     A.cur={b:bi,e:ei};persistA();
@@ -905,6 +936,7 @@ document.addEventListener('click',e=>{
     showConfirm('Delete this workout?','It will be removed from this device.',()=>{D.sessions=D.sessions.filter(s=>s.id!==id);persist();closeModal();render()})}
   else if(a==='metric'){progressMetric=el.dataset.m;render()}
   else if(a==='timer')startTimer(+el.dataset.s);
+  else if(a==='workDone')finishWorkEarly();
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
   else if(a==='sync')syncNotion();
