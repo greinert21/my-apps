@@ -146,6 +146,7 @@ let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
 D.settings=Object.assign({},DEFAULTS,D.settings||{});
+if(!Array.isArray(D.stretchDates))D.stretchDates=[];
 save(DATA_KEY,D);
 let A=load(ACTIVE_KEY,null);            // active (in-progress) session
 if(A&&!A.blocks){                       // migrate any v1 in-flight session
@@ -155,6 +156,7 @@ if(A&&!A.blocks){                       // migrate any v1 in-flight session
 let T=load(TIMER_KEY,null);             // rest timer {endsAt,total,done}
 if(T&&T.endsAt<=Date.now())T=null;
 let view='workout', expanded={}, progressEx='', progressMetric='top';
+let ST=null;   // active stretch routine {i,endsAt,paused,remaining}
 function persist(){return save(DATA_KEY,D)}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
 
@@ -180,6 +182,32 @@ const PROGRAM=[
    {rounds:3,exercises:['DB Squat','Toe Touches','DB Single-Leg RDL']},
    {rounds:3,exercises:['DB Lunge','Band Standing Ab Twist','Standing Barbell Calf Raise']},
    {rounds:3,exercises:['Landmine Core Rotation','Crunch']}]}
+];
+/* Matt's every-morning static stretch routine (~8 min) */
+const STRETCHES=[
+ {name:'Chest Doorway Stretch',secs:20},
+ {name:'Cross-Body Arm Stretch',secs:20},
+ {name:'Dead Hang',secs:20},
+ {name:'Lower Back Stretch',secs:20},
+ {name:'Head Tilt',secs:20},
+ {name:'Chin Drop',secs:20},
+ {name:'Lateral Lunge Stretch',secs:20},
+ {name:'Side Bend Stretch',secs:20},
+ {name:'Standing Forward Bend',secs:20},
+ {name:'Tricep Stretch',secs:20},
+ {name:'Wall Pectoral Stretch',secs:20},
+ {name:'Wrist Extension Stretch',secs:20},
+ {name:'Reach Behind and Open',secs:20},
+ {name:'Lunge with Ankle Grab',secs:20},
+ {name:"Prone T's",secs:30,note:'1 set × 10 reps'},
+ {name:'Butterfly Stretch',secs:20},
+ {name:"Child's Pose",secs:20},
+ {name:'Up Dog',secs:20},
+ {name:'Knee to Chest Stretch',secs:20},
+ {name:'Prone Calf Stretch',secs:20},
+ {name:'Seated Figure Four',secs:20},
+ {name:'Seated Forward Bend',secs:20},
+ {name:'Supine Back Stretch',secs:20}
 ];
 const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Curl','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up'];
 
@@ -223,8 +251,40 @@ function setHead(t,sub){$('#title').textContent=t;$('#subtitle').textContent=sub
 
 /* ---- workout: start screen ---- */
 function renderWorkout(){
+  if(ST){renderStretch();return}
   if(!A){renderStart();return}
   renderActive();
+}
+function renderStretch(){
+  setHead('Morning Stretch',(ST.i+1)+' of '+STRETCHES.length+' · ~8 min total');
+  const s=STRETCHES[ST.i];
+  const left=ST.paused?ST.remaining:Math.max(0,ST.endsAt-Date.now());
+  const next=STRETCHES[ST.i+1];
+  const pct=Math.round(100*ST.i/STRETCHES.length);
+  $('#main').innerHTML=`
+  <div class="card" style="text-align:center;padding:26px 16px">
+    <div style="font-size:26px;font-weight:800;line-height:1.2">${esc(s.name)}</div>
+    ${s.note?`<div class="hint" style="margin-top:4px">${esc(s.note)}</div>`:''}
+    <div id="stClock" style="font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;margin:10px 0;${ST.paused?'opacity:.5':''}">${fmtClock(Math.ceil(left/1000))}</div>
+    <div style="height:6px;border-radius:3px;background:var(--card2);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent)"></div></div>
+    <div class="hint" style="margin-top:12px">${next?'Next: '+esc(next.name):'Last one — finish strong'}</div>
+  </div>
+  <div class="row">
+    <button class="btn" style="flex:1" data-action="stretchPrev">⏮ Back</button>
+    <button class="btn btn-primary" style="flex:1.4" data-action="stretchPause">${ST.paused?'▶ Resume':'⏸ Pause'}</button>
+    <button class="btn" style="flex:1" data-action="stretchSkip">⏭ Skip</button>
+  </div>
+  <button class="btn btn-danger" data-action="stretchEnd">End stretching</button>`;
+}
+function stretchAdvance(){
+  if(!ST)return;
+  if(ST.i+1>=STRETCHES.length){
+    ST=null;if(!A)releaseWake();
+    if(!D.stretchDates.includes(todayStr())){D.stretchDates.push(todayStr());persist()}
+    beep();toast('Morning stretch done 🧘');render();return;
+  }
+  ST.i++;ST.endsAt=Date.now()+STRETCHES[ST.i].secs*1000;ST.paused=false;
+  beepN(1);render();
 }
 function renderStart(){
   const dow=new Date().getDay(); // 0 Sun .. 6 Sat
@@ -238,6 +298,9 @@ function renderStart(){
     h+=`<button class="btn btn-primary tpl-btn" style="padding:18px 16px" data-action="start" data-i="${idx}">
       <span>▶ Today: ${esc(p.name)}${doneThisWeek(p.name)?' ✓':''}</span><span class="hint" style="color:rgba(255,255,255,.8)">${p.blocks.length}×${p.blocks[0].rounds} rounds</span></button>`;
   }
+  const stretchDone=D.stretchDates.includes(todayStr());
+  h+=`<button class="btn tpl-btn" data-action="stretchStart">
+    <span>🧘 Morning Stretch${stretchDone?' ✓':''}</span><span class="hint">${STRETCHES.length} stretches · ~8 min</span></button>`;
   h+='<p class="hint" style="margin:16px 0 4px">This week</p>';
   PROGRAM.forEach((p,i)=>{
     if(i===idx)return;
@@ -560,10 +623,10 @@ function unlockAudio(){try{audioSessionPlayback();
   if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state!=='running')audioCtx.resume()}catch(e){}}
 let wakeLock=null;
-async function acquireWake(){try{if('wakeLock' in navigator&&A)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+async function acquireWake(){try{if('wakeLock' in navigator&&(A||ST))wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
 function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&A)acquireWake();
+  if(document.visibilityState==='visible'&&(A||ST))acquireWake();
 });
 function startTimer(secs){
   if(!secs||secs<=0)return;
@@ -572,22 +635,23 @@ function startTimer(secs){
   save(TIMER_KEY,T);renderTimer();
 }
 function stopTimer(){T=null;localStorage.removeItem(TIMER_KEY);renderTimer()}
-function beep(){
+function beepN(n){
   try{
     audioSessionPlayback();
     if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     const go=()=>{const t=audioCtx.currentTime;
-      [0,.35,.7].forEach(off=>{
+      for(let i=0;i<n;i++){const off=i*.35;
         const o=audioCtx.createOscillator(),g=audioCtx.createGain();
         o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;
         g.gain.setValueAtTime(.001,t+off);
         g.gain.exponentialRampToValueAtTime(.5,t+off+.02);
         g.gain.exponentialRampToValueAtTime(.001,t+off+.3);
         o.start(t+off);o.stop(t+off+.32);
-      })};
+      }};
     if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go();
   }catch(e){}
 }
+function beep(){beepN(3)}
 function renderTimer(){
   const w=$('#timerWrap');
   if(!T){w.innerHTML='';return}
@@ -599,6 +663,11 @@ function renderTimer(){
     <button data-action="timerStop">Stop</button></div>`;
 }
 setInterval(()=>{
+  if(ST&&!ST.paused){
+    const sl=ST.endsAt-Date.now();
+    if(sl<=0)stretchAdvance();
+    else{const el=$('#stClock');if(el)el.textContent=fmtClock(Math.ceil(sl/1000))}
+  }
   if(A&&view==='workout'){const el=$('#sessClock');if(el){el.textContent=sessionClockText();
     el.classList.toggle('over',(Date.now()-new Date(A.startedAt).getTime())/1000>D.settings.sessionTarget*60)}}
   if(!T)return;
@@ -696,6 +765,11 @@ document.addEventListener('click',e=>{
   const ei=el.dataset.e!==undefined?+el.dataset.e:null;
   if(a==='nav'){view=el.dataset.v;render()}
   else if(a==='start')startSession(el.dataset.i==='empty'?'empty':+el.dataset.i);
+  else if(a==='stretchStart'){unlockAudio();ST={i:0,endsAt:Date.now()+STRETCHES[0].secs*1000,paused:false,remaining:0};acquireWake();view='workout';render()}
+  else if(a==='stretchPause'){if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}render()}
+  else if(a==='stretchSkip')stretchAdvance();
+  else if(a==='stretchPrev'){ST.i=Math.max(0,ST.i-1);ST.endsAt=Date.now()+STRETCHES[ST.i].secs*1000;ST.paused=false;render()}
+  else if(a==='stretchEnd'){ST=null;if(!A)releaseWake();render()}
   else if(a==='focus'){const blk=A.blocks[bi];if(blk.done){blk.done=false}A.cur={b:bi,e:ei};renderActive.scrollNext=true;persistA();render()}
   else if(a==='addEx'){pickerBlock=bi;showPicker('')}
   else if(a==='addBlock'){A.blocks.push({rounds:3,round:1,done:false,exercises:[]});persistA();render()}
