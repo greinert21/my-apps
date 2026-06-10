@@ -1,0 +1,30 @@
+# my-apps
+
+Matt's personal apps — plain HTML, no build step, hosted on GitHub Pages.
+
+**Live site:** https://greinert21.github.io/my-apps/
+
+| App | URL | Status |
+|---|---|---|
+| 🏋️ Workout Tracker | [/workout/](https://greinert21.github.io/my-apps/workout/) | Live |
+| 🐟 Fillet & Fire | — | Planned |
+| 🎣 StrikeZone | — | Planned |
+
+## Workout Tracker
+
+Mobile-first workout logger built for iPhone (add to Home Screen for the app-like experience).
+
+- **Local-first:** every workout saves to the device immediately (`localStorage`) — works offline at the gym via a small service worker.
+- **Features:** workout templates (Push/Pull/Legs/Full Body), set logging with last-time hints and PR detection, rest timers with auto-start, history, progress charts (top set / est. 1RM / volume), JSON backup/restore.
+- **Notion sync:** the Sync button is stubbed until the relay function is deployed (step 4 of the plan). The app POSTs unsynced sessions as JSON to a configurable relay URL that holds the Notion API key.
+
+### Roadmap (from the project brief)
+
+1. ✅ Build app with local saving + stubbed sync
+2. ⬅️ Test phone-in-hand, tune layout
+3. Create the Notion "Workout Log" database
+4. Deploy relay function (Cloudflare Workers / Netlify Functions) and connect sync
+
+## Updating
+
+Everything is static — edit a file, commit, push (or edit directly on github.com), and Pages redeploys automatically in ~1 minute.

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Matt's Apps</title>
+<meta name="theme-color" content="#0f1115">
+<style>
+:root{--bg:#0f1115;--card:#1a1e26;--line:#2e3442;--text:#eef1f6;--dim:#8b93a3;--accent:#4ade80;color-scheme:dark}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:calc(env(safe-area-inset-top) + 40px) 18px 40px;max-width:560px;margin:0 auto}
+h1{font-size:30px;margin:0 0 4px}
+.sub{color:var(--dim);margin-bottom:28px}
+a.app{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);
+  border-radius:18px;padding:18px;margin-bottom:14px;text-decoration:none;color:var(--text)}
+a.app:active{transform:scale(.98)}
+.emoji{font-size:36px}
+.app b{font-size:19px;display:block}
+.app .d{color:var(--dim);font-size:14px;margin-top:2px}
+.soon{opacity:.45;pointer-events:none}
+.tag{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent);border:1px solid var(--line);
+  border-radius:999px;padding:4px 10px;white-space:nowrap}
+.soon .tag{color:var(--dim)}
+</style>
+</head>
+<body>
+<h1>Matt's Apps 🛠️</h1>
+<p class="sub">Personal tools, built to last. Add any of these to your Home Screen.</p>
+
+<a class="app" href="./workout/">
+  <span class="emoji">🏋️</span>
+  <span><b>Workout Tracker</b><span class="d">Log lifts, rest timers, progress charts</span></span>
+  <span class="tag">LIVE</span>
+</a>
+
+<a class="app soon" href="#">
+  <span class="emoji">🐟</span>
+  <span><b>Fillet &amp; Fire</b><span class="d">Walleye recipes, rebuilt for the kitchen</span></span>
+  <span class="tag">SOON</span>
+</a>
+
+<a class="app soon" href="#">
+  <span class="emoji">🎣</span>
+  <span><b>StrikeZone</b><span class="d">Trolling depth calculator</span></span>
+  <span class="tag">SOON</span>
+</a>
+</body>
+</html>
