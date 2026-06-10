@@ -171,25 +171,25 @@ function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIV
 /* ============ Matt's program (Mon-Fri, 25-min superset blocks) ============ */
 const PROGRAM=[
  {day:'Mon',name:'Heavy Legs & Abs',blocks:[
-   {rounds:3,exercises:['DB Squat','Ab Rollout','DB Single-Leg RDL']},
-   {rounds:3,exercises:['Barbell Back Squat','Toe Touches','Standing Barbell Calf Raise']},
-   {rounds:3,exercises:['Barbell Deadlift','Band Standing Ab Twist','DB Lunge']}]},
+   {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Ab Rollout',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
+   {rounds:3,exercises:[{n:'Barbell Back Squat',secs:60,w:135},{n:'Toe Touches',secs:45,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:185}]},
+   {rounds:3,exercises:[{n:'Barbell Deadlift',secs:60,w:135},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'DB Lunge',secs:60,w:25}]}]},
  {day:'Tue',name:'Upper Body A',blocks:[
-   {rounds:3,exercises:['DB Bench Press','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','DB Skullcrusher']},
-   {rounds:3,exercises:['DB Lateral Raise','DB Front Raise','DB Hammer Curl','Barbell Bench Press']},
-   {rounds:3,exercises:['Incline DB Bench Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Curl']}]},
+   {rounds:3,exercises:[{n:'DB Bench Press',secs:45,w:65},{n:'Bent-Over Barbell Row',secs:45,w:135},{n:'Biceps Curl to Shoulder Press',secs:45,w:35},{n:'DB Skullcrusher',secs:45,w:25}]},
+   {rounds:3,exercises:[{n:'DB Lateral Raise',secs:45,w:15},{n:'DB Front Raise',secs:45,w:15},{n:'DB Hammer Curl',secs:45,w:35},{n:'Barbell Bench Press',secs:45,w:185}]},
+   {rounds:3,exercises:[{n:'Incline DB Bench Press',secs:45,w:65},{n:'Concentration Curl',secs:45,w:35},{n:'Bent-Over DB Row',secs:45,w:35},{n:'Cable Rope Tricep Extension',secs:45,w:80}]}]},
  {day:'Wed',name:'Posterior Chain & Core',blocks:[
    {rounds:3,exercises:[{n:'DB Single-Leg RDL',secs:60,w:65},{n:'Rack Pull',secs:45,w:185}]},
    {rounds:3,exercises:[{n:'DB Shrug',secs:45,w:65},{n:'Barbell Deadlift',secs:90,w:285}]},
    {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
  {day:'Thu',name:'Upper Body B',blocks:[
-   {rounds:3,exercises:['Chin-Up','Landmine Squat to Press']},
-   {rounds:3,exercises:['DB Rear Delt Raise','DB Front Raise','Landmine Row']},
-   {rounds:3,exercises:['DB Shoulder Press','Bicycle Crunch']}]},
+   {rounds:3,exercises:[{n:'Chin-Up',secs:45,w:0},{n:'Landmine Squat to Press',secs:45}]},
+   {rounds:3,exercises:[{n:'DB Rear Delt Raise',secs:45,w:15},{n:'DB Front Raise',secs:45,w:15},{n:'Landmine Row',secs:45}]},
+   {rounds:3,exercises:[{n:'DB Shoulder Press',secs:45},{n:'Bicycle Crunch',secs:45,w:0}]}]},
  {day:'Fri',name:'Light Legs',blocks:[
-   {rounds:3,exercises:['DB Squat','Toe Touches','DB Single-Leg RDL']},
-   {rounds:3,exercises:['DB Lunge','Band Standing Ab Twist','Standing Barbell Calf Raise']},
-   {rounds:3,exercises:['Landmine Core Rotation','Crunch']}]}
+   {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Toe Touches',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
+   {rounds:3,exercises:[{n:'DB Lunge',secs:60,w:25},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:135}]},
+   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]}
 ];
 /* Matt's every-morning static stretch routine (~8 min) */
 const STRETCHES=[
@@ -217,7 +217,7 @@ const STRETCHES=[
  {name:'Seated Forward Bend',secs:20},
  {name:'Supine Back Stretch',secs:20}
 ];
-const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Curl','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up'];
+const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Extension','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up'];
 
 /* ============ helpers ============ */
 const $=s=>document.querySelector(s);
@@ -235,6 +235,10 @@ function setCount(s){let n=0;sessExercises(s).forEach(e=>n+=e.sets.length);retur
 function sortedSessions(){return D.sessions.slice().sort((a,b)=>(b.startedAt||'').localeCompare(a.startedAt||''))}
 function lastSets(name){const n=name.toLowerCase();
   for(const s of sortedSessions()){const e=sessExercises(s).find(x=>x.name.toLowerCase()===n);if(e&&e.sets.length)return e.sets}
+  return null}
+function lastSetsTpl(name,tpl){const n=name.toLowerCase();
+  for(const s of sortedSessions()){if(s.template!==tpl)continue;
+    const e=sessExercises(s).find(x=>x.name.toLowerCase()===n);if(e&&e.sets.length)return e.sets}
   return null}
 function maxWeight(name){const n=name.toLowerCase();let m=0;
   D.sessions.forEach(s=>sessExercises(s).forEach(e=>{if(e.name.toLowerCase()===n)e.sets.forEach(x=>{if(x.w>m)m=x.w})}));return m}
@@ -327,19 +331,26 @@ function renderStart(){
   }
   $('#main').innerHTML=h;
 }
-function mkEx(entry){
+function mkEx(entry,tpl){
   const name=typeof entry==='string'?entry:entry.n;
   const secs=(typeof entry==='object'&&entry.secs)?entry.secs:null;
   const defW=(typeof entry==='object'&&entry.w!=null)?entry.w:null;
-  const last=lastSets(name);const ls=last?last[last.length-1]:null;
-  return {name,secs,sets:[],
-    _w:ls?String(ls.w):(defW!=null?String(defW):''),
-    _r:(ls&&ls.r!=null)?String(ls.r):''};
+  // prefill priority: last time on THIS day's workout > program default > last time anywhere
+  const tplLast=tpl?lastSetsTpl(name,tpl):null;
+  const anyLast=lastSets(name);
+  const ls=tplLast?tplLast[tplLast.length-1]:null;
+  const fb=anyLast?anyLast[anyLast.length-1]:null;
+  let w='';
+  if(ls)w=String(ls.w);
+  else if(defW!=null)w=String(defW);
+  else if(fb)w=String(fb.w);
+  const rSrc=ls||fb;
+  return {name,secs,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
 }
 function startSession(i){
   const p=i==='empty'?null:PROGRAM[i];
   A={id:uid(),date:todayStr(),startedAt:new Date().toISOString(),template:p?p.name:'Custom',
-     blocks:p?p.blocks.map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(mkEx)}))
+     blocks:p?p.blocks.map(b=>({rounds:b.rounds,round:1,done:false,exercises:b.exercises.map(e=>mkEx(e,p.name))}))
              :[{rounds:3,round:1,done:false,exercises:[]}],
      cur:{b:0,e:0},notes:'',synced:false};
   persistA();acquireWake();render();
@@ -364,7 +375,7 @@ function renderActive(){
     blk.exercises.forEach((ex,ei)=>{
       const focused=A.cur&&A.cur.b===bi&&A.cur.e===ei&&!blk.done;
       if(focused){
-        const last=lastSets(ex.name);
+        const last=lastSetsTpl(ex.name,A.template)||lastSets(ex.name);
         h+=`<div class="exfocus">
           <div class="row"><span class="nm grow">▶ ${esc(ex.name)}</span>
             <button style="border:none;background:none;color:var(--dim);font-size:18px;padding:4px 8px" data-action="rmEx" data-b="${bi}" data-e="${ei}">✕</button></div>
@@ -644,7 +655,7 @@ function showPicker(filter){
 }
 function addPicked(name){
   const blk=A.blocks[pickerBlock];
-  blk.exercises.push(mkEx(name));
+  blk.exercises.push(mkEx(name,A.template));
   if(blk.done){blk.done=false}             // adding to a finished block reopens it
   if(!A.cur)A.cur={b:pickerBlock,e:blk.exercises.length-1};
   persistA();closeModal();render();
