@@ -70,6 +70,18 @@ aside{
 .legend span{display:inline-flex;align-items:center;gap:5px;font-size:12px}
 .legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
 .cur{font-weight:700;color:var(--green)}
+.modal-ov{position:fixed;inset:0;background:rgba(20,18,12,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:18px}
+.modal{background:var(--panel);border-radius:16px;border:1px solid var(--line);box-shadow:0 14px 44px rgba(0,0,0,.32);width:100%;max-width:340px;padding:18px}
+.modal h3{margin:0 0 12px;font-size:17px;color:var(--green)}
+.modal h3:empty{display:none}
+.modal-body label{display:block;font-size:12.5px;font-weight:700;color:var(--dim);margin-bottom:11px}
+.modal-body input,.modal-body select{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text)}
+.modal-body p{margin:0;font-size:14.5px;color:var(--text);line-height:1.45}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.mbtn{font:inherit;font-size:14px;font-weight:700;border:1px solid var(--line);background:#efe9db;color:var(--text);border-radius:10px;padding:10px 15px;cursor:pointer}
+.mbtn:active{transform:scale(.97)}
+.mbtn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+.mbtn.primary.danger{background:var(--danger);border-color:var(--danger)}
 @media (max-width:720px){
   main{flex-direction:column}
   aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:36vh}
@@ -212,9 +224,9 @@ function renderPalette(){
     inp.onchange=()=>{ const p=plantById(inp.dataset.id); p.sp=Math.max(1,Math.min(600,Math.round(+inp.value||p.sp))); render(); };
   });
   el.querySelectorAll('.del').forEach(b=>{
-    b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.del, p=plantById(id);
+    b.onclick=async e=>{ e.stopPropagation(); const id=b.dataset.del, p=plantById(id);
       const used=state.beds.filter(x=>x.p===id).length;
-      if(used && !confirm(`Remove "${p.name}"? ${used} placed item(s) of this type will also be removed.`)) return;
+      if(used && !(await confirmModal(`Remove "${p.name}"? ${used} placed item(s) of this type will also be removed.`,'Remove'))) return;
       state.plants=state.plants.filter(x=>x.id!==id); state.beds=state.beds.filter(x=>x.p!==id);
       if(selId===id) selId=state.plants[0]?.id; render(); };
   });
@@ -389,32 +401,73 @@ function fit(){
 }
 function setZoom(z){ state.zoom=Math.max(3,Math.min(34,z)); document.getElementById('zoom').value=state.zoom; render(); }
 
-function addPlant(){
-  const name=prompt('Plant / item name?'); if(!name) return;
-  const em=prompt('Emoji / symbol?','🌱')||'🌱';
-  let sp=parseInt(prompt('Spacing in inches? (e.g. 18, 24, 36; a fruit tree might be 200)','24'),10);
-  if(!sp||sp<1)sp=24; sp=Math.min(600,sp);
-  const cat=(prompt('Category? Veggies / Berries & Vines / Trees / Other','Other')||'Other');
-  const fc=CATS.includes(cat)?cat:'Other';
-  const id=uid(); state.plants.push({id,name,em,sp,c:COLORS[state.plants.length%COLORS.length],cat:fc});
+/* in-app dialogs — native prompt/confirm/alert are blocked in iOS standalone (Home Screen) apps */
+function openModal(title, innerHTML, actions){
+  return new Promise(resolve=>{
+    const ov=document.createElement('div'); ov.className='modal-ov';
+    ov.innerHTML=`<div class="modal"><h3>${title}</h3><div class="modal-body">${innerHTML}</div><div class="modal-foot"></div></div>`;
+    const foot=ov.querySelector('.modal-foot');
+    const done=v=>{ document.removeEventListener('keydown',onKey,true); ov.remove(); resolve({val:v,root:ov}); };
+    actions.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
+      b.className='mbtn'+(a.primary?' primary':'')+(a.danger?' danger':''); b.onclick=()=>done(a.val); foot.appendChild(b); });
+    function onKey(e){ if(e.key==='Escape'){ e.stopPropagation(); done(null); }
+      else if(e.key==='Enter'){ const p=actions.find(a=>a.primary); if(p){ e.preventDefault(); e.stopPropagation(); done(p.val); } } }
+    document.addEventListener('keydown',onKey,true);
+    ov.addEventListener('mousedown',e=>{ if(e.target===ov) done(null); });
+    document.body.appendChild(ov);
+    const f=ov.querySelector('input,select'); if(f){ f.focus(); if(f.select) f.select(); }
+  });
+}
+async function confirmModal(msg, okLabel='OK'){
+  const r=await openModal('', `<p>${msg}</p>`, [{label:'Cancel',val:null},{label:okLabel,val:'ok',primary:true,danger:true}]);
+  return r.val==='ok';
+}
+function infoModal(msg){ return openModal('', `<p>${msg}</p>`, [{label:'OK',val:'ok',primary:true}]); }
+
+async function editSize(){
+  const r=await openModal('Property size',
+    `<label>Width (ft)<input id="mW" type="number" min="1" inputmode="decimal" value="${+(state.propW/12)}"></label>
+     <label>Length (ft)<input id="mL" type="number" min="1" inputmode="decimal" value="${+(state.propL/12)}"></label>`,
+    [{label:'Cancel',val:null},{label:'Save',val:'ok',primary:true}]);
+  if(r.val!=='ok') return;
+  const w=parseFloat(r.root.querySelector('#mW').value), l=parseFloat(r.root.querySelector('#mL').value);
+  if(!(w>0)||!(l>0)) return;
+  state.propW=Math.round(w*12); state.propL=Math.round(l*12); fit();
+}
+async function addPlant(){
+  const opts=CATS.map(c=>`<option>${c}</option>`).join('');
+  const r=await openModal('Add plant / item',
+    `<label>Name<input id="mN" type="text" placeholder="e.g. Garlic"></label>
+     <label>Emoji / symbol<input id="mE" type="text" value="🌱" maxlength="4"></label>
+     <label>Spacing (inches)<input id="mS" type="number" min="1" inputmode="numeric" value="24"></label>
+     <label>Category<select id="mC">${opts}</select></label>`,
+    [{label:'Cancel',val:null},{label:'Add',val:'ok',primary:true}]);
+  if(r.val!=='ok') return;
+  const name=(r.root.querySelector('#mN').value||'').trim(); if(!name) return;
+  const em=(r.root.querySelector('#mE').value||'').trim()||'🌱';
+  let sp=Math.min(600,Math.max(1,Math.round(+r.root.querySelector('#mS').value||24)));
+  const cat=r.root.querySelector('#mC').value;
+  const id=uid(); state.plants.push({id,name,em,sp,c:COLORS[state.plants.length%COLORS.length],cat:CATS.includes(cat)?cat:'Other'});
   selId=id; setTool('plant');
 }
-function editSize(){
-  const w=parseFloat(prompt('Whole-property width in feet?',state.propW/12)); if(!w||w<=0)return;
-  const l=parseFloat(prompt('Whole-property length in feet?',state.propL/12)); if(!l||l<=0)return;
-  state.propW=Math.round(w*12); state.propL=Math.round(l*12); render();
+async function saveLoad(){
+  const r=await openModal('Backup',
+    `<p>Save a JSON backup of your whole map, or load one you saved earlier.</p>`,
+    [{label:'Cancel',val:null},{label:'Load file…',val:'load'},{label:'Download backup',val:'save',primary:true}]);
+  if(r.val==='save') exportJSON(); else if(r.val==='load') document.getElementById('file').click();
 }
+async function doClear(){ if(await confirmModal('Remove ALL placed plants? (fences and palette are kept)','Clear plants')){ pushUndo(); state.beds=[]; render(); } }
 function exportJSON(){ const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='gardenmap-backup.json'; a.click(); URL.revokeObjectURL(a.href); }
 function importJSON(file){ const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.plants&&d.beds){ state=d; migrate(); selId=state.plants[0]?.id; selFence=null; setTool('plant'); } else alert('Not a GardenMap backup.'); }catch(e){ alert('Could not read file.'); } };
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.plants&&d.beds){ state=d; migrate(); selId=state.plants[0]?.id; selFence=null; setTool('plant'); } else infoModal('That file is not a GardenMap backup.'); }catch(e){ infoModal('Could not read that file.'); } };
   r.readAsText(file); }
 function exportPNG(){ const svg=document.querySelector('#stage svg'); if(!svg)return;
   const xml=new XMLSerializer().serializeToString(svg); const img=new Image();
   img.onload=()=>{ const sc=2, cv=document.createElement('canvas'); cv.width=svg.width.baseVal.value*sc; cv.height=svg.height.baseVal.value*sc;
     const ctx=cv.getContext('2d'); ctx.scale(sc,sc); ctx.drawImage(img,0,0);
     cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='garden-plan.png'; a.click(); URL.revokeObjectURL(a.href); }); };
-  img.onerror=()=>alert('PNG export failed in this browser — use the JSON export instead.');
+  img.onerror=()=>infoModal('PNG export failed in this browser — use the JSON backup instead.');
   img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(xml))); }
 
 /* ---------- top-level render ---------- */
@@ -454,13 +507,14 @@ document.getElementById('undo').onclick=undo;
 document.getElementById('addPlant').onclick=addPlant;
 document.getElementById('size').onclick=editSize;
 document.getElementById('png').onclick=exportPNG;
-document.getElementById('save').onclick=()=>{ if(confirm('OK = download JSON backup.\nCancel = load a backup file instead.')) exportJSON(); else document.getElementById('file').click(); };
+document.getElementById('save').onclick=saveLoad;
 document.getElementById('file').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; };
-document.getElementById('clear').onclick=()=>{ if(confirm('Remove ALL placed plants? (fences and palette are kept)')){ pushUndo(); state.beds=[]; render(); } };
+document.getElementById('clear').onclick=doClear;
 
 document.addEventListener('keydown',e=>{
+  if(document.querySelector('.modal-ov')) return;   // a dialog is open — it owns the keyboard
   if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); undo(); return; }
-  if(e.target.tagName==='INPUT') return;
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
   if(e.key==='e'||e.key==='E') setTool(tool==='erase'?'plant':'erase');
   if(e.key==='f'||e.key==='F') setTool(tool==='fence'?'plant':'fence');
   if((e.key==='Delete'||e.key==='Backspace') && tool==='fence' && selFence){ pushUndo(); state.fences=state.fences.filter(x=>x.id!==selFence); selFence=null; render(); }
