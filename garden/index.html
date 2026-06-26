@@ -290,6 +290,11 @@ function drawFence(svg,f,sel){
     for(const k in cor){ const [hx,hy,cur]=cor[k];
       const hd=E('rect',{x:hx-5,y:hy-5,width:10,height:10,fill:'#fff',stroke:'#2f5226','stroke-width':2});
       hd.dataset.handle=k; hd.dataset.fence=f.id; hd.style.cursor=cur+'-resize'; svg.appendChild(hd); handles[k]=hd; }
+    // tap-to-delete badge, just inside the top-right corner
+    const dx=x+w-14, dy=y+14;
+    const dc=E('circle',{cx:dx,cy:dy,r:10,fill:'#c0392b',stroke:'#fff','stroke-width':1.5}); dc.dataset.delfence=f.id; dc.style.cursor='pointer';
+    const dt=txt(dx,dy+4,'✕',13,'#fff','middle'); dt.dataset.delfence=f.id; dt.style.cursor='pointer'; dt.style.fontWeight='700';
+    svg.appendChild(dc); svg.appendChild(dt);
   }
   fenceEls[f.id]={body,lbl,handles};
 }
@@ -329,7 +334,8 @@ function onPointerDown(e){
   if(tool!=='fence') return;
   e.preventDefault();
   const {x:xi,y:yi}=evToIn(e);
-  const t=e.target, fid=t.dataset&&t.dataset.fence, hk=t.dataset&&t.dataset.handle;
+  const t=e.target, fid=t.dataset&&t.dataset.fence, hk=t.dataset&&t.dataset.handle, del=t.dataset&&t.dataset.delfence;
+  if(del){ pushUndo(); state.fences=state.fences.filter(x=>x.id!==del); if(selFence===del)selFence=null; render(); return; }
   pushUndo();
   if(hk && selFence===fid){
     drag={mode:'resize',id:fid,handle:hk,start:{x:xi,y:yi},orig:{...fenceById(fid)}};
