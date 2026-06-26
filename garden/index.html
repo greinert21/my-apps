@@ -36,31 +36,43 @@ header .spacer{flex:1}
 .toolbar .sep{width:1px;height:22px;background:rgba(255,255,255,.3);margin:0 2px}
 .toolbar input[type=range]{accent-color:#fff;width:84px}
 main{display:flex;flex:1;min-height:0}
-aside{
-  width:236px;flex:none;background:var(--panel);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;min-height:0;
-}
-.aside-h{padding:10px 12px 4px;font-size:12px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
-.palette{overflow:auto;padding:2px 8px 8px;flex:1}
-.cat{font-size:10.5px;font-weight:800;color:var(--green-2);text-transform:uppercase;letter-spacing:.7px;padding:9px 6px 3px}
-.chip{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:11px;cursor:pointer;
-  border:2px solid transparent;margin-bottom:3px;
-}
-.chip:hover{background:#f0ece0}
-.chip.sel{border-color:var(--green);background:#eaf3e4}
-.chip .em{font-size:19px;width:23px;text-align:center;flex:none}
-.chip .nm{flex:1;font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip .sp{display:flex;align-items:center;gap:3px}
-.chip .sp input{width:40px;font:inherit;font-size:12.5px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fff}
-.chip .sp small{color:var(--dim);font-size:11px}
-.chip .swatch{width:10px;height:10px;border-radius:50%;flex:none}
-.chip .del{border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px;padding:0 2px;opacity:0;flex:none}
-.chip:hover .del{opacity:1}
-.add-row{padding:8px}
-.add-row button{width:100%;font:inherit;font-size:13px;font-weight:700;border:1px dashed var(--green-2);
-  background:#eef5e9;color:var(--green);border-radius:10px;padding:9px;cursor:pointer}
-.stage-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.stage-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;position:relative}
+/* single plant-selector bar */
+.selbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+.selbar .lbl{font-size:12px;color:var(--dim);font-weight:800;text-transform:uppercase;letter-spacing:.5px;flex:none}
+.plantsel{display:flex;align-items:center;gap:9px;flex:1;min-width:0;max-width:440px;font:inherit;cursor:pointer;
+  background:#fff;border:1px solid var(--line);border-radius:11px;padding:8px 12px;text-align:left}
+.plantsel:active{transform:scale(.99)}
+.plantsel .em{font-size:20px;flex:none}
+.plantsel .dot{width:13px;height:13px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
+.plantsel .nm{flex:1;font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plantsel .sp{font-size:12.5px;color:var(--dim);font-weight:600;flex:none}
+.plantsel .car{color:var(--dim);font-size:12px;flex:none}
+/* dropdown */
+.dropdown{position:absolute;z-index:30;top:53px;left:12px;width:min(440px,calc(100% - 24px));max-height:64vh;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.26);
+  display:flex;flex-direction:column;overflow:hidden}
+.dropdown.hidden{display:none}
+.dd-search{padding:10px;border-bottom:1px solid var(--line)}
+.dd-search input{width:100%;font:inherit;font-size:16px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text)}
+.dd-list{overflow:auto;flex:1;padding:4px}
+.dd-cat{font-size:10.5px;font-weight:800;color:var(--green-2);text-transform:uppercase;letter-spacing:.7px;padding:9px 8px 3px}
+.prow{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer}
+.prow:hover{background:#f0ece0}
+.prow.sel{background:#eaf3e4;outline:2px solid var(--green);outline-offset:-2px}
+.prow .em{font-size:19px;width:24px;text-align:center;flex:none}
+.prow .dot{width:13px;height:13px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.15)}
+.prow .nm{flex:1;font-size:14.5px;font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .sp{font-size:12px;color:var(--dim);flex:none}
+.prow .act{border:none;background:none;cursor:pointer;font-size:15px;color:var(--dim);padding:3px 6px;border-radius:7px;flex:none}
+.prow .act:hover{background:#e2dcce;color:var(--text)}
+.dd-foot{padding:8px;border-top:1px solid var(--line)}
+.dd-foot button{width:100%;font:inherit;font-size:14px;font-weight:700;border:1px dashed var(--green-2);background:#eef5e9;color:var(--green);border-radius:10px;padding:11px;cursor:pointer}
+/* color picker (in add/edit modal) */
+.cpick{display:flex;flex-wrap:wrap;gap:7px;margin-top:6px;align-items:center}
+.csw{width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.csw.sel{box-shadow:0 0 0 2px var(--green);transform:scale(1.12)}
+.cpick input[type=color]{width:36px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
 .stage{flex:1;overflow:auto;background:#dfe6d3;padding:22px;min-height:0}
 .stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15)}
 .hint{padding:6px 12px;font-size:12.5px;color:var(--dim);background:var(--panel);border-top:1px solid var(--line);
@@ -83,11 +95,10 @@ aside{
 .mbtn.primary{background:var(--green);color:#fff;border-color:var(--green)}
 .mbtn.primary.danger{background:var(--danger);border-color:var(--danger)}
 @media (max-width:720px){
-  main{flex-direction:column}
-  aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:36vh}
-  .palette{display:flex;flex-wrap:wrap;gap:4px}
-  .cat{flex-basis:100%}
-  .chip{margin-bottom:0;flex:1 1 46%}
+  header{gap:7px}
+  .selbar{padding:7px 10px}
+  .plantsel{max-width:none}
+  .dropdown{left:10px;width:calc(100% - 20px)}
 }
 </style>
 </head>
@@ -114,16 +125,20 @@ aside{
   </div>
 </header>
 <main>
-  <aside>
-    <div class="aside-h">Plants — pick one, then click the map</div>
-    <div class="palette" id="palette"></div>
-    <div class="add-row"><button id="addPlant">＋ Add plant</button></div>
-  </aside>
   <div class="stage-wrap">
+    <div class="selbar">
+      <span class="lbl">Plant</span>
+      <button id="plantSel" class="plantsel"></button>
+    </div>
     <div class="stage" id="stage"></div>
     <div class="hint">
-      <span id="curWrap">Tool: <span class="cur" id="cur">—</span></span>
+      <span id="curWrap"><span class="cur" id="cur">—</span></span>
       <span class="legend" id="legend"></span>
+    </div>
+    <div id="dropdown" class="dropdown hidden">
+      <div class="dd-search"><input id="ddSearch" type="text" placeholder="Search plants & varieties…"></div>
+      <div class="dd-list" id="ddList"></div>
+      <div class="dd-foot"><button id="addPlant">＋ Add plant / variety</button></div>
     </div>
   </div>
 </main>
@@ -133,7 +148,7 @@ aside{
 const KEY='gardenmap-v1';
 const SNAP=6;            // inches — snap grid
 const PAD=28;           // px ruler gutter
-const COLORS=['#e23b3b','#e0671f','#3a9d3a','#5fae3a','#8a5a2b','#6cb33f','#2f8f4e','#c9a24b','#f08a24','#b9893f','#e8c33a','#d8463f','#7b4fa3','#4caf50','#e26ab0','#4b6cb7'];
+const COLORS=['#e23b3b','#ff7a1a','#f2c200','#9bd13a','#3a9d3a','#1f8a4c','#1f9e89','#3b82d6','#4b6cb7','#7b4fa3','#c0397b','#e26ab0','#8a5a2b','#b9893f','#6b7280','#2c2a22'];
 const CATS=['Veggies','Berries & Vines','Trees','Other'];
 
 const PRESETS=[
@@ -152,7 +167,7 @@ const PRESETS=[
   ['Grape','🍇',96,'#7b4fa3','Berries & Vines'], ['Rhubarb','🌿',36,'#b03a4a','Berries & Vines'],
   ['Asparagus','🌱',18,'#6cae54','Berries & Vines'],
   // Trees
-  ['Apple','🍎',240,'#d33','Trees'], ['Pear','🍐',240,'#8aa83a','Trees'],
+  ['Apple','🍎',240,'#dd3333','Trees'], ['Pear','🍐',240,'#8aa83a','Trees'],
   ['Peach','🍑',180,'#f0a04b','Trees'], ['Cherry','🍒',200,'#b5283b','Trees'],
   ['Plum','🌳',180,'#6b3fa0','Trees'], ['Fruit Tree','🌳',200,'#3f8f4e','Trees'],
   // Other
@@ -201,35 +216,88 @@ function migrate(){
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
-/* ---------- palette ---------- */
-function renderPalette(){
-  const el=document.getElementById('palette'); el.innerHTML='';
+/* ---------- plant selector bar + dropdown ---------- */
+let ddOpen=false;
+function escapeHtml(s){ return (s+'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function escapeAttr(s){ return (s+'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function hex6(c){ return /^#([0-9a-f]{3})$/i.test(c) ? '#'+c.slice(1).split('').map(x=>x+x).join('') : c; }
+function pickNewColor(){ return COLORS[state.plants.length % COLORS.length]; }
+
+function renderSelbar(){
+  const b=document.getElementById('plantSel'); const p=plantById(selId);
+  b.innerHTML = p
+    ? `<span class="em">${p.em}</span><span class="dot" style="background:${p.c}"></span><span class="nm">${escapeHtml(p.name)}</span><span class="sp">${fmtSp(p.sp)}</span><span class="car">▾</span>`
+    : `<span class="nm">No plants — add one</span><span class="car">▾</span>`;
+}
+function openDropdown(){ ddOpen=true; document.getElementById('dropdown').classList.remove('hidden'); renderDropdown(); }
+function closeDropdown(){ ddOpen=false; document.getElementById('dropdown').classList.add('hidden'); }
+function toggleDropdown(){ ddOpen?closeDropdown():openDropdown(); }
+function renderDropdown(){
+  const list=document.getElementById('ddList'); list.innerHTML='';
+  const q=(document.getElementById('ddSearch').value||'').trim().toLowerCase();
   CATS.forEach(cat=>{
-    const items=state.plants.filter(p=>p.cat===cat);
+    const items=state.plants.filter(p=>p.cat===cat && (!q||p.name.toLowerCase().includes(q)));
     if(!items.length) return;
-    const h=document.createElement('div'); h.className='cat'; h.textContent=cat; el.appendChild(h);
+    const h=document.createElement('div'); h.className='dd-cat'; h.textContent=cat; list.appendChild(h);
     items.forEach(p=>{
-      const chip=document.createElement('div');
-      chip.className='chip'+(p.id===selId && tool==='plant'?' sel':'');
-      chip.innerHTML=`<span class="em">${p.em}</span><span class="nm">${p.name}</span>
-        <span class="sp"><input type="number" min="1" max="600" value="${p.sp}" data-id="${p.id}"><small>in</small></span>
-        <span class="swatch" style="background:${p.c}"></span>
-        <button class="del" title="Remove from palette" data-del="${p.id}">✕</button>`;
-      chip.onclick=e=>{ if(e.target.closest('input')||e.target.closest('.del'))return; selId=p.id; setTool('plant'); };
-      el.appendChild(chip);
+      const row=document.createElement('div'); row.className='prow'+(p.id===selId?' sel':'');
+      row.innerHTML=`<span class="em">${p.em}</span><span class="dot" style="background:${p.c}"></span>
+        <span class="nm">${escapeHtml(p.name)}</span><span class="sp">${fmtSp(p.sp)}</span>
+        <button class="act" title="Edit / rename / recolor" data-edit="${p.id}">✎</button>
+        <button class="act" title="Delete" data-del="${p.id}">🗑</button>`;
+      row.onclick=e=>{ if(e.target.closest('[data-edit]')||e.target.closest('[data-del]'))return; selId=p.id; closeDropdown(); setTool('plant'); };
+      list.appendChild(row);
     });
   });
-  el.querySelectorAll('input[type=number]').forEach(inp=>{
-    inp.onclick=e=>e.stopPropagation();
-    inp.onchange=()=>{ const p=plantById(inp.dataset.id); p.sp=Math.max(1,Math.min(600,Math.round(+inp.value||p.sp))); render(); };
-  });
-  el.querySelectorAll('.del').forEach(b=>{
-    b.onclick=async e=>{ e.stopPropagation(); const id=b.dataset.del, p=plantById(id);
-      const used=state.beds.filter(x=>x.p===id).length;
-      if(used && !(await confirmModal(`Remove "${p.name}"? ${used} placed item(s) of this type will also be removed.`,'Remove'))) return;
-      state.plants=state.plants.filter(x=>x.id!==id); state.beds=state.beds.filter(x=>x.p!==id);
-      if(selId===id) selId=state.plants[0]?.id; render(); };
-  });
+  if(!list.children.length){ const d=document.createElement('div'); d.className='dd-cat'; d.textContent='No matches'; list.appendChild(d); }
+  list.querySelectorAll('[data-edit]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); plantModal(plantById(b.dataset.edit)); });
+  list.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); deletePlant(b.dataset.del); });
+}
+async function deletePlant(id){
+  const p=plantById(id); if(!p) return;
+  const used=state.beds.filter(x=>x.p===id).length;
+  if(used && !(await confirmModal(`Remove "${escapeHtml(p.name)}"? ${used} placed item(s) of this variety will also be removed.`,'Remove'))) return;
+  state.plants=state.plants.filter(x=>x.id!==id); state.beds=state.beds.filter(x=>x.p!==id);
+  if(selId===id) selId=state.plants[0]?.id;
+  render(); if(ddOpen) renderDropdown();
+}
+
+/* add / edit a plant variety (name + emoji + color + spacing + category) */
+function colorPickerHTML(current){
+  const sw=COLORS.map(c=>`<button type="button" class="csw" data-c="${c}" style="background:${c}"></button>`).join('');
+  return `<div class="cpick">${sw}<input type="color" id="mColor" value="${hex6(current)}"></div>`;
+}
+function wireColor(root){
+  const inp=root.querySelector('#mColor'); if(!inp) return;
+  const mark=()=>root.querySelectorAll('.csw').forEach(b=>b.classList.toggle('sel', b.dataset.c.toLowerCase()===inp.value.toLowerCase()));
+  root.querySelectorAll('.csw').forEach(b=>b.onclick=()=>{ inp.value=b.dataset.c; mark(); });
+  inp.oninput=mark; mark();
+}
+async function plantModal(plant){
+  closeDropdown();
+  const isEdit=!!plant;
+  const cur=plant||{name:'',em:'🌱',sp:24,c:pickNewColor(),cat:'Other'};
+  const opts=CATS.map(c=>`<option ${c===cur.cat?'selected':''}>${c}</option>`).join('');
+  const actions=[{label:'Cancel',val:null}];
+  if(isEdit) actions.push({label:'Delete',val:'del',danger:true});
+  actions.push({label:isEdit?'Save':'Add',val:'ok',primary:true});
+  const r=await openModal(isEdit?'Edit variety':'Add plant / variety',
+    `<label>Name / variety<input id="mN" type="text" value="${escapeAttr(cur.name)}" placeholder="e.g. Red Bell Pepper"></label>
+     <label>Emoji / symbol<input id="mE" type="text" value="${escapeAttr(cur.em)}" maxlength="4"></label>
+     <label>Marker color${colorPickerHTML(cur.c)}</label>
+     <label>Spacing (inches)<input id="mS" type="number" min="1" inputmode="numeric" value="${cur.sp}"></label>
+     <label>Category<select id="mC">${opts}</select></label>`,
+    actions, wireColor);
+  if(r.val==='del'){ await deletePlant(plant.id); return; }
+  if(r.val!=='ok') return;
+  const name=(r.root.querySelector('#mN').value||'').trim(); if(!name) return;
+  const em=(r.root.querySelector('#mE').value||'').trim()||'🌱';
+  const c=r.root.querySelector('#mColor').value;
+  const sp=Math.min(600,Math.max(1,Math.round(+r.root.querySelector('#mS').value||24)));
+  const cat=r.root.querySelector('#mC').value, fc=CATS.includes(cat)?cat:'Other';
+  if(isEdit){ Object.assign(plant,{name,em,sp,c,cat:fc}); }
+  else { const id=uid(); state.plants.push({id,name,em,sp,c,cat:fc}); selId=id; }
+  setTool('plant');
 }
 
 /* ---------- stage ---------- */
@@ -402,7 +470,7 @@ function fit(){
 function setZoom(z){ state.zoom=Math.max(3,Math.min(34,z)); document.getElementById('zoom').value=state.zoom; render(); }
 
 /* in-app dialogs — native prompt/confirm/alert are blocked in iOS standalone (Home Screen) apps */
-function openModal(title, innerHTML, actions){
+function openModal(title, innerHTML, actions, onMount){
   return new Promise(resolve=>{
     const ov=document.createElement('div'); ov.className='modal-ov';
     ov.innerHTML=`<div class="modal"><h3>${title}</h3><div class="modal-body">${innerHTML}</div><div class="modal-foot"></div></div>`;
@@ -411,10 +479,11 @@ function openModal(title, innerHTML, actions){
     actions.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
       b.className='mbtn'+(a.primary?' primary':'')+(a.danger?' danger':''); b.onclick=()=>done(a.val); foot.appendChild(b); });
     function onKey(e){ if(e.key==='Escape'){ e.stopPropagation(); done(null); }
-      else if(e.key==='Enter'){ const p=actions.find(a=>a.primary); if(p){ e.preventDefault(); e.stopPropagation(); done(p.val); } } }
+      else if(e.key==='Enter' && e.target.tagName!=='SELECT'){ const p=actions.find(a=>a.primary); if(p){ e.preventDefault(); e.stopPropagation(); done(p.val); } } }
     document.addEventListener('keydown',onKey,true);
     ov.addEventListener('mousedown',e=>{ if(e.target===ov) done(null); });
     document.body.appendChild(ov);
+    if(onMount) onMount(ov);
     const f=ov.querySelector('input,select'); if(f){ f.focus(); if(f.select) f.select(); }
   });
 }
@@ -433,22 +502,6 @@ async function editSize(){
   const w=parseFloat(r.root.querySelector('#mW').value), l=parseFloat(r.root.querySelector('#mL').value);
   if(!(w>0)||!(l>0)) return;
   state.propW=Math.round(w*12); state.propL=Math.round(l*12); fit();
-}
-async function addPlant(){
-  const opts=CATS.map(c=>`<option>${c}</option>`).join('');
-  const r=await openModal('Add plant / item',
-    `<label>Name<input id="mN" type="text" placeholder="e.g. Garlic"></label>
-     <label>Emoji / symbol<input id="mE" type="text" value="🌱" maxlength="4"></label>
-     <label>Spacing (inches)<input id="mS" type="number" min="1" inputmode="numeric" value="24"></label>
-     <label>Category<select id="mC">${opts}</select></label>`,
-    [{label:'Cancel',val:null},{label:'Add',val:'ok',primary:true}]);
-  if(r.val!=='ok') return;
-  const name=(r.root.querySelector('#mN').value||'').trim(); if(!name) return;
-  const em=(r.root.querySelector('#mE').value||'').trim()||'🌱';
-  let sp=Math.min(600,Math.max(1,Math.round(+r.root.querySelector('#mS').value||24)));
-  const cat=r.root.querySelector('#mC').value;
-  const id=uid(); state.plants.push({id,name,em,sp,c:COLORS[state.plants.length%COLORS.length],cat:CATS.includes(cat)?cat:'Other'});
-  selId=id; setTool('plant');
 }
 async function saveLoad(){
   const r=await openModal('Backup',
@@ -477,15 +530,14 @@ function render(){
     `${Math.round(state.propW/12)}′ × ${Math.round(state.propL/12)}′ · ${ac.toFixed(2)} ac · ${state.beds.length} plants · ${state.fences.length} fence${state.fences.length===1?'':'s'}`;
   ['tPlant','tErase','tFence'].forEach(id=>document.getElementById(id).classList.remove('on'));
   document.getElementById({plant:'tPlant',erase:'tErase',fence:'tFence'}[tool]).classList.add('on');
-  const sp=plantById(selId);
-  document.getElementById('cur').textContent = tool==='erase'?'🧽 erasing' : tool==='fence'?'🚧 drag to draw / move / resize a fence' : (sp?`${sp.em} ${sp.name} (${fmtSp(sp.sp)})`:'—');
-  renderPalette(); renderStage(); renderLegend(); save();
+  document.getElementById('cur').textContent = tool==='erase'?'🧽 Erase — tap a plant to remove it' : tool==='fence'?'🚧 Fence — drag to draw · tap to select · ✕ to delete' : '🌿 Plant — tap the map to place the selected plant';
+  renderSelbar(); if(ddOpen) renderDropdown(); renderStage(); renderLegend(); save();
 }
 function renderLegend(){
   const counts={}; state.beds.forEach(b=>counts[b.p]=(counts[b.p]||0)+1);
   const el=document.getElementById('legend'); el.innerHTML='';
   const keys=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  if(!keys.length){ el.innerHTML='<span style="color:var(--dim)">No plants placed — pick one on the left and click the map. Use 🚧 Fence to draw your enclosure.</span>'; return; }
+  if(!keys.length){ el.innerHTML='<span style="color:var(--dim)">No plants placed — pick one from the Plant bar above and tap the map. Use 🚧 Fence to draw your enclosure.</span>'; return; }
   keys.forEach(id=>{ const p=plantById(id); if(!p)return; const s=document.createElement('span');
     s.innerHTML=`<i style="background:${p.c}"></i>${p.em} ${p.name} <b>×${counts[id]}</b>`; el.appendChild(s); });
 }
@@ -504,12 +556,15 @@ document.getElementById('zoomIn').onclick=()=>setZoom(state.zoom+2);
 document.getElementById('zoomOut').onclick=()=>setZoom(state.zoom-2);
 document.getElementById('zoom').oninput=e=>setZoom(+e.target.value);
 document.getElementById('undo').onclick=undo;
-document.getElementById('addPlant').onclick=addPlant;
+document.getElementById('addPlant').onclick=()=>plantModal(null);
 document.getElementById('size').onclick=editSize;
 document.getElementById('png').onclick=exportPNG;
 document.getElementById('save').onclick=saveLoad;
 document.getElementById('file').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; };
 document.getElementById('clear').onclick=doClear;
+document.getElementById('plantSel').onclick=toggleDropdown;
+document.getElementById('ddSearch').oninput=renderDropdown;
+document.addEventListener('mousedown',e=>{ if(ddOpen && !e.target.closest('#dropdown') && !e.target.closest('#plantSel')) closeDropdown(); });
 
 document.addEventListener('keydown',e=>{
   if(document.querySelector('.modal-ov')) return;   // a dialog is open — it owns the keyboard
