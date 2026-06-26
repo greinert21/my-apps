@@ -28,10 +28,12 @@ Mobile-first workout logger built for iPhone (add to Home Screen for the app-lik
 
 ## GardenMap
 
-Grid planner for the 30′ × 70′ garden. Pick a plant from the palette, click the
-plot, and it drops a footprint sized to that plant's spacing (18″ / 2′ / 3′ snap
-to a ½′ grid) — lay out a whole season and see how it fits. Editable plant list,
-eraser, undo, live counts, JSON backup, and PNG export. Single static file, all
+Whole-property planner (~1 acre). A draggable/resizable **fence** marks the
+30′ × 70′ vegetable enclosure; fruit trees, berries, grapes, and mushroom logs
+place anywhere inside or outside it. Pick a plant, click the map, and it drops a
+footprint sized to that plant's spacing — lay out the whole place and see how it
+fits. Categorized plant palette (~32 presets), Plant/Erase/Fence tools, zoom +
+Fit, undo, live counts, JSON backup, and PNG export. Single static file, all
 state in `localStorage`.
 
 ## Updating

@@ -8,7 +8,7 @@
 <style>
 :root{
   --bg:#f4f1e8; --panel:#fffdf7; --line:#d8d0bd; --text:#2c2a22; --dim:#7a7460;
-  --green:#3f6b35; --green-2:#5a8c46; --soil:#cdbb98; --soil-line:#bda77f;
+  --green:#3f6b35; --green-2:#5a8c46; --soil:#cdbb98;
   --accent:#e0671f; --danger:#c0392b;
   color-scheme:light;
 }
@@ -20,38 +20,39 @@ body{
   display:flex; flex-direction:column; height:100dvh; overflow:hidden;
 }
 header{
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
   padding:10px 14px; background:var(--green); color:#fff; flex:none;
 }
 header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:.2px}
-header .meta{font-size:12.5px;opacity:.9}
+header .meta{font-size:12px;opacity:.92}
 header .spacer{flex:1}
-.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .toolbar button, .toolbar label{
   font:inherit;font-size:13px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);
   color:#fff;border-radius:9px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
 }
 .toolbar button:active{transform:scale(.96)}
 .toolbar button.on{background:#fff;color:var(--green);border-color:#fff;font-weight:700}
-.toolbar input[type=range]{accent-color:#fff;width:90px}
+.toolbar .sep{width:1px;height:22px;background:rgba(255,255,255,.3);margin:0 2px}
+.toolbar input[type=range]{accent-color:#fff;width:84px}
 main{display:flex;flex:1;min-height:0}
-/* palette */
 aside{
-  width:230px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+  width:236px;flex:none;background:var(--panel);border-right:1px solid var(--line);
   display:flex;flex-direction:column;min-height:0;
 }
-.aside-h{padding:10px 12px 6px;font-size:12px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
-.palette{overflow:auto;padding:4px 8px 8px;flex:1}
+.aside-h{padding:10px 12px 4px;font-size:12px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+.palette{overflow:auto;padding:2px 8px 8px;flex:1}
+.cat{font-size:10.5px;font-weight:800;color:var(--green-2);text-transform:uppercase;letter-spacing:.7px;padding:9px 6px 3px}
 .chip{
-  display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:11px;cursor:pointer;
-  border:2px solid transparent;margin-bottom:4px;
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:11px;cursor:pointer;
+  border:2px solid transparent;margin-bottom:3px;
 }
 .chip:hover{background:#f0ece0}
 .chip.sel{border-color:var(--green);background:#eaf3e4}
-.chip .em{font-size:20px;width:24px;text-align:center;flex:none}
-.chip .nm{flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .em{font-size:19px;width:23px;text-align:center;flex:none}
+.chip .nm{flex:1;font-size:13.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip .sp{display:flex;align-items:center;gap:3px}
-.chip .sp input{width:38px;font:inherit;font-size:12.5px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fff}
+.chip .sp input{width:40px;font:inherit;font-size:12.5px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fff}
 .chip .sp small{color:var(--dim);font-size:11px}
 .chip .swatch{width:10px;height:10px;border-radius:50%;flex:none}
 .chip .del{border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px;padding:0 2px;opacity:0;flex:none}
@@ -59,21 +60,21 @@ aside{
 .add-row{padding:8px}
 .add-row button{width:100%;font:inherit;font-size:13px;font-weight:700;border:1px dashed var(--green-2);
   background:#eef5e9;color:var(--green);border-radius:10px;padding:9px;cursor:pointer}
-/* stage */
 .stage-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
-.stage{flex:1;overflow:auto;background:#e7e2d4;padding:22px;min-height:0}
-.stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15);border-radius:3px}
+.stage{flex:1;overflow:auto;background:#dfe6d3;padding:22px;min-height:0}
+.stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15)}
 .hint{padding:6px 12px;font-size:12.5px;color:var(--dim);background:var(--panel);border-top:1px solid var(--line);
   display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .hint b{color:var(--text)}
-.legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.legend{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 .legend span{display:inline-flex;align-items:center;gap:5px;font-size:12px}
 .legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
-.cur-plant{font-weight:700;color:var(--green)}
+.cur{font-weight:700;color:var(--green)}
 @media (max-width:720px){
   main{flex-direction:column}
-  aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:38vh}
+  aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:36vh}
   .palette{display:flex;flex-wrap:wrap;gap:4px}
+  .cat{flex-basis:100%}
   .chip{margin-bottom:0;flex:1 1 46%}
 }
 </style>
@@ -84,27 +85,32 @@ aside{
   <span class="meta" id="meta"></span>
   <span class="spacer"></span>
   <div class="toolbar">
-    <button id="erase">🧽 Eraser</button>
+    <button id="tPlant" class="on">🌿 Plant</button>
+    <button id="tErase">🧽 Erase</button>
+    <button id="tFence">🚧 Fence</button>
+    <span class="sep"></span>
+    <button id="fit" title="Fit to view">⤢ Fit</button>
     <button id="zoomOut">➖</button>
-    <input type="range" id="zoom" min="6" max="34" step="1">
+    <input type="range" id="zoom" min="3" max="34" step="1">
     <button id="zoomIn">➕</button>
-    <button id="undo" title="Undo last">↶ Undo</button>
-    <button id="settings">📐 Size</button>
-    <button id="png">🖼 PNG</button>
-    <button id="save">💾 JSON</button>
-    <button id="clear">🗑 Clear</button>
+    <span class="sep"></span>
+    <button id="undo" title="Undo (Ctrl+Z)">↶</button>
+    <button id="size">📐 Property</button>
+    <button id="png">🖼</button>
+    <button id="save">💾</button>
+    <button id="clear">🗑</button>
   </div>
 </header>
 <main>
   <aside>
-    <div class="aside-h">Plants — pick one, then click the plot</div>
+    <div class="aside-h">Plants — pick one, then click the map</div>
     <div class="palette" id="palette"></div>
     <div class="add-row"><button id="addPlant">＋ Add plant</button></div>
   </aside>
   <div class="stage-wrap">
     <div class="stage" id="stage"></div>
     <div class="hint">
-      <span>Placing: <span class="cur-plant" id="curPlant">—</span></span>
+      <span id="curWrap">Tool: <span class="cur" id="cur">—</span></span>
       <span class="legend" id="legend"></span>
     </div>
   </div>
@@ -112,317 +118,342 @@ aside{
 <input type="file" id="file" accept="application/json" style="display:none">
 
 <script>
-const KEY = 'gardenmap-v1';
-const SNAP = 6; // inches — snap grid (6" handles 18"/2'/3')
-const PALETTE_COLORS = ['#e23b3b','#e0671f','#3a9d3a','#5fae3a','#8a5a2b','#6cb33f','#2f8f4e','#c9a24b','#f08a24','#b9893f','#e8c33a','#d8463f','#e23b5a','#4caf50','#e26ab0','#7b5ea8'];
+const KEY='gardenmap-v1';
+const SNAP=6;            // inches — snap grid
+const PAD=28;           // px ruler gutter
+const COLORS=['#e23b3b','#e0671f','#3a9d3a','#5fae3a','#8a5a2b','#6cb33f','#2f8f4e','#c9a24b','#f08a24','#b9893f','#e8c33a','#d8463f','#7b4fa3','#4caf50','#e26ab0','#4b6cb7'];
+const CATS=['Veggies','Berries & Vines','Trees','Other'];
 
-const DEFAULTS = {
-  gardenW: 30*12, gardenL: 70*12, // inches
-  zoom: 14, // px per foot
-  plants: [
-    {name:'Tomato',    em:'🍅', sp:24, c:'#e23b3b'},
-    {name:'Pepper',    em:'🌶️', sp:18, c:'#e0671f'},
-    {name:'Cucumber',  em:'🥒', sp:18, c:'#3a9d3a'},
-    {name:'Zucchini',  em:'🥬', sp:36, c:'#5fae3a'},
-    {name:'Squash',    em:'🎃', sp:36, c:'#e8961e'},
-    {name:'Beans',     em:'🫘', sp:18, c:'#8a5a2b'},
-    {name:'Peas',      em:'🟢', sp:18, c:'#6cb33f'},
-    {name:'Lettuce',   em:'🥗', sp:12, c:'#7bc043'},
-    {name:'Broccoli',  em:'🥦', sp:18, c:'#2f8f4e'},
-    {name:'Cabbage',   em:'🥬', sp:24, c:'#6fae54'},
-    {name:'Onion',     em:'🧅', sp:6,  c:'#c9a24b'},
-    {name:'Carrot',    em:'🥕', sp:3,  c:'#f08a24'},
-    {name:'Potato',    em:'🥔', sp:12, c:'#b9893f'},
-    {name:'Corn',      em:'🌽', sp:12, c:'#e8c33a'},
-    {name:'Pumpkin',   em:'🎃', sp:48, c:'#e8761e'},
-    {name:'Melon',     em:'🍉', sp:48, c:'#d8463f'},
-    {name:'Strawberry',em:'🍓', sp:12, c:'#e23b5a'},
-    {name:'Herb',      em:'🌿', sp:12, c:'#4caf50'},
-    {name:'Flower',    em:'🌸', sp:12, c:'#e26ab0'},
-  ],
-  beds: [],
-};
+const PRESETS=[
+  // Veggies
+  ['Tomato','🍅',24,'#e23b3b','Veggies'], ['Pepper','🌶️',18,'#e0671f','Veggies'],
+  ['Cucumber','🥒',18,'#3a9d3a','Veggies'], ['Zucchini','🥬',36,'#5fae3a','Veggies'],
+  ['Squash','🎃',36,'#e8961e','Veggies'], ['Beans','🫘',18,'#8a5a2b','Veggies'],
+  ['Peas','🟢',18,'#6cb33f','Veggies'], ['Lettuce','🥗',12,'#7bc043','Veggies'],
+  ['Broccoli','🥦',18,'#2f8f4e','Veggies'], ['Cabbage','🥬',24,'#6fae54','Veggies'],
+  ['Onion','🧅',6,'#c9a24b','Veggies'], ['Carrot','🥕',3,'#f08a24','Veggies'],
+  ['Potato','🥔',12,'#b9893f','Veggies'], ['Corn','🌽',12,'#e8c33a','Veggies'],
+  ['Pumpkin','🎃',48,'#e8761e','Veggies'], ['Melon','🍉',48,'#d8463f','Veggies'],
+  // Berries & vines
+  ['Strawberry','🍓',12,'#e23b5a','Berries & Vines'], ['Blueberry','🫐',60,'#4b6cb7','Berries & Vines'],
+  ['Raspberry','🍇',36,'#c0397b','Berries & Vines'], ['Blackberry','🍇',48,'#3a2a4d','Berries & Vines'],
+  ['Grape','🍇',96,'#7b4fa3','Berries & Vines'], ['Rhubarb','🌿',36,'#b03a4a','Berries & Vines'],
+  ['Asparagus','🌱',18,'#6cae54','Berries & Vines'],
+  // Trees
+  ['Apple','🍎',240,'#d33','Trees'], ['Pear','🍐',240,'#8aa83a','Trees'],
+  ['Peach','🍑',180,'#f0a04b','Trees'], ['Cherry','🍒',200,'#b5283b','Trees'],
+  ['Plum','🌳',180,'#6b3fa0','Trees'], ['Fruit Tree','🌳',200,'#3f8f4e','Trees'],
+  // Other
+  ['Mushroom Log','🍄',36,'#a0522d','Other'], ['Herb','🌿',12,'#4caf50','Other'],
+  ['Flower','🌸',12,'#e26ab0','Other'],
+];
 
-let state, selId, eraser=false;
-let undoStack=[];
+function freshDefaults(){
+  return {
+    propW:200*12, propL:240*12, zoom:4,
+    fences:[{id:uid(), x:30*12, y:30*12, w:30*12, h:70*12}],
+    plants:PRESETS.map(([name,em,sp,c,cat])=>({id:uid(),name,em,sp,c,cat})),
+    beds:[],
+  };
+}
 
-function uid(){ return 'p'+(Math.random().toString(36).slice(2,8)); }
+let state, selId, tool='plant', selFence=null, fresh=false;
+let undoStack=[], drag=null, fenceEls={};
+
+function uid(){ return 'p'+Math.random().toString(36).slice(2,9); }
+function plantById(id){ return state.plants.find(p=>p.id===id); }
+function fenceById(id){ return state.fences.find(f=>f.id===id); }
+function snap(v){ return Math.round(v/SNAP)*SNAP; }
+function ppi(){ return state.zoom/12; }
+function fmtSp(i){ return i%12===0 ? (i/12)+'′' : i+'″'; }
+function fmtFt(i){ const f=i/12; return (Math.round(f*10)/10)+'′'; }
 
 function load(){
-  try{
-    const raw = localStorage.getItem(KEY);
-    if(raw){ state = JSON.parse(raw); }
-  }catch(e){}
-  if(!state){
-    state = JSON.parse(JSON.stringify(DEFAULTS));
-    state.plants.forEach(p=>p.id=uid());
+  try{ const raw=localStorage.getItem(KEY); if(raw) state=JSON.parse(raw); }catch(e){}
+  if(!state){ state=freshDefaults(); fresh=true; }
+  migrate();
+  if(!selId && state.plants[0]) selId=state.plants[0].id;
+}
+function migrate(){
+  // bring older saves (single fixed 30x70 garden) up to the property+fence model
+  if(state.fences===undefined){
+    const gw=state.gardenW||360, gl=state.gardenL||840;
+    state.fences=[{id:uid(), x:0, y:0, w:gw, h:gl}];
+    state.propW=Math.max(gw, 200*12);
+    state.propL=Math.max(gl, 240*12);
   }
-  // migrate / ensure ids
-  state.plants.forEach(p=>{ if(!p.id) p.id=uid(); });
+  if(state.propW===undefined) state.propW=200*12;
+  if(state.propL===undefined) state.propL=240*12;
+  state.plants.forEach(p=>{ if(!p.id)p.id=uid(); if(!p.cat)p.cat='Other'; });
   if(!state.beds) state.beds=[];
-  if(!selId && state.plants[0]) selId = state.plants[0].id;
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
 
-function plantById(id){ return state.plants.find(p=>p.id===id); }
-function snap(v){ return Math.round(v/SNAP)*SNAP; }
-
-/* ---------- rendering ---------- */
-function ppi(){ return state.zoom/12; } // px per inch
-
-function render(){
-  document.getElementById('meta').textContent =
-    `${state.gardenW/12}′ × ${state.gardenL/12}′  ·  ${(state.gardenW*state.gardenL/144).toLocaleString()} sq ft  ·  ${state.beds.length} plants`;
-  renderPalette();
-  renderStage();
-  renderLegend();
-  const sp = plantById(selId);
-  document.getElementById('curPlant').textContent = eraser ? '🧽 erasing' : (sp? `${sp.em} ${sp.name} (${fmtSp(sp.sp)})` : '—');
-  document.getElementById('erase').classList.toggle('on', eraser);
-  save();
-}
-
-function fmtSp(inches){
-  if(inches % 12 === 0) return (inches/12)+'′';
-  return inches+'″';
-}
-
+/* ---------- palette ---------- */
 function renderPalette(){
-  const el = document.getElementById('palette');
-  el.innerHTML='';
-  state.plants.forEach(p=>{
-    const chip = document.createElement('div');
-    chip.className = 'chip'+(p.id===selId && !eraser ?' sel':'');
-    chip.innerHTML = `
-      <span class="em">${p.em}</span>
-      <span class="nm">${p.name}</span>
-      <span class="sp"><input type="number" min="1" max="120" value="${p.sp}" data-id="${p.id}"><small>in</small></span>
-      <span class="swatch" style="background:${p.c}"></span>
-      <button class="del" title="Remove from palette" data-del="${p.id}">✕</button>`;
-    chip.addEventListener('click', e=>{
-      if(e.target.closest('input')||e.target.closest('.del')) return;
-      selId = p.id; eraser=false; render();
+  const el=document.getElementById('palette'); el.innerHTML='';
+  CATS.forEach(cat=>{
+    const items=state.plants.filter(p=>p.cat===cat);
+    if(!items.length) return;
+    const h=document.createElement('div'); h.className='cat'; h.textContent=cat; el.appendChild(h);
+    items.forEach(p=>{
+      const chip=document.createElement('div');
+      chip.className='chip'+(p.id===selId && tool==='plant'?' sel':'');
+      chip.innerHTML=`<span class="em">${p.em}</span><span class="nm">${p.name}</span>
+        <span class="sp"><input type="number" min="1" max="600" value="${p.sp}" data-id="${p.id}"><small>in</small></span>
+        <span class="swatch" style="background:${p.c}"></span>
+        <button class="del" title="Remove from palette" data-del="${p.id}">✕</button>`;
+      chip.onclick=e=>{ if(e.target.closest('input')||e.target.closest('.del'))return; selId=p.id; setTool('plant'); };
+      el.appendChild(chip);
     });
-    el.appendChild(chip);
   });
   el.querySelectorAll('input[type=number]').forEach(inp=>{
-    inp.addEventListener('change', ()=>{
-      const p = plantById(inp.dataset.id);
-      let v = Math.max(1, Math.min(120, Math.round(+inp.value||p.sp)));
-      p.sp = v; render();
-    });
-    inp.addEventListener('click', e=>e.stopPropagation());
+    inp.onclick=e=>e.stopPropagation();
+    inp.onchange=()=>{ const p=plantById(inp.dataset.id); p.sp=Math.max(1,Math.min(600,Math.round(+inp.value||p.sp))); render(); };
   });
   el.querySelectorAll('.del').forEach(b=>{
-    b.addEventListener('click', e=>{
-      e.stopPropagation();
-      const id=b.dataset.del, p=plantById(id);
-      const used = state.beds.filter(x=>x.p===id).length;
-      if(used && !confirm(`Remove "${p.name}" from palette? ${used} placed plant(s) of this type will also be removed.`)) return;
-      state.plants = state.plants.filter(x=>x.id!==id);
-      state.beds = state.beds.filter(x=>x.p!==id);
-      if(selId===id) selId = state.plants[0]?.id;
-      render();
-    });
+    b.onclick=e=>{ e.stopPropagation(); const id=b.dataset.del, p=plantById(id);
+      const used=state.beds.filter(x=>x.p===id).length;
+      if(used && !confirm(`Remove "${p.name}"? ${used} placed item(s) of this type will also be removed.`)) return;
+      state.plants=state.plants.filter(x=>x.id!==id); state.beds=state.beds.filter(x=>x.p!==id);
+      if(selId===id) selId=state.plants[0]?.id; render(); };
   });
 }
 
-const SVGNS='http://www.w3.org/2000/svg';
+/* ---------- stage ---------- */
+const NS='http://www.w3.org/2000/svg';
+function E(tag,attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function rect(x,y,w,h,fill){ return E('rect',{x,y,width:w,height:h,fill}); }
+function line(x1,y1,x2,y2,stroke,w){ return E('line',{x1,y1,x2,y2,stroke,'stroke-width':w}); }
+function circle(cx,cy,r,fill){ return E('circle',{cx,cy,r,fill}); }
+function txt(x,y,s,size,fill,anchor){ const t=E('text',{x,y,'font-size':size,'text-anchor':anchor||'start','font-family':'-apple-system,Segoe UI,sans-serif'}); if(fill)t.setAttribute('fill',fill); t.textContent=s; return t; }
+
 function renderStage(){
-  const stage = document.getElementById('stage');
-  const z = state.zoom;            // px per foot
-  const wFt = state.gardenW/12, lFt = state.gardenL/12;
-  const pad = 26;                  // px gutter for rulers
-  const W = wFt*z, L = lFt*z;
-  const svg = document.createElementNS(SVGNS,'svg');
-  svg.setAttribute('width', W+pad*2);
-  svg.setAttribute('height', L+pad*2);
-  svg.setAttribute('viewBox', `0 0 ${W+pad*2} ${L+pad*2}`);
+  const stage=document.getElementById('stage');
+  const z=state.zoom, pin=ppi();
+  const wFt=state.propW/12, lFt=state.propL/12;
+  const W=wFt*z, L=lFt*z;
+  const svg=E('svg',{width:W+PAD*2, height:L+PAD*2, viewBox:`0 0 ${W+PAD*2} ${L+PAD*2}`});
 
-  // soil background
-  const bg = rect(pad,pad,W,L,'#cdbb98'); bg.setAttribute('rx','2'); svg.appendChild(bg);
+  svg.appendChild(rect(0,0,W+PAD*2,L+PAD*2,'#dfe6d3'));        // outside-property (grass)
+  svg.appendChild(rect(PAD,PAD,W,L,'#e7e0cf'));               // property ground
 
-  // grid lines
-  const g = document.createElementNS(SVGNS,'g');
-  for(let ft=0; ft<=wFt; ft+=0.5){
-    const x = pad+ft*z;
-    g.appendChild(line(x,pad,x,pad+L, gridColor(ft), gridW(ft)));
-  }
-  for(let ft=0; ft<=lFt; ft+=0.5){
-    const y = pad+ft*z;
-    g.appendChild(line(pad,y,pad+W,y, gridColor(ft), gridW(ft)));
-  }
+  // adaptive grid
+  const minor = z>=14?0.5 : z>=8?1 : 5;
+  const bold  = z>=8?5 : 10;
+  const g=E('g',{});
+  const gcol=ft=> ft%bold===0?'#b3a079' : (Number.isInteger(ft)?'#cabd9c':'#d6cbb0');
+  const gw=ft=> ft%bold===0?1.3 : (Number.isInteger(ft)?0.8:0.5);
+  for(let ft=0; ft<=wFt+0.001; ft+=minor){ const x=PAD+ft*z; g.appendChild(line(x,PAD,x,PAD+L,gcol(ft),gw(ft))); }
+  for(let ft=0; ft<=lFt+0.001; ft+=minor){ const y=PAD+ft*z; g.appendChild(line(PAD,y,PAD+W,y,gcol(ft),gw(ft))); }
   svg.appendChild(g);
+  for(let ft=0; ft<=wFt+0.001; ft+=bold) svg.appendChild(txt(PAD+ft*z, PAD-10, ft+'′',10,'#6b6450','middle'));
+  for(let ft=0; ft<=lFt+0.001; ft+=bold) svg.appendChild(txt(PAD-7, PAD+ft*z+3, ft+'′',10,'#6b6450','end'));
 
-  // ruler labels every 5 ft
-  for(let ft=0; ft<=wFt; ft+=5){
-    svg.appendChild(text(pad+ft*z, pad-9, ft+`′`, 10, '#6b6450','middle'));
-  }
-  for(let ft=0; ft<=lFt; ft+=5){
-    svg.appendChild(text(pad-6, pad+ft*z+3, ft+`′`, 10, '#6b6450','end'));
-  }
+  // fences (drawn under plants so plant markers stay visible)
+  fenceEls={};
+  state.fences.forEach(f=> drawFence(svg,f,f.id===selFence));
 
-  // clip plants to soil
-  const clipId='soilclip';
-  const defs=document.createElementNS(SVGNS,'defs');
-  const cp=document.createElementNS(SVGNS,'clipPath'); cp.id=clipId;
-  cp.appendChild(rect(pad,pad,W,L,'#000'));
-  defs.appendChild(cp); svg.appendChild(defs);
-  const plantsG=document.createElementNS(SVGNS,'g');
-  plantsG.setAttribute('clip-path',`url(#${clipId})`);
-
-  const pinch = ppi();
-  state.beds.forEach(b=>{
-    const p = plantById(b.p); if(!p) return;
-    const cx = pad + b.x*pinch, cy = pad + b.y*pinch;
-    const r = Math.max(3, (p.sp/2)*pinch);
-    const c = circle(cx,cy,r,p.c);
-    c.setAttribute('fill-opacity','0.22');
-    c.setAttribute('stroke',p.c);
-    c.setAttribute('stroke-width','1.5');
-    plantsG.appendChild(c);
-    // center dot
-    const dot=circle(cx,cy,Math.min(3, r*0.4),p.c); dot.setAttribute('fill-opacity','0.9'); plantsG.appendChild(dot);
-    // emoji if room
-    if(r>=9){
-      const t=text(cx,cy+ Math.min(r*0.5,9), p.em, Math.min(r*1.1, 22), null,'middle');
-      plantsG.appendChild(t);
-    }
+  // plants
+  const pg=E('g',{});
+  state.beds.forEach(b=>{ const p=plantById(b.p); if(!p)return;
+    const cx=PAD+b.x*pin, cy=PAD+b.y*pin, r=Math.max(2.5,(p.sp/2)*pin);
+    const c=circle(cx,cy,r,p.c); c.setAttribute('fill-opacity','0.22'); c.setAttribute('stroke',p.c); c.setAttribute('stroke-width','1.4'); pg.appendChild(c);
+    pg.appendChild(Object.assign(circle(cx,cy,Math.min(2.6,r*0.45),p.c),{})).setAttribute('fill-opacity','0.9');
+    if(r>=9) pg.appendChild(txt(cx,cy+Math.min(r*0.5,9),p.em,Math.min(r*1.05,22),null,'middle'));
   });
-  svg.appendChild(plantsG);
+  svg.appendChild(pg);
 
-  // border
-  const bd=rect(pad,pad,W,L,'none'); bd.setAttribute('stroke','#7a6a45'); bd.setAttribute('stroke-width','2'); svg.appendChild(bd);
+  svg.appendChild(E('rect',{x:PAD,y:PAD,width:W,height:L,fill:'none',stroke:'#9a8a63','stroke-width':2}));
+  svg.style.cursor = tool==='erase'?'crosshair' : tool==='fence'?'cell' : 'copy';
+  svg.addEventListener('pointerdown', onPointerDown);
+  svg.addEventListener('click', onClick);
 
-  svg.style.cursor = eraser ? 'crosshair' : 'copy';
-  svg.addEventListener('click', e=>onStageClick(e, svg, pad, pinch));
-
-  stage.innerHTML='';
-  stage.appendChild(svg);
-  stage._meta = {pad, pinch};
+  stage.innerHTML=''; stage.appendChild(svg);
 }
-function gridColor(ft){ return ft%5===0 ? '#9c8a63' : (Number.isInteger(ft)?'#b6a47c':'#c6b591'); }
-function gridW(ft){ return ft%5===0 ? 1.4 : (Number.isInteger(ft)?0.9:0.5); }
 
-function rect(x,y,w,h,fill){const r=document.createElementNS(SVGNS,'rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('fill',fill);return r;}
-function line(x1,y1,x2,y2,stroke,w){const l=document.createElementNS(SVGNS,'line');l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);l.setAttribute('stroke',stroke);l.setAttribute('stroke-width',w);return l;}
-function circle(cx,cy,r,fill){const c=document.createElementNS(SVGNS,'circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('fill',fill);return c;}
-function text(x,y,str,size,fill,anchor){const t=document.createElementNS(SVGNS,'text');t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('font-size',size);if(fill)t.setAttribute('fill',fill);t.setAttribute('text-anchor',anchor||'start');t.setAttribute('font-family','-apple-system,Segoe UI,sans-serif');t.textContent=str;return t;}
+function drawFence(svg,f,sel){
+  const pin=ppi();
+  const x=PAD+f.x*pin, y=PAD+f.y*pin, w=f.w*pin, h=f.h*pin;
+  const body=E('rect',{x,y,width:w,height:h,fill:'rgba(90,140,70,0.06)',stroke:sel?'#2f5226':'#5a8c46','stroke-width':sel?2.6:2,'stroke-dasharray':'7 4',rx:2});
+  body.dataset.fence=f.id; if(tool==='fence') body.style.cursor='move';
+  svg.appendChild(body);
+  const lbl=txt(x+5,y+15,`🚧 ${fmtFt(f.w)} × ${fmtFt(f.h)}`,11,'#2f5226','start'); lbl.dataset.fence=f.id;
+  svg.appendChild(lbl);
+  const handles={};
+  if(sel && tool==='fence'){
+    const cor={nw:[x,y,'nwse'],ne:[x+w,y,'nesw'],sw:[x,y+h,'nesw'],se:[x+w,y+h,'nwse']};
+    for(const k in cor){ const [hx,hy,cur]=cor[k];
+      const hd=E('rect',{x:hx-5,y:hy-5,width:10,height:10,fill:'#fff',stroke:'#2f5226','stroke-width':2});
+      hd.dataset.handle=k; hd.dataset.fence=f.id; hd.style.cursor=cur+'-resize'; svg.appendChild(hd); handles[k]=hd; }
+  }
+  fenceEls[f.id]={body,lbl,handles};
+}
+function updateFenceEls(f){
+  const els=fenceEls[f.id]; if(!els) return;
+  const pin=ppi(), x=PAD+f.x*pin, y=PAD+f.y*pin, w=f.w*pin, h=f.h*pin;
+  Object.assign(els.body.attributes); els.body.setAttribute('x',x); els.body.setAttribute('y',y); els.body.setAttribute('width',w); els.body.setAttribute('height',h);
+  els.lbl.setAttribute('x',x+5); els.lbl.setAttribute('y',y+15); els.lbl.textContent=`🚧 ${fmtFt(f.w)} × ${fmtFt(f.h)}`;
+  const pos={nw:[x,y],ne:[x+w,y],sw:[x,y+h],se:[x+w,y+h]};
+  for(const k in els.handles){ els.handles[k].setAttribute('x',pos[k][0]-5); els.handles[k].setAttribute('y',pos[k][1]-5); }
+}
 
-function onStageClick(e, svg, pad, pinch){
-  const rectB = svg.getBoundingClientRect();
-  const scale = rectB.width / svg.viewBox.baseVal.width; // handle any css scaling
-  const px = (e.clientX - rectB.left)/scale - pad;
-  const py = (e.clientY - rectB.top )/scale - pad;
-  const xIn = px/pinch, yIn = py/pinch;
-  if(xIn<0||yIn<0||xIn>state.gardenW||yIn>state.gardenL) return;
+/* ---------- coordinate helper ---------- */
+function evToIn(e){
+  const svg=document.querySelector('#stage svg'); const r=svg.getBoundingClientRect();
+  const scale=r.width/svg.viewBox.baseVal.width;
+  return { x:((e.clientX-r.left)/scale-PAD)/ppi(), y:((e.clientY-r.top)/scale-PAD)/ppi() };
+}
 
-  if(eraser){
-    // remove topmost plant whose footprint contains the click
-    for(let i=state.beds.length-1;i>=0;i--){
-      const b=state.beds[i], p=plantById(b.p); if(!p)continue;
-      const dx=b.x-xIn, dy=b.y-yIn, r=Math.max(p.sp/2, SNAP);
-      if(dx*dx+dy*dy <= r*r){ pushUndo(); state.beds.splice(i,1); render(); return; }
-    }
+/* ---------- plant place / erase (click) ---------- */
+function onClick(e){
+  if(tool==='fence') return;           // fence handled by pointer drag
+  const {x:xi,y:yi}=evToIn(e);
+  if(xi<0||yi<0||xi>state.propW||yi>state.propL) return;
+  if(tool==='erase'){
+    for(let i=state.beds.length-1;i>=0;i--){ const b=state.beds[i], p=plantById(b.p); if(!p)continue;
+      const dx=b.x-xi, dy=b.y-yi, r=Math.max(p.sp/2,SNAP);
+      if(dx*dx+dy*dy<=r*r){ pushUndo(); state.beds.splice(i,1); render(); return; } }
     return;
   }
-  const p = plantById(selId); if(!p) return;
+  const p=plantById(selId); if(!p) return;
+  pushUndo(); state.beds.push({p:selId,x:snap(xi),y:snap(yi)}); render();
+}
+
+/* ---------- fence create / move / resize (pointer) ---------- */
+function onPointerDown(e){
+  if(tool!=='fence') return;
+  e.preventDefault();
+  const {x:xi,y:yi}=evToIn(e);
+  const t=e.target, fid=t.dataset&&t.dataset.fence, hk=t.dataset&&t.dataset.handle;
   pushUndo();
-  state.beds.push({p:selId, x:snap(xIn), y:snap(yIn)});
-  render();
+  if(hk && selFence===fid){
+    drag={mode:'resize',id:fid,handle:hk,start:{x:xi,y:yi},orig:{...fenceById(fid)}};
+  }else if(fid){
+    selFence=fid; drag={mode:'move',id:fid,start:{x:xi,y:yi},orig:{...fenceById(fid)}}; render();
+  }else{
+    const f={id:uid(),x:snap(xi),y:snap(yi),w:0,h:0}; state.fences.push(f); selFence=f.id;
+    drag={mode:'new',id:f.id,start:{x:xi,y:yi}}; render();
+  }
+  window.addEventListener('pointermove',onPointerMove);
+  window.addEventListener('pointerup',onPointerUp,{once:true});
+}
+function onPointerMove(e){
+  if(!drag) return;
+  const {x:xi,y:yi}=evToIn(e);
+  const f=fenceById(drag.id); if(!f) return;
+  if(drag.mode==='move'){
+    f.x=drag.orig.x+(xi-drag.start.x); f.y=drag.orig.y+(yi-drag.start.y);
+  }else if(drag.mode==='new'){
+    f.x=Math.min(drag.start.x,xi); f.y=Math.min(drag.start.y,yi);
+    f.w=Math.abs(xi-drag.start.x); f.h=Math.abs(yi-drag.start.y);
+  }else if(drag.mode==='resize'){
+    const o=drag.orig, dx=xi-drag.start.x, dy=yi-drag.start.y; const k=drag.handle;
+    let x=o.x,y=o.y,w=o.w,h=o.h;
+    if(k.includes('w')){ x=o.x+dx; w=o.w-dx; } if(k.includes('e')){ w=o.w+dx; }
+    if(k.includes('n')){ y=o.y+dy; h=o.h-dy; } if(k.includes('s')){ h=o.h+dy; }
+    f.x=x; f.y=y; f.w=Math.max(12,w); f.h=Math.max(12,h);
+  }
+  updateFenceEls(f);
+}
+function onPointerUp(){
+  window.removeEventListener('pointermove',onPointerMove);
+  if(drag){ const f=fenceById(drag.id);
+    if(f){ f.x=snap(f.x); f.y=snap(f.y); f.w=snap(f.w); f.h=snap(f.h);
+      if(drag.mode==='new' && (f.w<12||f.h<12)){ state.fences=state.fences.filter(x=>x.id!==f.id); selFence=null; undoStack.pop(); } }
+  }
+  drag=null; render();
 }
 
-function pushUndo(){ undoStack.push(JSON.stringify(state.beds)); if(undoStack.length>60)undoStack.shift(); }
-function undo(){ if(!undoStack.length)return; state.beds=JSON.parse(undoStack.pop()); render(); }
+/* ---------- misc actions ---------- */
+function pushUndo(){ undoStack.push(JSON.stringify({beds:state.beds,fences:state.fences})); if(undoStack.length>80)undoStack.shift(); }
+function undo(){ if(!undoStack.length)return; const s=JSON.parse(undoStack.pop()); state.beds=s.beds; state.fences=s.fences; if(!fenceById(selFence))selFence=null; render(); }
 
-function renderLegend(){
-  const counts={};
-  state.beds.forEach(b=>counts[b.p]=(counts[b.p]||0)+1);
-  const el=document.getElementById('legend');
-  el.innerHTML='';
-  Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(id=>{
-    const p=plantById(id); if(!p)return;
-    const s=document.createElement('span');
-    s.innerHTML=`<i style="background:${p.c}"></i>${p.em} ${p.name} <b>×${counts[id]}</b>`;
-    el.appendChild(s);
-  });
-  if(!Object.keys(counts).length){ el.innerHTML='<span style="color:var(--dim)">No plants placed yet — pick one on the left and click the soil.</span>'; }
+function setTool(t){ tool=t; if(t!=='fence') selFence=null; render(); }
+
+function fit(){
+  const st=document.getElementById('stage');
+  const aw=st.clientWidth-PAD*2-30, ah=st.clientHeight-PAD*2-30;
+  const z=Math.floor(Math.min(aw/(state.propW/12), ah/(state.propL/12)));
+  state.zoom=Math.max(3,Math.min(34,z||4)); document.getElementById('zoom').value=state.zoom; render();
 }
-
-/* ---------- toolbar actions ---------- */
-function setZoom(z){ state.zoom=Math.max(6,Math.min(34,z)); document.getElementById('zoom').value=state.zoom; render(); }
+function setZoom(z){ state.zoom=Math.max(3,Math.min(34,z)); document.getElementById('zoom').value=state.zoom; render(); }
 
 function addPlant(){
-  const name = prompt('Plant name?'); if(!name) return;
-  const em = prompt('Emoji / symbol for it?', '🌱') || '🌱';
-  let sp = parseInt(prompt('Spacing in inches? (e.g. 18, 24, 36)', '24'),10);
-  if(!sp||sp<1) sp=24; sp=Math.min(120,sp);
-  const c = PALETTE_COLORS[state.plants.length % PALETTE_COLORS.length];
-  const id=uid();
-  state.plants.push({id,name,em,sp,c});
-  selId=id; eraser=false; render();
-}
-
-function exportJSON(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='gardenmap-backup.json';
-  a.click(); URL.revokeObjectURL(a.href);
-}
-function importJSON(file){
-  const r=new FileReader();
-  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.plants&&d.beds){ state=d; state.plants.forEach(p=>{if(!p.id)p.id=uid();}); selId=state.plants[0]?.id; eraser=false; render(); } else alert('Not a GardenMap backup.'); }catch(e){ alert('Could not read file.'); } };
-  r.readAsText(file);
-}
-function exportPNG(){
-  const svg=document.querySelector('#stage svg'); if(!svg)return;
-  const xml=new XMLSerializer().serializeToString(svg);
-  const img=new Image();
-  const svg64='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(xml)));
-  img.onload=()=>{
-    const sc=2;
-    const cv=document.createElement('canvas');
-    cv.width=svg.width.baseVal.value*sc; cv.height=svg.height.baseVal.value*sc;
-    const ctx=cv.getContext('2d'); ctx.fillStyle='#e7e2d4'; ctx.fillRect(0,0,cv.width,cv.height);
-    ctx.scale(sc,sc); ctx.drawImage(img,0,0);
-    cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='garden-plan.png'; a.click(); URL.revokeObjectURL(a.href); });
-  };
-  img.onerror=()=>alert('PNG export failed in this browser — try the JSON export instead.');
-  img.src=svg64;
+  const name=prompt('Plant / item name?'); if(!name) return;
+  const em=prompt('Emoji / symbol?','🌱')||'🌱';
+  let sp=parseInt(prompt('Spacing in inches? (e.g. 18, 24, 36; a fruit tree might be 200)','24'),10);
+  if(!sp||sp<1)sp=24; sp=Math.min(600,sp);
+  const cat=(prompt('Category? Veggies / Berries & Vines / Trees / Other','Other')||'Other');
+  const fc=CATS.includes(cat)?cat:'Other';
+  const id=uid(); state.plants.push({id,name,em,sp,c:COLORS[state.plants.length%COLORS.length],cat:fc});
+  selId=id; setTool('plant');
 }
 function editSize(){
-  const w=parseFloat(prompt('Garden width in feet?', state.gardenW/12));
-  if(!w||w<=0) return;
-  const l=parseFloat(prompt('Garden length in feet?', state.gardenL/12));
-  if(!l||l<=0) return;
-  state.gardenW=Math.round(w*12); state.gardenL=Math.round(l*12);
-  render();
+  const w=parseFloat(prompt('Whole-property width in feet?',state.propW/12)); if(!w||w<=0)return;
+  const l=parseFloat(prompt('Whole-property length in feet?',state.propL/12)); if(!l||l<=0)return;
+  state.propW=Math.round(w*12); state.propL=Math.round(l*12); render();
+}
+function exportJSON(){ const b=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='gardenmap-backup.json'; a.click(); URL.revokeObjectURL(a.href); }
+function importJSON(file){ const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.plants&&d.beds){ state=d; migrate(); selId=state.plants[0]?.id; selFence=null; setTool('plant'); } else alert('Not a GardenMap backup.'); }catch(e){ alert('Could not read file.'); } };
+  r.readAsText(file); }
+function exportPNG(){ const svg=document.querySelector('#stage svg'); if(!svg)return;
+  const xml=new XMLSerializer().serializeToString(svg); const img=new Image();
+  img.onload=()=>{ const sc=2, cv=document.createElement('canvas'); cv.width=svg.width.baseVal.value*sc; cv.height=svg.height.baseVal.value*sc;
+    const ctx=cv.getContext('2d'); ctx.scale(sc,sc); ctx.drawImage(img,0,0);
+    cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='garden-plan.png'; a.click(); URL.revokeObjectURL(a.href); }); };
+  img.onerror=()=>alert('PNG export failed in this browser — use the JSON export instead.');
+  img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(xml))); }
+
+/* ---------- top-level render ---------- */
+function render(){
+  const ac=(state.propW*state.propL/144/43560);
+  document.getElementById('meta').textContent=
+    `${Math.round(state.propW/12)}′ × ${Math.round(state.propL/12)}′ · ${ac.toFixed(2)} ac · ${state.beds.length} plants · ${state.fences.length} fence${state.fences.length===1?'':'s'}`;
+  ['tPlant','tErase','tFence'].forEach(id=>document.getElementById(id).classList.remove('on'));
+  document.getElementById({plant:'tPlant',erase:'tErase',fence:'tFence'}[tool]).classList.add('on');
+  const sp=plantById(selId);
+  document.getElementById('cur').textContent = tool==='erase'?'🧽 erasing' : tool==='fence'?'🚧 drag to draw / move / resize a fence' : (sp?`${sp.em} ${sp.name} (${fmtSp(sp.sp)})`:'—');
+  renderPalette(); renderStage(); renderLegend(); save();
+}
+function renderLegend(){
+  const counts={}; state.beds.forEach(b=>counts[b.p]=(counts[b.p]||0)+1);
+  const el=document.getElementById('legend'); el.innerHTML='';
+  const keys=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  if(!keys.length){ el.innerHTML='<span style="color:var(--dim)">No plants placed — pick one on the left and click the map. Use 🚧 Fence to draw your enclosure.</span>'; return; }
+  keys.forEach(id=>{ const p=plantById(id); if(!p)return; const s=document.createElement('span');
+    s.innerHTML=`<i style="background:${p.c}"></i>${p.em} ${p.name} <b>×${counts[id]}</b>`; el.appendChild(s); });
 }
 
 /* ---------- wire up ---------- */
 load();
 document.getElementById('zoom').value=state.zoom;
 render();
+if(fresh) fit();
 
-document.getElementById('erase').onclick=()=>{ eraser=!eraser; render(); };
+document.getElementById('tPlant').onclick=()=>setTool('plant');
+document.getElementById('tErase').onclick=()=>setTool('erase');
+document.getElementById('tFence').onclick=()=>setTool('fence');
+document.getElementById('fit').onclick=fit;
 document.getElementById('zoomIn').onclick=()=>setZoom(state.zoom+2);
 document.getElementById('zoomOut').onclick=()=>setZoom(state.zoom-2);
 document.getElementById('zoom').oninput=e=>setZoom(+e.target.value);
 document.getElementById('undo').onclick=undo;
 document.getElementById('addPlant').onclick=addPlant;
-document.getElementById('settings').onclick=editSize;
+document.getElementById('size').onclick=editSize;
 document.getElementById('png').onclick=exportPNG;
-document.getElementById('save').onclick=()=>{
-  if(confirm('OK = download JSON backup.\nCancel = load a backup file instead.')) exportJSON();
-  else document.getElementById('file').click();
-};
+document.getElementById('save').onclick=()=>{ if(confirm('OK = download JSON backup.\nCancel = load a backup file instead.')) exportJSON(); else document.getElementById('file').click(); };
 document.getElementById('file').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; };
-document.getElementById('clear').onclick=()=>{ if(confirm('Remove ALL placed plants? (palette is kept)')){ pushUndo(); state.beds=[]; render(); } };
+document.getElementById('clear').onclick=()=>{ if(confirm('Remove ALL placed plants? (fences and palette are kept)')){ pushUndo(); state.beds=[]; render(); } };
 
-document.addEventListener('keydown', e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); undo(); }
-  if(e.key==='e'||e.key==='E'){ eraser=!eraser; render(); }
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); undo(); return; }
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='e'||e.key==='E') setTool(tool==='erase'?'plant':'erase');
+  if(e.key==='f'||e.key==='F') setTool(tool==='fence'?'plant':'fence');
+  if((e.key==='Delete'||e.key==='Backspace') && tool==='fence' && selFence){ pushUndo(); state.fences=state.fences.filter(x=>x.id!==selFence); selFence=null; render(); }
 });
 </script>
 </body>
