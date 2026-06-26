@@ -7,8 +7,9 @@ Matt's personal apps — plain HTML, no build step, hosted on GitHub Pages.
 | App | URL | Status |
 |---|---|---|
 | 🏋️ Workout Tracker | [/workout/](https://greinert21.github.io/my-apps/workout/) | Live |
-| 🐟 Fillet & Fire | — | Planned |
-| 🎣 StrikeZone | — | Planned |
+| 🐟 Fillet & Fire | [/fillet-fire/](https://greinert21.github.io/my-apps/fillet-fire/) | Live |
+| 🎣 StrikeZone | [/strikezone/](https://greinert21.github.io/my-apps/strikezone/) | Live |
+| 🌱 GardenMap | [/garden/](https://greinert21.github.io/my-apps/garden/) | Live |
 
 ## Workout Tracker
 
@@ -24,6 +25,14 @@ Mobile-first workout logger built for iPhone (add to Home Screen for the app-lik
 2. ⬅️ Test phone-in-hand, tune layout
 3. Create the Notion "Workout Log" database
 4. Deploy relay function (Cloudflare Workers / Netlify Functions) and connect sync
+
+## GardenMap
+
+Grid planner for the 30′ × 70′ garden. Pick a plant from the palette, click the
+plot, and it drops a footprint sized to that plant's spacing (18″ / 2′ / 3′ snap
+to a ½′ grid) — lay out a whole season and see how it fits. Editable plant list,
+eraser, undo, live counts, JSON backup, and PNG export. Single static file, all
+state in `localStorage`.
 
 ## Updating
 

@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GardenMap</title>
+<meta name="theme-color" content="#3f6b35">
+<style>
+:root{
+  --bg:#f4f1e8; --panel:#fffdf7; --line:#d8d0bd; --text:#2c2a22; --dim:#7a7460;
+  --green:#3f6b35; --green-2:#5a8c46; --soil:#cdbb98; --soil-line:#bda77f;
+  --accent:#e0671f; --danger:#c0392b;
+  color-scheme:light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+}
+header{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:10px 14px; background:var(--green); color:#fff; flex:none;
+}
+header h1{font-size:19px;margin:0;font-weight:800;letter-spacing:.2px}
+header .meta{font-size:12.5px;opacity:.9}
+header .spacer{flex:1}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.toolbar button, .toolbar label{
+  font:inherit;font-size:13px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);
+  color:#fff;border-radius:9px;padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+}
+.toolbar button:active{transform:scale(.96)}
+.toolbar button.on{background:#fff;color:var(--green);border-color:#fff;font-weight:700}
+.toolbar input[type=range]{accent-color:#fff;width:90px}
+main{display:flex;flex:1;min-height:0}
+/* palette */
+aside{
+  width:230px;flex:none;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;min-height:0;
+}
+.aside-h{padding:10px 12px 6px;font-size:12px;font-weight:800;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+.palette{overflow:auto;padding:4px 8px 8px;flex:1}
+.chip{
+  display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:11px;cursor:pointer;
+  border:2px solid transparent;margin-bottom:4px;
+}
+.chip:hover{background:#f0ece0}
+.chip.sel{border-color:var(--green);background:#eaf3e4}
+.chip .em{font-size:20px;width:24px;text-align:center;flex:none}
+.chip .nm{flex:1;font-size:14px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .sp{display:flex;align-items:center;gap:3px}
+.chip .sp input{width:38px;font:inherit;font-size:12.5px;text-align:right;border:1px solid var(--line);border-radius:6px;padding:3px 4px;background:#fff}
+.chip .sp small{color:var(--dim);font-size:11px}
+.chip .swatch{width:10px;height:10px;border-radius:50%;flex:none}
+.chip .del{border:none;background:none;color:var(--dim);cursor:pointer;font-size:15px;padding:0 2px;opacity:0;flex:none}
+.chip:hover .del{opacity:1}
+.add-row{padding:8px}
+.add-row button{width:100%;font:inherit;font-size:13px;font-weight:700;border:1px dashed var(--green-2);
+  background:#eef5e9;color:var(--green);border-radius:10px;padding:9px;cursor:pointer}
+/* stage */
+.stage-wrap{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+.stage{flex:1;overflow:auto;background:#e7e2d4;padding:22px;min-height:0}
+.stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15);border-radius:3px}
+.hint{padding:6px 12px;font-size:12.5px;color:var(--dim);background:var(--panel);border-top:1px solid var(--line);
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.hint b{color:var(--text)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:5px;font-size:12px}
+.legend i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.cur-plant{font-weight:700;color:var(--green)}
+@media (max-width:720px){
+  main{flex-direction:column}
+  aside{width:auto;border-right:none;border-bottom:1px solid var(--line);max-height:38vh}
+  .palette{display:flex;flex-wrap:wrap;gap:4px}
+  .chip{margin-bottom:0;flex:1 1 46%}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>🌱 GardenMap</h1>
+  <span class="meta" id="meta"></span>
+  <span class="spacer"></span>
+  <div class="toolbar">
+    <button id="erase">🧽 Eraser</button>
+    <button id="zoomOut">➖</button>
+    <input type="range" id="zoom" min="6" max="34" step="1">
+    <button id="zoomIn">➕</button>
+    <button id="undo" title="Undo last">↶ Undo</button>
+    <button id="settings">📐 Size</button>
+    <button id="png">🖼 PNG</button>
+    <button id="save">💾 JSON</button>
+    <button id="clear">🗑 Clear</button>
+  </div>
+</header>
+<main>
+  <aside>
+    <div class="aside-h">Plants — pick one, then click the plot</div>
+    <div class="palette" id="palette"></div>
+    <div class="add-row"><button id="addPlant">＋ Add plant</button></div>
+  </aside>
+  <div class="stage-wrap">
+    <div class="stage" id="stage"></div>
+    <div class="hint">
+      <span>Placing: <span class="cur-plant" id="curPlant">—</span></span>
+      <span class="legend" id="legend"></span>
+    </div>
+  </div>
+</main>
+<input type="file" id="file" accept="application/json" style="display:none">
+
+<script>
+const KEY = 'gardenmap-v1';
+const SNAP = 6; // inches — snap grid (6" handles 18"/2'/3')
+const PALETTE_COLORS = ['#e23b3b','#e0671f','#3a9d3a','#5fae3a','#8a5a2b','#6cb33f','#2f8f4e','#c9a24b','#f08a24','#b9893f','#e8c33a','#d8463f','#e23b5a','#4caf50','#e26ab0','#7b5ea8'];
+
+const DEFAULTS = {
+  gardenW: 30*12, gardenL: 70*12, // inches
+  zoom: 14, // px per foot
+  plants: [
+    {name:'Tomato',    em:'🍅', sp:24, c:'#e23b3b'},
+    {name:'Pepper',    em:'🌶️', sp:18, c:'#e0671f'},
+    {name:'Cucumber',  em:'🥒', sp:18, c:'#3a9d3a'},
+    {name:'Zucchini',  em:'🥬', sp:36, c:'#5fae3a'},
+    {name:'Squash',    em:'🎃', sp:36, c:'#e8961e'},
+    {name:'Beans',     em:'🫘', sp:18, c:'#8a5a2b'},
+    {name:'Peas',      em:'🟢', sp:18, c:'#6cb33f'},
+    {name:'Lettuce',   em:'🥗', sp:12, c:'#7bc043'},
+    {name:'Broccoli',  em:'🥦', sp:18, c:'#2f8f4e'},
+    {name:'Cabbage',   em:'🥬', sp:24, c:'#6fae54'},
+    {name:'Onion',     em:'🧅', sp:6,  c:'#c9a24b'},
+    {name:'Carrot',    em:'🥕', sp:3,  c:'#f08a24'},
+    {name:'Potato',    em:'🥔', sp:12, c:'#b9893f'},
+    {name:'Corn',      em:'🌽', sp:12, c:'#e8c33a'},
+    {name:'Pumpkin',   em:'🎃', sp:48, c:'#e8761e'},
+    {name:'Melon',     em:'🍉', sp:48, c:'#d8463f'},
+    {name:'Strawberry',em:'🍓', sp:12, c:'#e23b5a'},
+    {name:'Herb',      em:'🌿', sp:12, c:'#4caf50'},
+    {name:'Flower',    em:'🌸', sp:12, c:'#e26ab0'},
+  ],
+  beds: [],
+};
+
+let state, selId, eraser=false;
+let undoStack=[];
+
+function uid(){ return 'p'+(Math.random().toString(36).slice(2,8)); }
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw){ state = JSON.parse(raw); }
+  }catch(e){}
+  if(!state){
+    state = JSON.parse(JSON.stringify(DEFAULTS));
+    state.plants.forEach(p=>p.id=uid());
+  }
+  // migrate / ensure ids
+  state.plants.forEach(p=>{ if(!p.id) p.id=uid(); });
+  if(!state.beds) state.beds=[];
+  if(!selId && state.plants[0]) selId = state.plants[0].id;
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+function plantById(id){ return state.plants.find(p=>p.id===id); }
+function snap(v){ return Math.round(v/SNAP)*SNAP; }
+
+/* ---------- rendering ---------- */
+function ppi(){ return state.zoom/12; } // px per inch
+
+function render(){
+  document.getElementById('meta').textContent =
+    `${state.gardenW/12}′ × ${state.gardenL/12}′  ·  ${(state.gardenW*state.gardenL/144).toLocaleString()} sq ft  ·  ${state.beds.length} plants`;
+  renderPalette();
+  renderStage();
+  renderLegend();
+  const sp = plantById(selId);
+  document.getElementById('curPlant').textContent = eraser ? '🧽 erasing' : (sp? `${sp.em} ${sp.name} (${fmtSp(sp.sp)})` : '—');
+  document.getElementById('erase').classList.toggle('on', eraser);
+  save();
+}
+
+function fmtSp(inches){
+  if(inches % 12 === 0) return (inches/12)+'′';
+  return inches+'″';
+}
+
+function renderPalette(){
+  const el = document.getElementById('palette');
+  el.innerHTML='';
+  state.plants.forEach(p=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip'+(p.id===selId && !eraser ?' sel':'');
+    chip.innerHTML = `
+      <span class="em">${p.em}</span>
+      <span class="nm">${p.name}</span>
+      <span class="sp"><input type="number" min="1" max="120" value="${p.sp}" data-id="${p.id}"><small>in</small></span>
+      <span class="swatch" style="background:${p.c}"></span>
+      <button class="del" title="Remove from palette" data-del="${p.id}">✕</button>`;
+    chip.addEventListener('click', e=>{
+      if(e.target.closest('input')||e.target.closest('.del')) return;
+      selId = p.id; eraser=false; render();
+    });
+    el.appendChild(chip);
+  });
+  el.querySelectorAll('input[type=number]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{
+      const p = plantById(inp.dataset.id);
+      let v = Math.max(1, Math.min(120, Math.round(+inp.value||p.sp)));
+      p.sp = v; render();
+    });
+    inp.addEventListener('click', e=>e.stopPropagation());
+  });
+  el.querySelectorAll('.del').forEach(b=>{
+    b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const id=b.dataset.del, p=plantById(id);
+      const used = state.beds.filter(x=>x.p===id).length;
+      if(used && !confirm(`Remove "${p.name}" from palette? ${used} placed plant(s) of this type will also be removed.`)) return;
+      state.plants = state.plants.filter(x=>x.id!==id);
+      state.beds = state.beds.filter(x=>x.p!==id);
+      if(selId===id) selId = state.plants[0]?.id;
+      render();
+    });
+  });
+}
+
+const SVGNS='http://www.w3.org/2000/svg';
+function renderStage(){
+  const stage = document.getElementById('stage');
+  const z = state.zoom;            // px per foot
+  const wFt = state.gardenW/12, lFt = state.gardenL/12;
+  const pad = 26;                  // px gutter for rulers
+  const W = wFt*z, L = lFt*z;
+  const svg = document.createElementNS(SVGNS,'svg');
+  svg.setAttribute('width', W+pad*2);
+  svg.setAttribute('height', L+pad*2);
+  svg.setAttribute('viewBox', `0 0 ${W+pad*2} ${L+pad*2}`);
+
+  // soil background
+  const bg = rect(pad,pad,W,L,'#cdbb98'); bg.setAttribute('rx','2'); svg.appendChild(bg);
+
+  // grid lines
+  const g = document.createElementNS(SVGNS,'g');
+  for(let ft=0; ft<=wFt; ft+=0.5){
+    const x = pad+ft*z;
+    g.appendChild(line(x,pad,x,pad+L, gridColor(ft), gridW(ft)));
+  }
+  for(let ft=0; ft<=lFt; ft+=0.5){
+    const y = pad+ft*z;
+    g.appendChild(line(pad,y,pad+W,y, gridColor(ft), gridW(ft)));
+  }
+  svg.appendChild(g);
+
+  // ruler labels every 5 ft
+  for(let ft=0; ft<=wFt; ft+=5){
+    svg.appendChild(text(pad+ft*z, pad-9, ft+`′`, 10, '#6b6450','middle'));
+  }
+  for(let ft=0; ft<=lFt; ft+=5){
+    svg.appendChild(text(pad-6, pad+ft*z+3, ft+`′`, 10, '#6b6450','end'));
+  }
+
+  // clip plants to soil
+  const clipId='soilclip';
+  const defs=document.createElementNS(SVGNS,'defs');
+  const cp=document.createElementNS(SVGNS,'clipPath'); cp.id=clipId;
+  cp.appendChild(rect(pad,pad,W,L,'#000'));
+  defs.appendChild(cp); svg.appendChild(defs);
+  const plantsG=document.createElementNS(SVGNS,'g');
+  plantsG.setAttribute('clip-path',`url(#${clipId})`);
+
+  const pinch = ppi();
+  state.beds.forEach(b=>{
+    const p = plantById(b.p); if(!p) return;
+    const cx = pad + b.x*pinch, cy = pad + b.y*pinch;
+    const r = Math.max(3, (p.sp/2)*pinch);
+    const c = circle(cx,cy,r,p.c);
+    c.setAttribute('fill-opacity','0.22');
+    c.setAttribute('stroke',p.c);
+    c.setAttribute('stroke-width','1.5');
+    plantsG.appendChild(c);
+    // center dot
+    const dot=circle(cx,cy,Math.min(3, r*0.4),p.c); dot.setAttribute('fill-opacity','0.9'); plantsG.appendChild(dot);
+    // emoji if room
+    if(r>=9){
+      const t=text(cx,cy+ Math.min(r*0.5,9), p.em, Math.min(r*1.1, 22), null,'middle');
+      plantsG.appendChild(t);
+    }
+  });
+  svg.appendChild(plantsG);
+
+  // border
+  const bd=rect(pad,pad,W,L,'none'); bd.setAttribute('stroke','#7a6a45'); bd.setAttribute('stroke-width','2'); svg.appendChild(bd);
+
+  svg.style.cursor = eraser ? 'crosshair' : 'copy';
+  svg.addEventListener('click', e=>onStageClick(e, svg, pad, pinch));
+
+  stage.innerHTML='';
+  stage.appendChild(svg);
+  stage._meta = {pad, pinch};
+}
+function gridColor(ft){ return ft%5===0 ? '#9c8a63' : (Number.isInteger(ft)?'#b6a47c':'#c6b591'); }
+function gridW(ft){ return ft%5===0 ? 1.4 : (Number.isInteger(ft)?0.9:0.5); }
+
+function rect(x,y,w,h,fill){const r=document.createElementNS(SVGNS,'rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('fill',fill);return r;}
+function line(x1,y1,x2,y2,stroke,w){const l=document.createElementNS(SVGNS,'line');l.setAttribute('x1',x1);l.setAttribute('y1',y1);l.setAttribute('x2',x2);l.setAttribute('y2',y2);l.setAttribute('stroke',stroke);l.setAttribute('stroke-width',w);return l;}
+function circle(cx,cy,r,fill){const c=document.createElementNS(SVGNS,'circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('fill',fill);return c;}
+function text(x,y,str,size,fill,anchor){const t=document.createElementNS(SVGNS,'text');t.setAttribute('x',x);t.setAttribute('y',y);t.setAttribute('font-size',size);if(fill)t.setAttribute('fill',fill);t.setAttribute('text-anchor',anchor||'start');t.setAttribute('font-family','-apple-system,Segoe UI,sans-serif');t.textContent=str;return t;}
+
+function onStageClick(e, svg, pad, pinch){
+  const rectB = svg.getBoundingClientRect();
+  const scale = rectB.width / svg.viewBox.baseVal.width; // handle any css scaling
+  const px = (e.clientX - rectB.left)/scale - pad;
+  const py = (e.clientY - rectB.top )/scale - pad;
+  const xIn = px/pinch, yIn = py/pinch;
+  if(xIn<0||yIn<0||xIn>state.gardenW||yIn>state.gardenL) return;
+
+  if(eraser){
+    // remove topmost plant whose footprint contains the click
+    for(let i=state.beds.length-1;i>=0;i--){
+      const b=state.beds[i], p=plantById(b.p); if(!p)continue;
+      const dx=b.x-xIn, dy=b.y-yIn, r=Math.max(p.sp/2, SNAP);
+      if(dx*dx+dy*dy <= r*r){ pushUndo(); state.beds.splice(i,1); render(); return; }
+    }
+    return;
+  }
+  const p = plantById(selId); if(!p) return;
+  pushUndo();
+  state.beds.push({p:selId, x:snap(xIn), y:snap(yIn)});
+  render();
+}
+
+function pushUndo(){ undoStack.push(JSON.stringify(state.beds)); if(undoStack.length>60)undoStack.shift(); }
+function undo(){ if(!undoStack.length)return; state.beds=JSON.parse(undoStack.pop()); render(); }
+
+function renderLegend(){
+  const counts={};
+  state.beds.forEach(b=>counts[b.p]=(counts[b.p]||0)+1);
+  const el=document.getElementById('legend');
+  el.innerHTML='';
+  Object.keys(counts).sort((a,b)=>counts[b]-counts[a]).forEach(id=>{
+    const p=plantById(id); if(!p)return;
+    const s=document.createElement('span');
+    s.innerHTML=`<i style="background:${p.c}"></i>${p.em} ${p.name} <b>×${counts[id]}</b>`;
+    el.appendChild(s);
+  });
+  if(!Object.keys(counts).length){ el.innerHTML='<span style="color:var(--dim)">No plants placed yet — pick one on the left and click the soil.</span>'; }
+}
+
+/* ---------- toolbar actions ---------- */
+function setZoom(z){ state.zoom=Math.max(6,Math.min(34,z)); document.getElementById('zoom').value=state.zoom; render(); }
+
+function addPlant(){
+  const name = prompt('Plant name?'); if(!name) return;
+  const em = prompt('Emoji / symbol for it?', '🌱') || '🌱';
+  let sp = parseInt(prompt('Spacing in inches? (e.g. 18, 24, 36)', '24'),10);
+  if(!sp||sp<1) sp=24; sp=Math.min(120,sp);
+  const c = PALETTE_COLORS[state.plants.length % PALETTE_COLORS.length];
+  const id=uid();
+  state.plants.push({id,name,em,sp,c});
+  selId=id; eraser=false; render();
+}
+
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='gardenmap-backup.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importJSON(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.plants&&d.beds){ state=d; state.plants.forEach(p=>{if(!p.id)p.id=uid();}); selId=state.plants[0]?.id; eraser=false; render(); } else alert('Not a GardenMap backup.'); }catch(e){ alert('Could not read file.'); } };
+  r.readAsText(file);
+}
+function exportPNG(){
+  const svg=document.querySelector('#stage svg'); if(!svg)return;
+  const xml=new XMLSerializer().serializeToString(svg);
+  const img=new Image();
+  const svg64='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(xml)));
+  img.onload=()=>{
+    const sc=2;
+    const cv=document.createElement('canvas');
+    cv.width=svg.width.baseVal.value*sc; cv.height=svg.height.baseVal.value*sc;
+    const ctx=cv.getContext('2d'); ctx.fillStyle='#e7e2d4'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.scale(sc,sc); ctx.drawImage(img,0,0);
+    cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='garden-plan.png'; a.click(); URL.revokeObjectURL(a.href); });
+  };
+  img.onerror=()=>alert('PNG export failed in this browser — try the JSON export instead.');
+  img.src=svg64;
+}
+function editSize(){
+  const w=parseFloat(prompt('Garden width in feet?', state.gardenW/12));
+  if(!w||w<=0) return;
+  const l=parseFloat(prompt('Garden length in feet?', state.gardenL/12));
+  if(!l||l<=0) return;
+  state.gardenW=Math.round(w*12); state.gardenL=Math.round(l*12);
+  render();
+}
+
+/* ---------- wire up ---------- */
+load();
+document.getElementById('zoom').value=state.zoom;
+render();
+
+document.getElementById('erase').onclick=()=>{ eraser=!eraser; render(); };
+document.getElementById('zoomIn').onclick=()=>setZoom(state.zoom+2);
+document.getElementById('zoomOut').onclick=()=>setZoom(state.zoom-2);
+document.getElementById('zoom').oninput=e=>setZoom(+e.target.value);
+document.getElementById('undo').onclick=undo;
+document.getElementById('addPlant').onclick=addPlant;
+document.getElementById('settings').onclick=editSize;
+document.getElementById('png').onclick=exportPNG;
+document.getElementById('save').onclick=()=>{
+  if(confirm('OK = download JSON backup.\nCancel = load a backup file instead.')) exportJSON();
+  else document.getElementById('file').click();
+};
+document.getElementById('file').onchange=e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); e.target.value=''; };
+document.getElementById('clear').onclick=()=>{ if(confirm('Remove ALL placed plants? (palette is kept)')){ pushUndo(); state.beds=[]; render(); } };
+
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); undo(); }
+  if(e.key==='e'||e.key==='E'){ eraser=!eraser; render(); }
+});
+</script>
+</body>
+</html>
