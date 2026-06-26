@@ -74,7 +74,7 @@ main{display:flex;flex:1;min-height:0}
 .csw.sel{box-shadow:0 0 0 2px var(--green);transform:scale(1.12)}
 .cpick input[type=color]{width:36px;height:30px;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
 .stage{flex:1;overflow:auto;background:#dfe6d3;padding:22px;min-height:0}
-.stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15)}
+.stage svg{display:block;box-shadow:0 4px 18px rgba(0,0,0,.15);touch-action:none}
 .hint{padding:6px 12px;font-size:12.5px;color:var(--dim);background:var(--panel);border-top:1px solid var(--line);
   display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .hint b{color:var(--text)}
@@ -186,6 +186,7 @@ function freshDefaults(){
 
 let state, selId, tool='plant', selFence=null, fresh=false;
 let undoStack=[], drag=null, fenceEls={};
+let bedEls=[], plantDrag=null, pan=null, suppressClick=false;
 
 function uid(){ return 'p'+Math.random().toString(36).slice(2,9); }
 function plantById(id){ return state.plants.find(p=>p.id===id); }
@@ -338,13 +339,15 @@ function renderStage(){
   fenceEls={};
   state.fences.forEach(f=> drawFence(svg,f,f.id===selFence));
 
-  // plants
-  const pg=E('g',{});
-  state.beds.forEach(b=>{ const p=plantById(b.p); if(!p)return;
+  // plants — each wrapped in a <g> so it can be dragged (translate) without a full re-render
+  const pg=E('g',{}); bedEls=[];
+  state.beds.forEach((b,idx)=>{ const p=plantById(b.p); if(!p)return;
     const cx=PAD+b.x*pin, cy=PAD+b.y*pin, r=Math.max(2.5,(p.sp/2)*pin);
-    const c=circle(cx,cy,r,p.c); c.setAttribute('fill-opacity','0.22'); c.setAttribute('stroke',p.c); c.setAttribute('stroke-width','1.4'); pg.appendChild(c);
-    pg.appendChild(Object.assign(circle(cx,cy,Math.min(2.6,r*0.45),p.c),{})).setAttribute('fill-opacity','0.9');
-    if(r>=9) pg.appendChild(txt(cx,cy+Math.min(r*0.5,9),p.em,Math.min(r*1.05,22),null,'middle'));
+    const gg=E('g',{}); if(tool==='plant') gg.style.cursor='move';
+    const c=circle(cx,cy,r,p.c); c.setAttribute('fill-opacity','0.22'); c.setAttribute('stroke',p.c); c.setAttribute('stroke-width','1.4'); gg.appendChild(c);
+    const dot=circle(cx,cy,Math.min(2.6,r*0.45),p.c); dot.setAttribute('fill-opacity','0.9'); gg.appendChild(dot);
+    if(r>=9) gg.appendChild(txt(cx,cy+Math.min(r*0.5,9),p.em,Math.min(r*1.05,22),null,'middle'));
+    pg.appendChild(gg); bedEls[idx]=gg;
   });
   svg.appendChild(pg);
 
@@ -394,24 +397,72 @@ function evToIn(e){
   return { x:((e.clientX-r.left)/scale-PAD)/ppi(), y:((e.clientY-r.top)/scale-PAD)/ppi() };
 }
 
+/* topmost placed plant whose footprint contains (xi,yi), or -1 */
+function hitBed(xi,yi){
+  for(let i=state.beds.length-1;i>=0;i--){ const b=state.beds[i], p=plantById(b.p); if(!p)continue;
+    const dx=b.x-xi, dy=b.y-yi, r=Math.max(p.sp/2,SNAP);
+    if(dx*dx+dy*dy<=r*r) return i; }
+  return -1;
+}
+
 /* ---------- plant place / erase (click) ---------- */
 function onClick(e){
+  if(suppressClick){ suppressClick=false; return; }   // this click ended a drag/pan
   if(tool==='fence') return;           // fence handled by pointer drag
   const {x:xi,y:yi}=evToIn(e);
   if(xi<0||yi<0||xi>state.propW||yi>state.propL) return;
   if(tool==='erase'){
-    for(let i=state.beds.length-1;i>=0;i--){ const b=state.beds[i], p=plantById(b.p); if(!p)continue;
-      const dx=b.x-xi, dy=b.y-yi, r=Math.max(p.sp/2,SNAP);
-      if(dx*dx+dy*dy<=r*r){ pushUndo(); state.beds.splice(i,1); render(); return; } }
+    const i=hitBed(xi,yi);
+    if(i>=0){ pushUndo(); state.beds.splice(i,1); render(); }
     return;
   }
   const p=plantById(selId); if(!p) return;
   pushUndo(); state.beds.push({p:selId,x:snap(xi),y:snap(yi)}); render();
 }
 
-/* ---------- fence create / move / resize (pointer) ---------- */
+/* drag a placed plant to move it; drag empty ground to pan the view */
+function onPlantMove(e){
+  if(!plantDrag) return;
+  const {x:xi,y:yi}=evToIn(e);
+  const dpx=(xi-plantDrag.start.x)*ppi(), dpy=(yi-plantDrag.start.y)*ppi();
+  if(Math.abs(dpx)+Math.abs(dpy)>2) plantDrag.moved=true;
+  const gg=bedEls[plantDrag.idx]; if(gg) gg.setAttribute('transform',`translate(${dpx} ${dpy})`);
+}
+function onPlantUp(e){
+  window.removeEventListener('pointermove',onPlantMove);
+  if(plantDrag){
+    const b=state.beds[plantDrag.idx];
+    if(b && plantDrag.moved){ const {x:xi,y:yi}=evToIn(e); b.x=snap(xi); b.y=snap(yi); suppressClick=true; }
+    else { undoStack.pop(); }            // a tap, not a move — drop the no-op undo snapshot
+  }
+  plantDrag=null; render();
+}
+function startPan(e){
+  const st=document.getElementById('stage');
+  pan={x:e.clientX,y:e.clientY,sl:st.scrollLeft,st:st.scrollTop,moved:false};
+  window.addEventListener('pointermove',onPanMove);
+  window.addEventListener('pointerup',onPanUp,{once:true});
+}
+function onPanMove(e){
+  if(!pan) return; const st=document.getElementById('stage');
+  const dx=e.clientX-pan.x, dy=e.clientY-pan.y;
+  if(Math.abs(dx)+Math.abs(dy)>3) pan.moved=true;
+  st.scrollLeft=pan.sl-dx; st.scrollTop=pan.st-dy;
+}
+function onPanUp(){ window.removeEventListener('pointermove',onPanMove); if(pan&&pan.moved) suppressClick=true; pan=null; }
+
+/* ---------- pointer down: fence tools, plant move, or pan ---------- */
 function onPointerDown(e){
-  if(tool!=='fence') return;
+  if(tool!=='fence'){
+    const {x:xi,y:yi}=evToIn(e);
+    if(tool==='plant'){
+      const hit=hitBed(xi,yi);
+      if(hit>=0){ e.preventDefault(); pushUndo(); plantDrag={idx:hit,start:{x:xi,y:yi},moved:false};
+        window.addEventListener('pointermove',onPlantMove); window.addEventListener('pointerup',onPlantUp,{once:true}); return; }
+    }
+    startPan(e);                         // empty ground (plant tool) or any drag in erase tool → pan
+    return;
+  }
   e.preventDefault();
   const {x:xi,y:yi}=evToIn(e);
   const t=e.target, fid=t.dataset&&t.dataset.fence, hk=t.dataset&&t.dataset.handle, del=t.dataset&&t.dataset.delfence;
