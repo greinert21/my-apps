@@ -238,17 +238,21 @@ function renderStage(){
   svg.appendChild(rect(0,0,W+PAD*2,L+PAD*2,'#dfe6d3'));        // outside-property (grass)
   svg.appendChild(rect(PAD,PAD,W,L,'#e7e0cf'));               // property ground
 
-  // adaptive grid
-  const minor = z>=14?0.5 : z>=8?1 : 5;
-  const bold  = z>=8?5 : 10;
+  // adaptive grid — line + label spacing step down as you zoom in (floor 6")
+  const STEPS=[0.5,1,2,5,10,20,50,100,200];                 // feet; 0.5 = 6" minimum
+  const pick=minPx=>{ for(const s of STEPS) if(s*z>=minPx) return s; return STEPS[STEPS.length-1]; };
+  const minor=pick(9);                                       // grid line spacing
+  const label=Math.max(minor, pick(34));                     // labeled (bold) spacing
+  const isMult=(ft,step)=> Math.abs(ft/step-Math.round(ft/step))<1e-6;
+  const gcol=ft=> isMult(ft,label)?'#a8966c' : (isMult(ft,1)?'#c7ba98':'#dacfb4');
+  const gw=ft=> isMult(ft,label)?1.4 : (isMult(ft,1)?0.85:0.5);
   const g=E('g',{});
-  const gcol=ft=> ft%bold===0?'#b3a079' : (Number.isInteger(ft)?'#cabd9c':'#d6cbb0');
-  const gw=ft=> ft%bold===0?1.3 : (Number.isInteger(ft)?0.8:0.5);
-  for(let ft=0; ft<=wFt+0.001; ft+=minor){ const x=PAD+ft*z; g.appendChild(line(x,PAD,x,PAD+L,gcol(ft),gw(ft))); }
-  for(let ft=0; ft<=lFt+0.001; ft+=minor){ const y=PAD+ft*z; g.appendChild(line(PAD,y,PAD+W,y,gcol(ft),gw(ft))); }
+  for(let i=0,ft=0; ft<=wFt+1e-6; i++,ft=i*minor){ const x=PAD+ft*z; g.appendChild(line(x,PAD,x,PAD+L,gcol(ft),gw(ft))); }
+  for(let i=0,ft=0; ft<=lFt+1e-6; i++,ft=i*minor){ const y=PAD+ft*z; g.appendChild(line(PAD,y,PAD+W,y,gcol(ft),gw(ft))); }
   svg.appendChild(g);
-  for(let ft=0; ft<=wFt+0.001; ft+=bold) svg.appendChild(txt(PAD+ft*z, PAD-10, ft+'′',10,'#6b6450','middle'));
-  for(let ft=0; ft<=lFt+0.001; ft+=bold) svg.appendChild(txt(PAD-7, PAD+ft*z+3, ft+'′',10,'#6b6450','end'));
+  const fmtL=ft=> Math.abs(ft-Math.round(ft))<1e-6 ? Math.round(ft)+'′' : Math.round(ft*12)+'″';
+  for(let i=0,ft=0; ft<=wFt+1e-6; i++,ft=i*label) svg.appendChild(txt(PAD+ft*z, PAD-10, fmtL(ft),10,'#5e5847','middle'));
+  for(let i=0,ft=0; ft<=lFt+1e-6; i++,ft=i*label) svg.appendChild(txt(PAD-7, PAD+ft*z+3, fmtL(ft),10,'#5e5847','end'));
 
   // fences (drawn under plants so plant markers stay visible)
   fenceEls={};
