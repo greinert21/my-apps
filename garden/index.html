@@ -87,7 +87,8 @@ main{display:flex;flex:1;min-height:0}
 .modal h3{margin:0 0 12px;font-size:17px;color:var(--green)}
 .modal h3:empty{display:none}
 .modal-body label{display:block;font-size:12.5px;font-weight:700;color:var(--dim);margin-bottom:11px}
-.modal-body input,.modal-body select{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text)}
+.modal-body input,.modal-body select,.modal-body textarea{display:block;width:100%;margin-top:4px;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text)}
+.modal-body textarea{resize:vertical;min-height:84px;line-height:1.4}
 .modal-body p{margin:0;font-size:14.5px;color:var(--text);line-height:1.45}
 .modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
 .mbtn{font:inherit;font-size:14px;font-weight:700;border:1px solid var(--line);background:#efe9db;color:var(--text);border-radius:10px;padding:10px 15px;cursor:pointer}
@@ -301,6 +302,21 @@ async function plantModal(plant){
   setTool('plant');
 }
 
+/* per-plant journal: tap a placed plant (in Plant tool) to add a planted date + notes */
+async function notesModal(idx){
+  const b=state.beds[idx]; if(!b) return; const p=plantById(b.p);
+  const r=await openModal(`${p?p.em+' '+escapeHtml(p.name):'Plant'} — notes`,
+    `<label>Planted<input id="nDate" type="date" value="${escapeAttr(b.planted||'')}"></label>
+     <label>Notes (variety, fertilizing schedule, etc.)<textarea id="nNotes" rows="6" placeholder="e.g. Started from seed 5/12 · fertilize every 2 wks · loves this spot">${escapeHtml(b.notes||'')}</textarea></label>`,
+    [{label:'Cancel',val:null},{label:'Delete plant',val:'del',danger:true},{label:'Save',val:'ok',primary:true}]);
+  if(r.val==='del'){ pushUndo(); state.beds.splice(idx,1); render(); return; }
+  if(r.val!=='ok') return;
+  pushUndo();
+  b.planted=r.root.querySelector('#nDate').value||'';
+  b.notes=r.root.querySelector('#nNotes').value||'';
+  render();
+}
+
 /* ---------- stage ---------- */
 const NS='http://www.w3.org/2000/svg';
 function E(tag,attrs){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
@@ -347,6 +363,7 @@ function renderStage(){
     const c=circle(cx,cy,r,p.c); c.setAttribute('fill-opacity','0.22'); c.setAttribute('stroke',p.c); c.setAttribute('stroke-width','1.4'); gg.appendChild(c);
     const dot=circle(cx,cy,Math.min(2.6,r*0.45),p.c); dot.setAttribute('fill-opacity','0.9'); gg.appendChild(dot);
     if(r>=9) gg.appendChild(txt(cx,cy+Math.min(r*0.5,9),p.em,Math.min(r*1.05,22),null,'middle'));
+    if(b.notes||b.planted){ const off=Math.max(4,r*0.6); const nb=circle(cx+off,cy-off,3.2,'#e0671f'); nb.setAttribute('stroke','#fff'); nb.setAttribute('stroke-width','1'); gg.appendChild(nb); }
     pg.appendChild(gg); bedEls[idx]=gg;
   });
   svg.appendChild(pg);
@@ -431,9 +448,10 @@ function onPlantMove(e){
 function onPlantUp(e){
   window.removeEventListener('pointermove',onPlantMove);
   if(plantDrag){
-    const b=state.beds[plantDrag.idx];
-    if(b && plantDrag.moved){ const {x:xi,y:yi}=evToIn(e); b.x=snap(xi); b.y=snap(yi); suppressClick=true; }
-    else { undoStack.pop(); }            // a tap, not a move — drop the no-op undo snapshot
+    const idx=plantDrag.idx, b=state.beds[idx];
+    if(b && plantDrag.moved){ const {x:xi,y:yi}=evToIn(e); b.x=snap(xi); b.y=snap(yi); suppressClick=true; plantDrag=null; render(); }
+    else { undoStack.pop(); suppressClick=true; plantDrag=null; render(); notesModal(idx); }  // a tap = open notes
+    return;
   }
   plantDrag=null; render();
 }
@@ -453,6 +471,7 @@ function onPanUp(){ window.removeEventListener('pointermove',onPanMove); if(pan&
 
 /* ---------- pointer down: fence tools, plant move, or pan ---------- */
 function onPointerDown(e){
+  suppressClick=false;                   // clear any stale flag from a prior gesture
   if(tool!=='fence'){
     const {x:xi,y:yi}=evToIn(e);
     if(tool==='plant'){
@@ -530,7 +549,7 @@ function openModal(title, innerHTML, actions, onMount){
     actions.forEach(a=>{ const b=document.createElement('button'); b.textContent=a.label;
       b.className='mbtn'+(a.primary?' primary':'')+(a.danger?' danger':''); b.onclick=()=>done(a.val); foot.appendChild(b); });
     function onKey(e){ if(e.key==='Escape'){ e.stopPropagation(); done(null); }
-      else if(e.key==='Enter' && e.target.tagName!=='SELECT'){ const p=actions.find(a=>a.primary); if(p){ e.preventDefault(); e.stopPropagation(); done(p.val); } } }
+      else if(e.key==='Enter' && e.target.tagName!=='SELECT' && e.target.tagName!=='TEXTAREA'){ const p=actions.find(a=>a.primary); if(p){ e.preventDefault(); e.stopPropagation(); done(p.val); } } }
     document.addEventListener('keydown',onKey,true);
     ov.addEventListener('mousedown',e=>{ if(e.target===ov) done(null); });
     document.body.appendChild(ov);
@@ -581,7 +600,7 @@ function render(){
     `${Math.round(state.propW/12)}′ × ${Math.round(state.propL/12)}′ · ${ac.toFixed(2)} ac · ${state.beds.length} plants · ${state.fences.length} fence${state.fences.length===1?'':'s'}`;
   ['tPlant','tErase','tFence'].forEach(id=>document.getElementById(id).classList.remove('on'));
   document.getElementById({plant:'tPlant',erase:'tErase',fence:'tFence'}[tool]).classList.add('on');
-  document.getElementById('cur').textContent = tool==='erase'?'🧽 Erase — tap a plant to remove it' : tool==='fence'?'🚧 Fence — drag to draw · tap to select · ✕ to delete' : '🌿 Plant — tap the map to place the selected plant';
+  document.getElementById('cur').textContent = tool==='erase'?'🧽 Erase — tap a plant to remove it' : tool==='fence'?'🚧 Fence — drag to draw · tap to select · ✕ to delete' : '🌿 Plant — tap to place · drag a plant to move · tap a plant for notes';
   renderSelbar(); if(ddOpen) renderDropdown(); renderStage(); renderLegend(); save();
 }
 function renderLegend(){
