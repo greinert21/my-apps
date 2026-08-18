@@ -142,11 +142,15 @@ const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1';
 function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){try{toast('⚠️ Couldn’t save — storage full? Export a backup')}catch(_){}return false}}
-const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,relayUrl:''};
+const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25};
 let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
 D.settings=Object.assign({},DEFAULTS,D.settings||{});
+delete D.settings.relayUrl;                       // Notion relay retired in favour of cloud sync
+// Change-times for the only two records that can conflict across devices.
+if(typeof D.settingsAt!=='string')D.settingsAt='';
+if(typeof D.programAt!=='string')D.programAt='';
 if(!D.routineDates||typeof D.routineDates!=='object')D.routineDates={};
 if(Array.isArray(D.stretchDates)){D.routineDates.morning=D.stretchDates;delete D.stretchDates}
 ['morning','active'].forEach(k=>{if(!Array.isArray(D.routineDates[k]))D.routineDates[k]=[]});
@@ -174,80 +178,235 @@ let previewVar=0;     // which variant the preview is showing
 let swapCtx=null;     // {b,e,name} mid-swap
 let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
+function touchSettings(){D.settingsAt=new Date().toISOString()}
+function touchProgram(){D.programAt=new Date().toISOString()}
 function persistA(){if(A)return save(ACTIVE_KEY,A);localStorage.removeItem(ACTIVE_KEY);return true}
 
 /* ============ Matt's program (Mon-Fri, 25-min superset blocks) ============
    Each day has variants (A = his original; B/C rotate weekly so the body never settles). */
 const PROGRAM=[
- {day:'Mon',name:'Heavy Legs & Abs',variants:[
+ {day:'Mon',name:'Legs & Core',variants:[
   {label:'A',blocks:[
-   {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Ab Rollout',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
-   {rounds:3,exercises:[{n:'Barbell Back Squat',secs:60,w:135},{n:'Toe Touches',secs:45,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:185}]},
-   {rounds:3,exercises:[{n:'Barbell Deadlift',secs:60,w:135},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'DB Lunge',secs:60,w:25}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Back Squat',secs:60,w:135,cue:'Cage bar. Ribs down, brace before you unrack.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'4 slow reps. Low back flat - stop the moment it lifts.'},
+    {n:'DB Reverse Lunge',secs:45,w:20,cue:'Torso tall. Step back, do not lean forward.'}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Hip Thrust',secs:45,w:135,cue:'Floor bar. Glutes finish the rep, not the low back.'},
+    {n:'Band Pallof Press',secs:45,w:0,cue:'Resist the twist. Ribs stacked over hips.'},
+    {n:'Standing Barbell Calf Raise',secs:45,w:135,cue:'Same cage bar as the squat - leave the load alone.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips square. Reach back, do not bend down.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Only as far as the ribs stay down. Short beats sagging.'},
+    {n:'DB Goblet Squat',secs:45,w:40,cue:'Elbows inside the knees, chest tall.'}]}]},
   {label:'B',blocks:[
-   {rounds:3,exercises:[{n:'DB Goblet Squat',secs:45,w:50},{n:'V-Up',secs:45,w:0},{n:'DB Romanian Deadlift',secs:45,w:50}]},
-   {rounds:3,exercises:[{n:'Barbell Front Squat',secs:60,w:95},{n:'Hollow Body Hold',secs:45,w:0},{n:'DB Standing Calf Raise',secs:45,w:65}]},
-   {rounds:3,exercises:[{n:'Barbell Hip Thrust',secs:60,w:135},{n:'Band Pallof Press',secs:60,w:0},{n:'DB Bulgarian Split Squat',secs:60,w:20}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Front Squat',secs:60,w:95,cue:'Elbows up. Ribs stacked over the hips.'},
+    {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. Not a leg raise.'},
+    {n:'DB Bulgarian Split Squat',secs:45,w:20,cue:'Front shin vertical. Do not chase depth.'}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Romanian Deadlift',secs:45,w:95,cue:'Floor bar. Push the hips back, flat back.'},
+    {n:'Band Pallof Press',secs:45,w:0,cue:'Slow out, slow back. Hips still.'},
+    {n:'Standing Barbell Calf Raise',secs:45,w:95,cue:'Same bar as the front squat - no plate change.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Goblet Squat',secs:45,w:40,cue:'Sit between the hips. Heels down.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the whole way out.'},
+    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Slow. Hamstrings load as you reach back.'}]}]},
   {label:'C',blocks:[
-   {rounds:3,exercises:[{n:'Landmine Squat',secs:45,w:70},{n:'Dead Bug',secs:45,w:0},{n:'Landmine Single-Leg RDL',secs:45,w:70}]},
-   {rounds:3,exercises:[{n:'Barbell Pause Back Squat',secs:60,w:115},{n:'Hanging Knee Raise',secs:45,w:0},{n:'DB Single-Leg Calf Raise',secs:45,w:45}]},
-   {rounds:3,exercises:[{n:'Barbell Romanian Deadlift',secs:60,w:115},{n:'Side Plank',secs:60,w:0},{n:'DB Reverse Lunge',secs:60,w:25}]}]}
+   {rounds:3,exercises:[
+    {n:'Barbell Pause Back Squat',secs:60,w:115,cue:'2s pause at the bottom. Stay braced through it.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Exhale as the leg goes out. Ribs down.'},
+    {n:'DB Split Squat',secs:45,w:20,cue:'Upright torso, controlled descent.'}]},
+   {rounds:3,exercises:[
+    {n:'Landmine Squat',secs:45,w:45,cue:'Floor bar in the sleeve. The bar path keeps you upright.'},
+    {n:'Band Standing Ab Twist',secs:45,w:0,cue:'Turn from the ribs, hips face forward.'},
+    {n:'DB Standing Calf Raise',secs:45,w:40,cue:'Full stretch at the bottom, pause at the top.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Balance is the point, not the weight.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Stop before the low back gives. Range is earned.'},
+    {n:'DB Reverse Lunge',secs:45,w:20,cue:'Quiet feet. Control the way down.'}]}]}
  ]},
  {day:'Tue',name:'Upper Body A',variants:[
   {label:'A',blocks:[
-   {rounds:3,exercises:[{n:'DB Bench Press',secs:45,w:65},{n:'Bent-Over Barbell Row',secs:45,w:135},{n:'Biceps Curl to Shoulder Press',secs:45,w:35},{n:'DB Skullcrusher',secs:45,w:25}]},
-   {rounds:3,exercises:[{n:'DB Lateral Raise',secs:45,w:15},{n:'DB Front Raise',secs:45,w:15},{n:'DB Hammer Curl',secs:45,w:35},{n:'Barbell Bench Press',secs:45,w:185}]},
-   {rounds:3,exercises:[{n:'Incline DB Bench Press',secs:45,w:65},{n:'Concentration Curl',secs:45,w:35},{n:'Bent-Over DB Row',secs:45,w:35},{n:'Cable Rope Tricep Extension',secs:45,w:80}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Bench Press',secs:45,w:115,cue:'Cage bar. Shoulder blades pinned back and down.'},
+    {n:'Bent-Over Barbell Row',secs:45,w:95,cue:'Floor bar. Pull to the belly, ribs down.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead. Light on purpose.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the shoulder blades.'}]},
+   {rounds:3,exercises:[
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Do not let the ribs flare at the top.'},
+    {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows to the ribs.'},
+    {n:'DB Skullcrusher',secs:45,w:20,cue:'Upper arms vertical and still.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms. The slow return is the work.'}]},
+   {rounds:3,exercises:[
+    {n:'Push-Up',secs:45,w:0,cue:'One straight line. Hips do not sag.'},
+    {n:'DB Hammer Curl',secs:45,w:20,cue:'Elbows pinned to your sides.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Slow and boring is correct here.'},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over. Squeeze, do not swing.'}]}]},
   {label:'B',blocks:[
-   {rounds:3,exercises:[{n:'Barbell Incline Bench Press',secs:45,w:135},{n:'Pull-Up',secs:45,w:0},{n:'DB Hammer Curl to Press',secs:45,w:35},{n:'Band Triceps Pushdown',secs:45,w:0}]},
-   {rounds:3,exercises:[{n:'Band Lateral Raise',secs:45,w:0},{n:'Plate Front Raise',secs:45,w:25},{n:'Barbell Curl',secs:45,w:65},{n:'DB Floor Press',secs:45,w:65}]},
-   {rounds:3,exercises:[{n:'Landmine Press',secs:45,w:65},{n:'DB Incline Curl',secs:45,w:25},{n:'DB Chest-Supported Incline Row',secs:45,w:35},{n:'Overhead DB Triceps Extension',secs:45,w:40}]}]},
+   {rounds:3,exercises:[
+    {n:'DB Bench Press',secs:45,w:30,cue:'Wrists over elbows. Control the bottom.'},
+    {n:'Wide-Grip Lat Pulldown',secs:45,w:70,cue:'Lean back slightly, drive the elbows down.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Forehead down, neck relaxed.'}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Incline Bench Press',secs:45,w:95,cue:'Cage bar. Do not arch to move it.'},
+    {n:'Bent-Over DB Row',secs:45,w:30,cue:'Flat back. Elbow past the ribs.'},
+    {n:'Bench Dip',secs:45,w:0,cue:'Shoulders down. Do not sink into the joint.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Flye',secs:45,w:20,cue:'Slight elbow bend, wide arc. Light.'},
+    {n:'DB Biceps Curl',secs:45,w:20,cue:'No swinging. Shoulders stay back.'},
+    {n:'Side Plank',secs:45,w:0,cue:'Stack the hips. Bottom shoulder away from the ear.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Pull to the forehead, elbows high. Squeeze 1s.'}]}]},
   {label:'C',blocks:[
-   {rounds:3,exercises:[{n:'Barbell Bench Press',secs:45,w:185},{n:'Landmine Row',secs:45,w:135},{n:'Band Curl to Press',secs:45,w:0},{n:'Bench Dip',secs:45,w:0}]},
-   {rounds:3,exercises:[{n:'DB Upright Row',secs:45,w:25},{n:'Band Front Raise',secs:45,w:0},{n:'DB Zottman Curl',secs:45,w:25},{n:'DB Flye',secs:45,w:20}]},
-   {rounds:3,exercises:[{n:'DB Neutral-Grip Incline Press',secs:45,w:60},{n:'DB Spider Curl',secs:45,w:25},{n:'Rope Lat Pulldown',secs:45,w:90},{n:'Band Overhead Triceps Extension',secs:45,w:0}]}]}
+   {rounds:3,exercises:[
+    {n:'Barbell Bench Press',secs:45,w:115,cue:'Cage bar. Feet planted, glutes on the bench.'},
+    {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Chest stays up.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Lead with the elbows, not the hands.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Lift from the mid-back, not the arms.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor. Easy on the shoulders.'},
+    {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone, never behind the neck.'},
+    {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs down - this one loves to flare them.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow. Feel it between the shoulder blades.'}]},
+   {rounds:3,exercises:[
+    {n:'Diamond Push-Up',secs:45,w:0,cue:'Elbows close, body straight.'},
+    {n:'DB Incline Curl',secs:45,w:20,cue:'Let the arms hang back. Full stretch.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Exhale fully on each rep.'},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Tiny weight, long squeeze.'}]}]}
  ]},
  {day:'Wed',name:'Posterior Chain & Core',variants:[
   {label:'A',blocks:[
-   {rounds:3,exercises:[{n:'DB Single-Leg RDL',secs:60,w:65},{n:'Rack Pull',secs:45,w:185}]},
-   {rounds:3,exercises:[{n:'DB Shrug',secs:45,w:65},{n:'Barbell Deadlift',secs:90,w:285}]},
-   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Deadlift',secs:60,w:135,cue:'Floor bar. Set the back before the bar moves.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows high, thumbs back. Squeeze and hold.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Low back flat. This is the anti-arch drill.'}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Hip Thrust',secs:45,w:135,cue:'Same floor bar, same 135. Chin tucked.'},
+    {n:'Wide-Grip Lat Pulldown',secs:45,w:70,cue:'Chest to the bar, elbows down.'},
+    {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis. Small and controlled.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Pull-Through',secs:45,w:0,cue:'Hips back, then snap through with the glutes.'},
+    {n:'DB Shrug',secs:45,w:40,cue:'Straight up, no rolling.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the entire way out.'}]}]},
   {label:'B',blocks:[
-   {rounds:3,exercises:[{n:'Barbell Romanian Deadlift',secs:60,w:135},{n:'Bent-Over Barbell Row',secs:45,w:135}]},
-   {rounds:3,exercises:[{n:'DB Upright Row',secs:45,w:25},{n:'Barbell Sumo Deadlift',secs:90,w:225}]},
-   {rounds:3,exercises:[{n:'Band Wood Chop',secs:60},{n:'Lying Leg Raise',secs:60,w:0}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Romanian Deadlift',secs:60,w:95,cue:'Floor bar stays at 95 all session.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Pull apart as you pull back.'},
+    {n:'Bird Dog',secs:45,w:0,cue:'Reach long, hips level. Spine stays still.'}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Hip Thrust',secs:45,w:95,cue:'Same bar, same load - no plate change.'},
+    {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Drive the elbows down and back.'},
+    {n:'Side Plank',secs:45,w:0,cue:'Hips high, stacked, and still.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Lying Hamstring Curl',secs:45,w:0,cue:'Hamstrings get trained here, not stretched.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Squeeze 1s at the top of each rep.'},
+    {n:'Reverse Crunch',secs:45,w:0,cue:'Pelvis up, ribs down.'}]}]},
   {label:'C',blocks:[
-   {rounds:3,exercises:[{n:'Band Lying Hamstring Curl',secs:60},{n:'Rack Pull',secs:45,w:185}]},
-   {rounds:3,exercises:[{n:'DB Farmer\'s Carry',secs:45,w:75},{n:'Barbell Snatch-Grip Deadlift',secs:90,w:185}]},
-   {rounds:3,exercises:[{n:'Band Pallof Press',secs:60},{n:'DB Weighted Sit-Up',secs:60,w:10}]}]}
+   {rounds:3,exercises:[
+    {n:'Barbell Sumo Deadlift',secs:60,w:135,cue:'Floor bar. Knees out, chest up.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Highest-value exercise in this session.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Four slow reps beats twenty fast ones.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips level. Slow on the way back.'},
+    {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows tight to the body.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Stop the moment the ribs flare.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Pull-Through',secs:45,w:0,cue:'Glutes finish the rep, low back stays quiet.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Arms straight throughout.'},
+    {n:'Bird Dog',secs:45,w:0,cue:'Do not let the hips tip.'}]}]}
  ]},
  {day:'Thu',name:'Upper Body B',variants:[
   {label:'A',blocks:[
-   {rounds:3,exercises:[{n:'Push-Up',secs:45,w:0},{n:'Pull-Up',secs:45,w:0},{n:'Biceps Curl to Shoulder Press',secs:45,w:40},{n:'DB Skullcrusher',secs:45,w:30}]},
-   {rounds:3,exercises:[{n:'DB Lateral Raise',secs:45,w:10},{n:'DB Front Raise',secs:45,w:10},{n:'DB Hammer Curl',secs:45,w:40},{n:'Barbell Bench Press',secs:45,w:185},{n:'Landmine Row',secs:45,w:135}]},
-   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:45,w:50},{n:'Incline DB Bench Press',secs:45,w:65},{n:'Concentration Curl',secs:45,w:35},{n:'Cable Rope Tricep Extension',secs:45,w:80}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Ribs down - do not lean back to press.'},
+    {n:'Wide-Grip Lat Pulldown',secs:45,w:70,cue:'Elbows to the ribs.'},
+    {n:'DB Skullcrusher',secs:45,w:20,cue:'Upper arms locked in place.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Neck long, chin slightly tucked.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Bench Press',secs:45,w:30,cue:'Control the bottom. Blades pinned.'},
+    {n:'One-Arm DB Row',secs:45,w:30,cue:'Do not rotate the torso to lift it.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Light. Elbows lead.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Every session. This is the forward-head fix.'}]},
+   {rounds:3,exercises:[
+    {n:'Push-Up',secs:45,w:0,cue:'Body one line. Hips do not sag.'},
+    {n:'DB Hammer Curl',secs:45,w:20,cue:'Controlled, elbows tucked.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Breathe out on the reach.'},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Small weight, real squeeze.'}]}]},
   {label:'B',blocks:[
-   {rounds:3,exercises:[{n:'DB Floor Press',secs:45,w:60},{n:'Wide-Grip Lat Pulldown',secs:45,w:90},{n:'DB Hammer Curl to Press',secs:45,w:35},{n:'Band Overhead Triceps Extension',secs:45,w:0}]},
-   {rounds:3,exercises:[{n:'Band Lateral Raise',secs:45,w:0},{n:'Plate Front Raise',secs:45,w:25},{n:'DB Zottman Curl',secs:45,w:25},{n:'DB Bench Press',secs:45,w:65},{n:'Bent-Over Barbell Row',secs:45,w:135}]},
-   {rounds:3,exercises:[{n:'Band Wood Chop',secs:45,w:0},{n:'Barbell Incline Bench Press',secs:45,w:135},{n:'DB Incline Curl',secs:45,w:25},{n:'Band Triceps Pushdown',secs:45,w:0}]}]},
+   {rounds:3,exercises:[
+    {n:'Seated DB Press',secs:45,w:20,cue:'Back flat on the bench, ribs down.'},
+    {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, drive elbows down.'},
+    {n:'Band Triceps Pushdown',secs:45,w:0,cue:'Elbows still, full lockout.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Lift the arms, not the head.'}]},
+   {rounds:3,exercises:[
+    {n:'Landmine Press',secs:45,w:45,cue:'Floor bar in the sleeve. Kind to the shoulder.'},
+    {n:'Bent-Over DB Row',secs:45,w:30,cue:'Row to the ribs, squeeze at the top.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows above the wrists. Do not shrug.'}]},
+   {rounds:3,exercises:[
+    {n:'Bench Dip',secs:45,w:0,cue:'Chest up, shoulders away from ears.'},
+    {n:'DB Biceps Curl',secs:45,w:20,cue:'Shoulders stay back and down.'},
+    {n:'Side Plank',secs:45,w:0,cue:'One long line from ear to ankle.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow both ways.'}]}]},
   {label:'C',blocks:[
-   {rounds:3,exercises:[{n:'Band Push-Up',secs:45,w:0},{n:'Chin-Up',secs:45,w:0},{n:'Seated DB Curl-to-Press',secs:45,w:35},{n:'Overhead DB Triceps Extension',secs:45,w:20}]},
-   {rounds:3,exercises:[{n:'DB Leaning Lateral Raise',secs:45,w:10},{n:'Band Front Raise',secs:45,w:0},{n:'Barbell Curl',secs:45,w:65},{n:'Barbell Bench Press',secs:45,w:185},{n:'One-Arm DB Row',secs:45,w:40}]},
-   {rounds:3,exercises:[{n:'Band Pallof Press',secs:45,w:0},{n:'Landmine Press',secs:45,w:90},{n:'DB Spider Curl',secs:45,w:25},{n:'Diamond Push-Up',secs:45,w:0}]}]}
+   {rounds:3,exercises:[
+    {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Brace the abs before every rep.'},
+    {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone.'},
+    {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs stay down, elbows in.'},
+    {n:"Prone T's",secs:45,w:0,cue:'The mid-back work nothing else covers.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor, then press.'},
+    {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Flat back.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead, no swinging.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'High elbows, squeeze and hold.'}]},
+   {rounds:3,exercises:[
+    {n:'Diamond Push-Up',secs:45,w:0,cue:'Elbows close, body straight.'},
+    {n:'DB Zottman Curl',secs:45,w:20,cue:'Rotate at the top, lower slowly.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Low back flat is the whole exercise.'},
+    {n:'DB Rear Delt Raise',secs:45,w:10,cue:'Thumbs down, lift wide.'}]}]}
  ]},
- {day:'Fri',name:'Light Legs',variants:[
+ {day:'Fri',name:'Hips & Postural Control',variants:[
   {label:'A',blocks:[
-   {rounds:3,exercises:[{n:'DB Squat',secs:45,w:25},{n:'Toe Touches',secs:45,w:0},{n:'DB Single-Leg RDL',secs:45,w:25}]},
-   {rounds:3,exercises:[{n:'DB Lunge',secs:60,w:25},{n:'Band Standing Ab Twist',secs:60,w:0},{n:'Standing Barbell Calf Raise',secs:45,w:135}]},
-   {rounds:3,exercises:[{n:'Landmine Core Rotation',secs:60,w:45},{n:'Crunch',secs:60,w:0}]}]},
+   {rounds:3,exercises:[
+    {n:'Barbell Hip Thrust',secs:45,w:95,cue:'Chin tucked, ribs down, glutes finish.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Slow, high elbows, real squeeze.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Four slow reps. Quality only today.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips square. Hamstrings load as you reach back.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Squeeze the blades, hold 1s.'},
+    {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. No momentum.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Pull-Through',secs:45,w:0,cue:'Hips back, glutes finish. Low back quiet.'},
+    {n:'Band Pallof Press',secs:45,w:0,cue:'Resist the twist. Ribs over hips.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms, chest tall.'}]}]},
   {label:'B',blocks:[
-   {rounds:3,exercises:[{n:'DB Goblet Squat',secs:45,w:40},{n:'Dead Bug',secs:45,w:0},{n:'Single-Leg Glute Bridge',secs:45,w:0}]},
-   {rounds:3,exercises:[{n:'DB Split Squat',secs:60,w:25},{n:'Band Pallof Press',secs:60,w:0},{n:'DB Single-Leg Calf Raise',secs:45,w:25}]},
-   {rounds:3,exercises:[{n:'Band Wood Chop',secs:60,w:0},{n:'Lying Leg Raise',secs:60,w:0}]}]},
+   {rounds:3,exercises:[
+    {n:'Single-Leg Glute Bridge',secs:45,w:0,cue:'Push through the heel. Do not arch to finish.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows high, thumbs back.'},
+    {n:'Bird Dog',secs:45,w:0,cue:'Long reach, level hips.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Split Squat',secs:45,w:20,cue:'Upright torso, front shin vertical.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the mid-back.'},
+    {n:'Hollow Body Hold',secs:45,w:0,cue:'Bend the knees if the low back lifts.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Pull-Through',secs:45,w:0,cue:'Pure glute work, no low-back help.'},
+    {n:'Band Standing Ab Twist',secs:45,w:0,cue:'Rotate the ribs, hips face forward.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow return, squeeze the blades.'}]}]},
   {label:'C',blocks:[
-   {rounds:3,exercises:[{n:'Landmine Squat',secs:45,w:70},{n:'Plank',secs:45,w:0},{n:'Band Pull-Through',secs:45,w:0}]},
-   {rounds:3,exercises:[{n:'DB Reverse Lunge',secs:60,w:25},{n:'DB Standing Wood Chop',secs:60,w:15},{n:'DB Standing Calf Raise',secs:45,w:50}]},
-   {rounds:3,exercises:[{n:'Side Plank',secs:60,w:0},{n:'Reverse Crunch',secs:60,w:0}]}]}
+   {rounds:3,exercises:[
+    {n:'Banded Glute Bridge',secs:45,w:0,cue:'Knees out against the band, glutes finish.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'High elbows. Squeeze and hold.'},
+    {n:'Dead Bug',secs:45,w:0,cue:'Exhale fully, ribs down.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Reverse Lunge',secs:45,w:20,cue:'Control the descent. Torso tall.'},
+    {n:"Prone T's",secs:45,w:0,cue:'Neck relaxed, chin lightly tucked.'},
+    {n:'Side Plank',secs:45,w:0,cue:'One straight line, hips stacked.'}]},
+   {rounds:3,exercises:[
+    {n:'Band Pull-Through',secs:45,w:0,cue:'Glutes drive it, low back stays out of it.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Stop the moment the ribs flare.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Arms straight, slow both ways.'}]}]}
  ]}
 ];
 /* Effective program: Matt's persistent edits (D.program) win over the built-in default */
@@ -272,29 +431,22 @@ migrateProgram();persist();   // upgrade any pre-variant D.program in place
 
 /* Matt's stretch routines: timed items auto-advance, rep items wait for a Done tap */
 const ROUTINES=[
- {key:'morning',name:'Morning Stretch',emoji:'🧘',mins:8,items:[
+ {key:'morning',name:'Morning Stretch',emoji:'🧘',mins:7,items:[
+  {name:'90/90 Rib Stack Breathing',secs:60,note:'Exhale all the way out and feel the ribs drop. This is the rib position everything else borrows.'},
   {name:'Chest Doorway Stretch',secs:20},
-  {name:'Cross-Body Arm Stretch',secs:20},
   {name:'Dead Hang',secs:20},
-  {name:'Lower Back Stretch',secs:20},
   {name:'Head Tilt',secs:20},
-  {name:'Chin Drop',secs:20},
+  {name:'Chin Tuck',secs:30,note:'5 slow holds. Make the back of the neck long - not a nod.'},
   {name:'Lateral Lunge Stretch',secs:20},
   {name:'Side Bend Stretch',secs:20},
-  {name:'Standing Forward Bend',secs:20},
-  {name:'Tricep Stretch',secs:20},
-  {name:'Wall Pectoral Stretch',secs:20},
-  {name:'Wrist Extension Stretch',secs:20},
   {name:'Reach Behind and Open',secs:20},
   {name:'Lunge with Ankle Grab',secs:20},
-  {name:"Prone T's",secs:30,note:'1 set × 10 reps'},
-  {name:'Butterfly Stretch',secs:20},
+  {name:"Prone T's",secs:30,note:'1 set x 10 reps. Thumbs up, lift from the shoulder blades.'},
+  {name:'Dead Bug',secs:45,note:'4 slow reps per side. Low back stays flat on the floor.'},
+  {name:'Reverse Crunch',secs:30,note:'Curl the pelvis up. Small range, no swinging.'},
   {name:"Child's Pose",secs:20},
-  {name:'Up Dog',secs:20},
   {name:'Knee to Chest Stretch',secs:20},
-  {name:'Prone Calf Stretch',secs:20},
   {name:'Seated Figure Four',secs:20},
-  {name:'Seated Forward Bend',secs:20},
   {name:'Supine Back Stretch',secs:20}
  ]},
  {key:'active',name:'Active Stretch',emoji:'🤸',mins:6,items:[
@@ -315,7 +467,7 @@ const ROUTINES=[
   {name:'Partner Medicine Ball Full Twist',reps:20,note:'30 lb ball'}
  ]}
 ];
-const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Extension','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Pull-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up'];
+const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Extension','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Pull-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up','Band Pallof Press','Barbell Front Squat','Reverse Crunch','DB Romanian Deadlift','DB Bulgarian Split Squat','Hollow Body Hold','Barbell Pause Back Squat','Landmine Squat','Barbell Incline Bench Press','Bench Dip','DB Incline Curl','DB Floor Press','Band Pull-Through','Barbell Sumo Deadlift','Landmine Press','DB Zottman Curl','Diamond Push-Up','Single-Leg Glute Bridge','DB Split Squat',"Prone T's",'DB Standing Calf Raise','DB Flye'];
 
 /* ============ helpers ============ */
 const $=s=>document.querySelector(s);
@@ -331,6 +483,28 @@ function sessExercises(s){return s.blocks?s.blocks.flatMap(b=>b.exercises):(s.ex
 function volume(s){let v=0;sessExercises(s).forEach(e=>e.sets.forEach(x=>v+=(x.w||0)*(x.r!=null?x.r:(x.secs||0)/60)));return v}
 function setCount(s){let n=0;sessExercises(s).forEach(e=>n+=e.sets.length);return n}
 function sortedSessions(){return D.sessions.slice().sort((a,b)=>(b.startedAt||'').localeCompare(a.startedAt||''))}
+/* Progression by stall detection. The program is time-based, so a finished 45s
+   interval carries no performance signal — it looks identical every session.
+   The one thing history CAN tell us is "you have used this same weight N
+   sessions running", which is the cue to try more. Suggestion only: nothing
+   changes the load until Matt taps it. PowerBlocks move in 10s with the handle
+   inserts left alone, and a pair of 5s is the safe barbell jump, so +10 is the
+   step everywhere. */
+const STALL_SESSIONS=3, STALL_STEP=10;
+function stallSuggest(name){
+  const n=name.toLowerCase(),tops=[];
+  sortedSessions().forEach(s=>{                 // newest first
+    let top=0;
+    sessExercises(s).forEach(e=>{
+      if(e.name.toLowerCase()!==n)return;
+      e.sets.forEach(x=>{if((x.w||0)>top)top=x.w});
+    });
+    if(top>0)tops.push(top);                    // one entry per session
+  });
+  if(tops.length<STALL_SESSIONS)return null;
+  for(let i=1;i<STALL_SESSIONS;i++)if(tops[i]!==tops[0])return null;
+  return {from:tops[0],to:tops[0]+STALL_STEP,n:STALL_SESSIONS};
+}
 function lastSets(name){const n=name.toLowerCase();
   for(const s of sortedSessions()){const e=sessExercises(s).find(x=>x.name.toLowerCase()===n);if(e&&e.sets.length)return e.sets}
   return null}
@@ -426,7 +600,7 @@ function applySwap(always){
   if(always){
     const prog=editableProgram();
     prog[previewIdx].variants[previewVar].blocks[swapCtx.b].exercises[swapCtx.e]=JSON.parse(JSON.stringify(entry));
-    persist();
+    touchProgram();persist();
   }
   toast((always?'Swapped every week: ':'Swapped for today: ')+swapCtx.name);
   swapCtx=null;closeModal();render();
@@ -525,7 +699,8 @@ function mkEx(entry,tpl){
   else if(defW!=null)w=String(defW);
   else if(fb)w=String(fb.w);
   const rSrc=ls||fb;
-  return {name,secs,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
+  const cue=(typeof entry==='object'&&typeof entry.cue==='string')?entry.cue:'';
+  return {name,secs,cue,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
 }
 function startSession(i,draftBlocks,variantLabel){
   const p=i==='empty'?null:PROG()[i];
@@ -557,9 +732,12 @@ function renderActive(){
       const focused=A.cur&&A.cur.b===bi&&A.cur.e===ei&&!blk.done;
       if(focused){
         const last=lastSetsTpl(ex.name,A.template)||lastSets(ex.name);
+        const sg=stallSuggest(ex.name);
         h+=`<div class="exfocus">
           <div class="row"><span class="nm grow">▶ ${esc(ex.name)}</span>
             <button style="border:none;background:none;color:var(--dim);font-size:18px;padding:4px 8px" data-action="rmEx" data-b="${bi}" data-e="${ei}">✕</button></div>
+          ${ex.cue?`<div class="hint" style="margin-top:2px">💡 ${esc(ex.cue)}</div>`:''}
+          ${sg?`<div style="margin-top:4px"><button class="setchip" data-action="bumpW" data-b="${bi}" data-e="${ei}" data-w="${sg.to}">📈 ${sg.from} ${unit()} for ${sg.n} sessions — try ${sg.to}?</button></div>`:''}
           ${last?`<div class="hint">Last time: ${esc(fmtSets(last))} ${unit()}</div>`:''}
           ${ex.sets.length?`<div class="setchips">${ex.sets.map((s,j)=>`<button class="setchip" data-action="delSet" data-b="${bi}" data-e="${ei}" data-j="${j}">${setW(s)}×${s.secs?fmtClock(s.secs):s.r}<span>✕</span></button>`).join('')}</div>`:''}
           <div class="inrow">
@@ -685,6 +863,7 @@ function finishSession(){
   if(!persist()){D.sessions=D.sessions.filter(s=>s!==sess);return}
   A=null;persistA();stopTimer();releaseWake();
   toast('Workout saved 💪');render();
+  if(signedIn())syncNow(true);          // silent; a failure never blocks the save
 }
 
 /* ---- history ---- */
@@ -847,11 +1026,13 @@ function renderMore(){
   setHead('More','Sync · backup · settings');
   const unsynced=D.sessions.filter(s=>!s.synced).length;
   const h=`
-  <div class="card"><h3>☁️ Sync to Notion</h3>
-    <p class="hint">${unsynced?unsynced+' workout'+(unsynced===1?'':'s')+' on this device not yet in Notion.':'Everything synced.'}</p>
-    <button class="btn btn-primary" data-action="sync">Sync to Notion</button>
-    ${D.settings.relayUrl?`<p class="hint" style="margin-bottom:0">Relay: ${esc(D.settings.relayUrl)}</p>`:`<p class="hint" style="margin-bottom:0">Not connected yet — the relay goes live in step 4 of the plan. Workouts stay in this browser meanwhile; add the app to your Home Screen and keep an occasional backup below.</p>`}
-    <button class="btn btn-ghost" data-action="relayCfg">Configure relay URL</button>
+  <div class="card"><h3>☁️ Cloud sync</h3>
+    ${signedIn()?`<p class="hint">Signed in as ${esc(AU.email||'your account')}${SY.lastSync?' · last synced '+fmtDate(SY.lastSync.slice(0,10)):''}</p>
+    <p class="hint">${unsynced?unsynced+' workout'+(unsynced===1?'':'s')+' not backed up yet.':'Everything backed up.'}</p>
+    <button class="btn btn-primary" data-action="sync">Sync now</button>
+    <button class="btn btn-ghost" data-action="signOut">Sign out</button>`
+    :`<p class="hint">Sign in to back your workouts up and pick them up on any device. The app works fully without it — everything just stays in this browser.</p>
+    <button class="btn btn-primary" data-action="signInOpen">Sign in</button>`}
   </div>
   <div class="card"><h3>💾 Backup</h3>
     <p class="hint">Belt-and-suspenders: save a copy of your data anywhere.</p>
@@ -876,9 +1057,9 @@ function renderMore(){
   </div>
   <div class="card"><h3>🗑️ Danger zone</h3>
     ${Array.isArray(D.program)?'<button class="btn btn-danger" data-action="resetProgram">Reset weekly program to defaults</button>':''}
-    <button class="btn btn-danger" data-action="clearAll">Erase all data on this device</button>
+    <button class="btn btn-danger" data-action="clearAll">${signedIn()?'Reset this device':'Erase all data on this device'}</button>
   </div>
-  <p class="hint" style="text-align:center">Workout Tracker v2.0 · circuits edition · data lives in this browser<br>
+  <p class="hint" style="text-align:center">Workout Tracker v2.1 · circuits edition · ${signedIn()?'synced to your private cloud':'data lives in this browser'}<br>
   <a href="https://github.com/greinert21/my-apps">github.com/greinert21/my-apps</a></p>`;
   $('#main').innerHTML=h;
 }
@@ -1018,29 +1199,187 @@ setInterval(()=>{
 },500);
 
 /* ============ sync / backup ============ */
-async function syncNotion(){
-  const url=(D.settings.relayUrl||'').trim();
-  const unsynced=D.sessions.filter(s=>!s.synced);
-  if(!url){
-    showModal(`<h3>☁️ Notion sync — coming in step 4</h3>
-      <p class="hint">The app is ready to sync, but the relay function (the secure bridge that holds the Notion API key) isn't deployed yet. That's step 4 of the plan:</p>
-      <p class="hint">1. ✅ Build app with local saving<br>2. ⬅️ You are here — test &amp; tune on your phone<br>3. Create the Notion “Workout Log” database<br>4. Deploy the relay → flip sync on</p>
-      <p class="hint">${unsynced.length?unsynced.length+' workout'+(unsynced.length===1?'':'s')+' will sync when it goes live. Until then, keep an occasional backup (More → Backup) as a safety net.':'Nothing waiting to sync.'}</p>
-      <button class="btn btn-primary" data-action="closeModal">Got it</button>`);
-    return;
-  }
-  if(!unsynced.length){toast('Nothing to sync — all caught up');return}
-  toast('Syncing '+unsynced.length+'…');
-  try{
-    const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),20000);
-    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({source:'workout-tracker',unit:unit(),sessions:unsynced}),signal:ctrl.signal});
-    clearTimeout(to);
-    if(!res.ok)throw new Error('HTTP '+res.status);
-    unsynced.forEach(s=>s.synced=true);persist();
-    toast('✓ Synced '+unsynced.length+' to Notion');render();
-  }catch(e){toast('Sync failed — saved locally, try later')}
+/* Cloud sync (Supabase). The Postgres table `sync_records` is SHARED with
+   StrikeZone, so the isolation here is deliberate rather than incidental:
+     - our own auth storage key. Both apps sit on the same origin and
+       localStorage is per-origin, so the supabase-js default key would have
+       meant ONE shared session — signing out here would sign out StrikeZone.
+     - every table_name carries a wt_ prefix, so a collision is impossible.
+     - pull filters table_name server-side, so fishing rows never reach us.
+   Hand-rolled REST rather than the JS client: there's no build step to vendor a
+   library into, and owning the token storage outright is the whole point.
+   Entirely optional — signed out or offline the app behaves exactly as before.
+   Tokens live under their own key, never inside D, so they stay out of backups. */
+const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
+const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
+const AUTH_KEY='wt_auth_v1', SYNC_KEY='wt_sync_v1';
+const T_SESS='wt_sessions', T_ROUT='wt_routineDates', T_CUST='wt_customExercises',
+      T_SET='wt_settings', T_PROG='wt_program';
+const SYNC_TABLES=[T_SESS,T_ROUT,T_CUST,T_SET,T_PROG];
+const EPOCH='1970-01-01T00:00:00Z';
+let AU=load(AUTH_KEY,null);
+let SY=load(SYNC_KEY,null);
+if(!SY||typeof SY!=='object')SY={cursor:EPOCH,ledger:{},device:uid(),lastSync:''};
+if(!SY.device)SY.device=uid();
+if(!SY.ledger||typeof SY.ledger!=='object')SY.ledger={};
+if(!SY.cursor)SY.cursor=EPOCH;
+let syncing=false;
+function persistSY(){save(SYNC_KEY,SY)}
+function signedIn(){return !!(AU&&AU.refresh&&AU.uid)}
+function setAuth(a){AU=a;if(a)save(AUTH_KEY,a);else localStorage.removeItem(AUTH_KEY)}
+function signOutLocal(){setAuth(null);SY.cursor=EPOCH;SY.ledger={};SY.lastSync='';persistSY()}
+
+async function authPost(grant,body){
+  const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type='+grant,{method:'POST',
+    headers:{'apikey':SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error_description||j.msg||j.error||('HTTP '+r.status));
+  return j;
 }
+function storeToken(j,fb){
+  setAuth({access:j.access_token,refresh:j.refresh_token||(fb&&fb.refresh),
+    exp:Date.now()+((j.expires_in||3600)*1000),
+    uid:(j.user&&j.user.id)||(fb&&fb.uid),
+    email:(j.user&&j.user.email)||(fb&&fb.email)||''});
+}
+async function signIn(email,password){storeToken(await authPost('password',{email:email,password:password}),null)}
+async function refreshAuth(){
+  if(!AU||!AU.refresh)throw new Error('Not signed in');
+  storeToken(await authPost('refresh_token',{refresh_token:AU.refresh}),AU);
+}
+/* One authenticated REST call, refreshing an expired token at most once. */
+async function rest(path,opts,retried){
+  if(!retried&&AU&&AU.exp&&AU.exp-Date.now()<60000)await refreshAuth();
+  const o=Object.assign({},opts||{});
+  o.headers=Object.assign({'apikey':SUPA_ANON,'Authorization':'Bearer '+(AU?AU.access:''),
+    'Content-Type':'application/json'},(opts&&opts.headers)||{});
+  const r=await fetch(SUPA_URL+'/rest/v1/'+path,o);
+  if((r.status===401||r.status===403)&&!retried){await refreshAuth();return rest(path,opts,true)}
+  if(!r.ok)throw new Error('HTTP '+r.status+' '+(await r.text().catch(()=>'')).slice(0,140));
+  return r;
+}
+
+/* Every local record, per table. Sessions, routine days and custom names are
+   keyed by id and unioned; settings and program are single rows, newest-wins. */
+function localRows(){
+  const m={};
+  m[T_SESS]=D.sessions.map(x=>({id:x.id,data:x}));
+  m[T_ROUT]=[];
+  ['morning','active'].forEach(k=>(D.routineDates[k]||[]).forEach(d=>m[T_ROUT].push({id:k+'|'+d,data:{k:k,d:d}})));
+  m[T_CUST]=D.customExercises.map(n=>({id:n,data:{n:n}}));
+  m[T_SET]=[{id:'settings',data:{at:D.settingsAt||'',v:D.settings}}];
+  m[T_PROG]=Array.isArray(D.program)?[{id:'program',data:{at:D.programAt||'',v:D.program}}]:[];
+  return m;
+}
+function ledgerDrop(t,id){
+  const L=SY.ledger[t];if(!Array.isArray(L))return;
+  const i=L.indexOf(id);if(i>=0)L.splice(i,1);
+}
+/* Deletions propagate by diffing against the previous id ledger, so nothing has
+   to hook the delete paths. */
+async function pushLocal(){
+  const lr=localRows(),rows=[],next={};
+  SYNC_TABLES.forEach(t=>{
+    const recs=lr[t]||[],ids=recs.map(r=>r.id),prev=Array.isArray(SY.ledger[t])?SY.ledger[t]:[];
+    const singleton=(t===T_SET||t===T_PROG);
+    next[t]=ids;
+    recs.forEach(r=>{if(singleton||prev.indexOf(r.id)<0)
+      rows.push({user_id:AU.uid,device_id:SY.device,table_name:t,record_id:r.id,data:r.data,deleted:false})});
+    prev.forEach(id=>{if(ids.indexOf(id)<0)
+      rows.push({user_id:AU.uid,device_id:SY.device,table_name:t,record_id:id,data:null,deleted:true})});
+  });
+  for(let i=0;i<rows.length;i+=200)
+    await rest('sync_records?on_conflict=user_id,table_name,record_id',
+      {method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},
+       body:JSON.stringify(rows.slice(i,i+200))});
+  SY.ledger=next;persistSY();
+  return rows.length;
+}
+/* Merge one remote row. Returns true only if local data actually changed. */
+function applyRemote(row){
+  const t=row.table_name,id=row.record_id,d=row.data||{};
+  if(t===T_SESS){
+    if(row.deleted){const n=D.sessions.length;D.sessions=D.sessions.filter(x=>x.id!==id);ledgerDrop(t,id);return D.sessions.length!==n}
+    if(D.sessions.some(x=>x.id===id))return false;    // a finished session never changes
+    const ss=sanitizeSession(row.data);               // network data gets the same checks as a backup file
+    if(!ss)return false;
+    ss.synced=true;D.sessions.push(ss);return true;
+  }
+  if(t===T_ROUT){
+    const k=d.k,day=d.d;
+    if(k!=='morning'&&k!=='active')return false;
+    if(typeof day!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(day))return false;
+    const arr=D.routineDates[k];
+    if(row.deleted){const i=arr.indexOf(day);ledgerDrop(t,id);if(i<0)return false;arr.splice(i,1);return true}
+    if(arr.indexOf(day)>=0)return false;
+    arr.push(day);arr.sort();return true;
+  }
+  if(t===T_CUST){
+    if(row.deleted){const n=D.customExercises.length;D.customExercises=D.customExercises.filter(x=>x!==id);ledgerDrop(t,id);return D.customExercises.length!==n}
+    if(typeof id!=='string'||!id||D.customExercises.indexOf(id)>=0)return false;
+    D.customExercises.push(id);return true;
+  }
+  if(t===T_SET){
+    if(row.deleted||!d.v||typeof d.v!=='object')return false;
+    if((d.at||'')<=(D.settingsAt||''))return false;
+    const v=d.v;
+    if(v.unit==='lb'||v.unit==='kg')D.settings.unit=v.unit;
+    if([0,45,60,75,90].indexOf(+v.roundRest)>=0)D.settings.roundRest=+v.roundRest;
+    if([20,25,30,40].indexOf(+v.sessionTarget)>=0)D.settings.sessionTarget=+v.sessionTarget;
+    D.settingsAt=d.at;return true;
+  }
+  if(t===T_PROG){
+    if(row.deleted||!Array.isArray(d.v)||d.v.length!==PROGRAM.length)return false;
+    if((d.at||'')<=(D.programAt||''))return false;
+    if(!d.v.every(x=>x&&typeof x.name==='string'&&(Array.isArray(x.variants)||Array.isArray(x.blocks))))return false;
+    D.program=d.v;migrateProgram();D.programAt=d.at;return true;
+  }
+  return false;
+}
+async function pullRemote(){
+  const cursor=SY.cursor||EPOCH;
+  let maxSeen=cursor,changed=0;
+  const cols='table_name,record_id,data,updated_at,deleted';
+  for(let off=0;;off+=500){
+    const q='sync_records?select='+cols
+      +'&table_name=in.('+SYNC_TABLES.join(',')+')'
+      +'&updated_at=gt.'+encodeURIComponent(cursor)
+      +'&or=(device_id.is.null,device_id.neq.'+encodeURIComponent(SY.device)+')'
+      +'&order=updated_at.asc&limit=500&offset='+off;
+    const batch=await (await rest(q,{method:'GET'})).json();
+    if(!Array.isArray(batch))break;
+    batch.forEach(row=>{
+      if(row.updated_at>maxSeen)maxSeen=row.updated_at;
+      if(SYNC_TABLES.indexOf(row.table_name)<0)return;  // belt and braces; the server already filtered
+      if(applyRemote(row))changed++;
+    });
+    if(batch.length<500)break;
+  }
+  if(maxSeen>cursor){SY.cursor=maxSeen;persistSY()}
+  return changed;
+}
+async function syncNow(silent){
+  if(!signedIn()){if(!silent)showSignIn();return}
+  if(syncing)return;
+  if(!navigator.onLine){if(!silent)toast('Offline — sync when you have signal');return}
+  syncing=true;
+  try{
+    const up=await pushLocal();
+    const down=await pullRemote();
+    D.sessions.forEach(x=>x.synced=true);
+    SY.lastSync=new Date().toISOString();persistSY();persist();
+    if(!silent)toast('✓ Synced'+(up?' ↑'+up:'')+(down?' ↓'+down:''));
+    render();
+  }catch(e){
+    if(!silent)toast('Sync failed — your data is safe on this device');
+  }finally{syncing=false}
+}
+function showSignIn(){showModal(`<h3>☁️ Sign in</h3>
+  <p class="hint">Same account as StrikeZone. Your workouts stay on this device either way — signing in just backs them up.</p>
+  <input class="search" id="siEmail" type="email" inputmode="email" autocomplete="username" placeholder="Email">
+  <input class="search" id="siPass" type="password" autocomplete="current-password" placeholder="Password">
+  <button class="btn btn-primary" data-action="signInGo">Sign in</button>
+  <button class="btn btn-ghost" data-action="closeModal">Cancel</button>`)}
 function exportData(){
   const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
@@ -1061,6 +1400,7 @@ function sanitizeSession(s){
     template:typeof s.template==='string'?s.template:'Custom',
     notes:typeof s.notes==='string'?s.notes:'',synced:!!s.synced};
   if(typeof s.finishedAt==='string')out.finishedAt=s.finishedAt;
+  if(typeof s.variant==='string')out.variant=s.variant;
   if(!out.id)return null;
   const exOk=e=>e&&typeof e.name==='string'&&e.name&&Array.isArray(e.sets);
   if(Array.isArray(s.blocks)){
@@ -1088,6 +1428,21 @@ function importData(txt){
   if(Array.isArray(obj.program)&&obj.program.length===PROGRAM.length&&
      obj.program.every(d=>d&&typeof d.name==='string'&&(Array.isArray(d.variants)||Array.isArray(d.blocks))))
     {D.program=obj.program;migrateProgram()}
+  // routineDates + settings ride along in the export; restore them too, or a
+  // restore silently wipes the stretch history and every preference.
+  if(obj.routineDates&&typeof obj.routineDates==='object')
+    ['morning','active'].forEach(k=>{
+      const inc=obj.routineDates[k];
+      if(!Array.isArray(inc))return;
+      inc.forEach(d=>{if(typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&!D.routineDates[k].includes(d))D.routineDates[k].push(d)});
+      D.routineDates[k].sort();
+    });
+  if(obj.settings&&typeof obj.settings==='object'){
+    const inc=obj.settings,st=D.settings;
+    if(inc.unit==='lb'||inc.unit==='kg')st.unit=inc.unit;
+    if([0,45,60,75,90].includes(+inc.roundRest))st.roundRest=+inc.roundRest;
+    if([20,25,30,40].includes(+inc.sessionTarget))st.sessionTarget=+inc.sessionTarget;
+  }
   persist();closeModal();
   toast(added?'Restored '+added+' workout'+(added===1?'':'s')+(skipped?' ('+skipped+' invalid skipped)':''):'Nothing new to restore');render();
 }
@@ -1115,7 +1470,7 @@ document.addEventListener('click',e=>{
     swapCtx.name=n;showSwapScope()}
   else if(a==='swapToday')applySwap(false);
   else if(a==='swapAlways')applySwap(true);
-  else if(a==='resetProgram')showConfirm('Reset weekly program?','All every-week swaps go back to the original program. Your workout history is untouched.',()=>{delete D.program;persist();closeModal();render();toast('Program reset to defaults')});
+  else if(a==='resetProgram')showConfirm('Reset weekly program?','All every-week swaps go back to the original program. Your workout history is untouched.',()=>{delete D.program;touchProgram();persist();closeModal();render();toast('Program reset to defaults')});
   else if(a==='stretchStart'){unlockAudio();ST={r:+el.dataset.r||0,i:0,paused:false,remaining:0,endsAt:null};stretchSetup();acquireWake();view='workout';render()}
   else if(a==='stretchPause'){if(!ST.endsAt&&!ST.paused)return;
     if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}render()}
@@ -1177,12 +1532,21 @@ document.addEventListener('click',e=>{
   else if(a==='goNow'){if(T&&T.mode==='next'){const nb=T.b,ne=T.e;T=null;localStorage.removeItem(TIMER_KEY);beepN(1);startWorkFor(nb,ne)}}
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
-  else if(a==='sync')syncNotion();
-  else if(a==='relayCfg')showModal(`<h3>Relay URL</h3>
-    <p class="hint">Paste the URL of your deployed relay function (Cloudflare Worker / Netlify Function). Leave blank until step 4.</p>
-    <input class="search" id="relayInput" placeholder="https://…" value="${esc(D.settings.relayUrl||'')}">
-    <button class="btn btn-primary" data-action="relaySave">Save</button>`);
-  else if(a==='relaySave'){D.settings.relayUrl=$('#relayInput').value.trim();persist();closeModal();toast(D.settings.relayUrl?'Relay saved':'Relay cleared');render()}
+  else if(a==='sync')syncNow(false);
+  else if(a==='signInOpen')showSignIn();
+  else if(a==='signInGo'){
+    const em=($('#siEmail').value||'').trim(),pw=$('#siPass').value||'';
+    if(!em||!pw){toast('Email and password both needed');return}
+    toast('Signing in…');
+    signIn(em,pw).then(()=>{closeModal();toast('Signed in');render();return syncNow(false)})
+      .catch(err=>toast(String((err&&err.message)||err).slice(0,90)));
+  }
+  else if(a==='signOut')showConfirm('Sign out?','Your workouts stay on this device. Signing back in re-syncs everything.',
+    ()=>{signOutLocal();closeModal();render();toast('Signed out')});
+  else if(a==='bumpW'){
+    const ex=A.blocks[+el.dataset.b].exercises[+el.dataset.e];
+    ex._w=el.dataset.w;persistA();render();toast('Set to '+el.dataset.w+' '+unit());
+  }
   else if(a==='export')exportData();
   else if(a==='copy')copyData();
   else if(a==='importOpen')showModal(`<h3>Restore from backup</h3>
@@ -1190,11 +1554,22 @@ document.addEventListener('click',e=>{
     <textarea id="importTxt" rows="6" placeholder='{"version":2,"sessions":[…]}'></textarea>
     <button class="btn btn-primary" data-action="importDo">Restore</button>`);
   else if(a==='importDo')importData($('#importTxt').value);
-  else if(a==='unit'){D.settings.unit=el.dataset.u;persist();render()}
-  else if(a==='roundRest'){D.settings.roundRest=+el.dataset.s;persist();render()}
-  else if(a==='target'){D.settings.sessionTarget=+el.dataset.m;persist();render()}
-  else if(a==='clearAll')showConfirm('Erase ALL data?','Every workout on this device will be permanently deleted. Export a backup first!',()=>{
-    localStorage.removeItem(DATA_KEY);localStorage.removeItem(ACTIVE_KEY);localStorage.removeItem(TIMER_KEY);location.reload()});
+  else if(a==='unit'){D.settings.unit=el.dataset.u;touchSettings();persist();render()}
+  else if(a==='roundRest'){D.settings.roundRest=+el.dataset.s;touchSettings();persist();render()}
+  else if(a==='target'){D.settings.sessionTarget=+el.dataset.m;touchSettings();persist();render()}
+  else if(a==='clearAll'){
+    const cloud=signedIn();
+    showConfirm(cloud?'Reset this device?':'Erase ALL data?',
+      cloud?'Clears the local copy only. Your workouts stay in the cloud and download again on the next sync.'
+           :'Every workout on this device will be permanently deleted, and there is no cloud copy to restore from. Export a backup first!',
+      ()=>{
+    // SYNC_KEY goes too. Leaving the id ledger behind would make the next sync
+    // read every cleared session as a deletion and tombstone it in the cloud —
+    // this button says "on this device", so it must not propagate. Cleared and
+    // still signed in, the next sync pulls the history back down instead.
+    localStorage.removeItem(DATA_KEY);localStorage.removeItem(ACTIVE_KEY);
+    localStorage.removeItem(TIMER_KEY);localStorage.removeItem(SYNC_KEY);location.reload()});
+  }
   else if(a==='dismissInstallHint'){D.settings.installHintDismissed=true;persist();render()}
   else if(a==='confirmYes'){const cb=window._confirmCb;window._confirmCb=null;if(cb)cb()}
   else if(a==='closeModal'){if(!el.classList.contains('modal-bg')||e.target===el)closeModal()}
@@ -1219,6 +1594,8 @@ if(A)acquireWake();
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 if('serviceWorker' in navigator&&location.protocol==='https:')
   navigator.serviceWorker.register('sw.js').catch(()=>{});
+// Quiet catch-up on open. Deliberately after first paint, and silent on failure.
+if(signedIn())setTimeout(()=>syncNow(true),1500);
 </script>
 </body>
 </html>

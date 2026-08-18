@@ -1,5 +1,5 @@
 // Tiny offline cache: network-first so updates land, cache fallback for the gym.
-const CACHE = 'workout-v2';
+const CACHE = 'workout-v3';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(
@@ -10,6 +10,9 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Same-origin only. Supabase reads are cross-origin GETs; caching them would
+  // hand back stale sync data on a weak connection.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(res => {
