@@ -102,6 +102,10 @@ main{padding:14px 14px calc(90px + var(--timer-h,60px));max-width:560px;margin:0
 .strow.cur{color:var(--accent);font-weight:800}
 .strow .dim{color:var(--dim);font-weight:400}
 .infobtn{border:none;background:none;color:var(--dim);font-size:17px;padding:4px 8px;cursor:pointer}
+.stedit{display:flex;align-items:center;gap:4px;margin-left:8px}
+.stedit button{border:1px solid var(--line);background:var(--card2);color:var(--accent);
+  border-radius:9px;width:36px;height:36px;font-size:20px;font-weight:700;cursor:pointer}
+.stedit.ghost{width:80px}
 .timer-bar.flash{animation:flash .5s 4}
 @keyframes flash{50%{background:var(--warn)}}
 .timer-bar .t{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -163,11 +167,13 @@ const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1',
 function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){try{toast('⚠️ Couldn’t save — storage full? Export a backup')}catch(_){}return false}}
-const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5};
+const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5,holds:{}};
 let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
 D.settings=Object.assign({},DEFAULTS,D.settings||{});
+// never share the DEFAULTS object itself - stepping a hold would mutate the defaults
+if(!D.settings.holds||typeof D.settings.holds!=='object')D.settings.holds={};
 delete D.settings.relayUrl;                       // Notion relay retired in favour of cloud sync
 // Change-times for the only two records that can conflict across devices.
 if(typeof D.settingsAt!=='string')D.settingsAt='';
@@ -193,6 +199,7 @@ if(T&&T.endsAt<=Date.now()){
 }
 let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=load(STRETCH_KEY,null);  // active stretch routine - see the stretch runner below
+let stretchPrev=null; // stretch routine being set up before starting
 let previewIdx=null;  // day being previewed before starting
 let previewDraft=null;// editable copy of that day's blocks (session-only swaps live here)
 let previewVar=0;     // which variant the preview is showing
@@ -699,6 +706,7 @@ function setHead(t,sub){$('#title').textContent=t;$('#subtitle').textContent=sub
 /* ---- workout: start screen ---- */
 function renderWorkout(){
   if(ST&&!ST.min){renderStretch();return}
+  if(stretchPrev!=null){renderStretchPreview();return}
   if(A){renderActive();return}
   if(previewIdx!=null){renderPreview();return}
   renderStart();
@@ -776,17 +784,25 @@ function applySwap(always){
      min   = backed out to the menu; the routine is parked, not ended.
    ST lives in its own storage key so leaving the screen (or the app) keeps it. */
 function persistST(){if(ST)save(STRETCH_KEY,ST);else localStorage.removeItem(STRETCH_KEY)}
-function stSecs(it){return it.secs||Math.max(10,(it.reps||10)*2)}
+/* A hold can be retimed per routine+move. Rep-based moves are self-paced, so
+   only timed holds are overridable; the estimate below just feeds the ~N min. */
+function holdKey(R,it){return R.key+'|'+it.name}
+function holdSecs(R,it){
+  if(!it.secs)return 0;
+  const o=D.settings.holds[holdKey(R,it)];
+  return o>0?o:it.secs;
+}
+function stSecs(R,it){return it.secs?holdSecs(R,it):Math.max(10,(it.reps||10)*2)}
 function stSteps(R){return R.items.reduce((a,it)=>a+(it.side?2:1),0)}
 function stStepIdx(R,i,side){let k=0;for(let x=0;x<i;x++)k+=R.items[x].side?2:1;return k+(side||0)}
 function routineMins(R){const tr=D.settings.transition||0;
   let s=0;R.items.forEach(it=>{const reps=it.side?2:1;
-    s+=reps*stSecs(it)+(it.secs?reps:reps-1)*tr});   // rep moves self-pace, only sides need the gap
+    s+=reps*stSecs(R,it)+(it.secs?reps:reps-1)*tr});   // rep moves self-pace, only sides need the gap
   return Math.max(1,Math.round(s/60));}
 function stretchSetup(){
   const it=ROUTINES[ST.r].items[ST.i];
   ST.phase='go';ST.paused=false;ST.remaining=0;ST.cd=0;
-  ST.endsAt=it.secs?Date.now()+it.secs*1000:null;
+  ST.endsAt=it.secs?Date.now()+holdSecs(ROUTINES[ST.r],it)*1000:null;
   persistST();
 }
 function stretchReady(){          // a few seconds to get into the next position
@@ -799,7 +815,7 @@ function stretchReady(){          // a few seconds to get into the next position
 function stretchListHTML(R){
   return R.items.map((x,xi)=>`<div class="strow${xi===ST.i?' cur':''}${xi<ST.i?' done':''}" data-action="stJump" data-i="${xi}">
     <span class="nm">${xi<ST.i?'✓ ':''}${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
-    <span class="sum">${x.secs?fmtClock(x.secs):'× '+x.reps}</span></div>`).join('');
+    <span class="sum">${x.secs?fmtClock(holdSecs(R,x)):'× '+x.reps}</span></div>`).join('');
 }
 function renderStretch(){
   const R=ROUTINES[ST.r],it=R.items[ST.i];
@@ -836,6 +852,36 @@ function renderStretch(){
   <button class="btn btn-danger" data-action="stretchEnd">End stretching</button>`;
   const cur=$('#stList .strow.cur');
   if(cur)cur.scrollIntoView({block:'nearest'});
+}
+function renderStretchPreview(){
+  const R=ROUTINES[stretchPrev];
+  setHead(R.name,stSteps(R)+' steps · ~'+routineMins(R)+' min');
+  const tweaked=R.items.some(x=>x.secs&&holdSecs(R,x)!==x.secs);
+  let h=`<div class="card">
+    <div class="lbl" style="text-align:left">Every hold at once</div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn" style="flex:1" data-action="holdAll" data-d="-1">− 5s each</button>
+      <button class="btn" style="flex:1" data-action="holdAll" data-d="1">+ 5s each</button>
+    </div>
+    ${tweaked?`<button class="addex" data-action="holdReset">↺ Back to the original times</button>`:''}
+  </div>
+  <div class="card" style="padding:4px 14px">`;
+  R.items.forEach((x,xi)=>{
+    h+=`<div class="strow" style="cursor:default">
+      <span class="nm" data-action="info" data-n="${esc(x.name)}">${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
+      <span class="sum">${x.secs?fmtClock(holdSecs(R,x)):'× '+x.reps}</span>
+      ${x.secs?`<span class="stedit">
+        <button data-action="holdStep" data-i="${xi}" data-d="-1">−</button>
+        <button data-action="holdStep" data-i="${xi}" data-d="1">+</button></span>`
+       :`<span class="stedit ghost"></span>`}</div>`;
+  });
+  h+=`</div>
+  <div class="card"><div class="lbl" style="text-align:left">Get ready between moves</div>
+    <div class="seg">${[0,3,5,8,12].map(s=>`<button class="${D.settings.transition===s?'on':''}" data-action="transition" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}</div>
+    <p class="hint" style="margin:8px 0 0">Tap a name to read what it is or watch it.</p></div>
+  <button class="btn btn-primary" style="padding:17px" data-action="stretchGo">▶ Start ${esc(R.name)}</button>
+  <button class="btn" data-action="stretchPreviewBack">← Back</button>`;
+  $('#main').innerHTML=h;
 }
 function stretchAdvance(){
   if(!ST)return;
@@ -1752,9 +1798,30 @@ document.addEventListener('click',e=>{
   else if(a==='resetProgram')showConfirm('Reset weekly program?','All every-week swaps go back to the original program. Your workout history is untouched.',()=>{delete D.program;touchProgram();persist();closeModal();render();toast('Program reset to defaults')});
   else if(a==='stretchStart'){unlockAudio();
     const r=+el.dataset.r||0;
+    // a parked routine picks up where it was; anything else opens the setup screen
     if(ST&&ST.r===r){ST.min=false;stretchReady();acquireWake();view='workout';render();return}
-    ST={r,i:0,side:0,phase:'go',paused:false,remaining:0,endsAt:null,min:false};
-    stretchSetup();acquireWake();view='workout';render()}
+    stretchPrev=r;view='workout';render()}
+  else if(a==='stretchGo'){unlockAudio();
+    ST={r:stretchPrev,i:0,side:0,phase:'go',paused:false,remaining:0,endsAt:null,min:false};
+    stretchPrev=null;stretchSetup();acquireWake();render()}
+  else if(a==='stretchPreviewBack'){stretchPrev=null;render()}
+  else if(a==='holdStep'){
+    const R=ROUTINES[stretchPrev],it=R.items[+el.dataset.i];
+    const v=Math.max(5,Math.min(300,holdSecs(R,it)+(+el.dataset.d)*5));
+    if(v===it.secs)delete D.settings.holds[holdKey(R,it)];
+    else D.settings.holds[holdKey(R,it)]=v;
+    touchSettings();persist();render()}
+  else if(a==='holdAll'){
+    const R=ROUTINES[stretchPrev],d=+el.dataset.d;
+    R.items.forEach(it=>{if(!it.secs)return;
+      const v=Math.max(5,Math.min(300,holdSecs(R,it)+d*5));
+      if(v===it.secs)delete D.settings.holds[holdKey(R,it)];
+      else D.settings.holds[holdKey(R,it)]=v;});
+    touchSettings();persist();render()}
+  else if(a==='holdReset'){
+    const R=ROUTINES[stretchPrev];
+    R.items.forEach(it=>{delete D.settings.holds[holdKey(R,it)]});
+    touchSettings();persist();render();toast('Original times restored')}
   else if(a==='stretchPause'){if(!ST.endsAt&&!ST.paused)return;
     if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}
     persistST();render()}
