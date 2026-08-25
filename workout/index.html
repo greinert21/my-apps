@@ -27,7 +27,7 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
   padding:calc(env(safe-area-inset-top) + 12px) 16px 10px;border-bottom:1px solid var(--line)}
 .topbar h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.2px}
 .topbar .sub{font-size:13px;color:var(--dim);margin-top:2px}
-main{padding:14px 14px 150px;max-width:560px;margin:0 auto}
+main{padding:14px 14px calc(90px + var(--timer-h,60px));max-width:560px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
 .card h3{margin:0 0 6px;font-size:18px}
 .hint{font-size:13px;color:var(--dim)}
@@ -81,7 +81,27 @@ main{padding:14px 14px 150px;max-width:560px;margin:0 auto}
 .bottomnav button.on{color:var(--accent)}
 .timer-bar{position:fixed;left:10px;right:10px;bottom:calc(64px + env(safe-area-inset-bottom));z-index:9;
   background:var(--accent-dark);color:#fff;border-radius:14px;padding:10px 14px;
-  display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+  display:flex;flex-direction:column;gap:7px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.tb-main{display:flex;align-items:center;gap:10px}
+.tb-nm{font-size:13px;font-weight:700;opacity:.9;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-w{display:flex;align-items:center;gap:8px;border-top:1px solid rgba(255,255,255,.22);padding-top:7px}
+.tb-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;opacity:.75}
+.tb-val{flex:1;font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;text-align:center}
+.tb-w button{width:46px;font-size:22px;padding:5px 0}
+.tb-side{font-size:12px;font-weight:800;letter-spacing:.5px;background:rgba(255,255,255,.2);border-radius:8px;padding:5px 8px}
+.tb-side.on{background:#fff;color:#b45309}
+.stclock{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;margin:10px 0;line-height:1}
+.sidechip{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:4px 10px;margin-top:6px}
+.strow{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line);
+  font-size:15px;cursor:pointer}
+.strow:last-child{border-bottom:none}
+.strow .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.strow .sum{color:var(--dim);font-size:13px;font-variant-numeric:tabular-nums}
+.strow.done{opacity:.45}
+.strow.cur{color:var(--accent);font-weight:800}
+.strow .dim{color:var(--dim);font-weight:400}
+.infobtn{border:none;background:none;color:var(--dim);font-size:17px;padding:4px 8px;cursor:pointer}
 .timer-bar.flash{animation:flash .5s 4}
 @keyframes flash{50%{background:var(--warn)}}
 .timer-bar .t{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -138,11 +158,12 @@ a{color:var(--accent)}
 <script>
 'use strict';
 /* ============ storage & migration ============ */
-const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1';
+const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1',
+      STRETCH_KEY='wt_stretch_v1';
 function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){try{toast('⚠️ Couldn’t save — storage full? Export a backup')}catch(_){}return false}}
-const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25};
+const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5};
 let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
@@ -171,7 +192,7 @@ if(T&&T.endsAt<=Date.now()){
   T=null;localStorage.removeItem(TIMER_KEY);
 }
 let view='workout', expanded={}, progressEx='', progressMetric='top';
-let ST=null;          // active stretch routine {r,i,endsAt,paused,remaining}
+let ST=load(STRETCH_KEY,null);  // active stretch routine - see the stretch runner below
 let previewIdx=null;  // day being previewed before starting
 let previewDraft=null;// editable copy of that day's blocks (session-only swaps live here)
 let previewVar=0;     // which variant the preview is showing
@@ -193,48 +214,48 @@ const PROGRAM=[
     {n:'DB Reverse Lunge',secs:45,w:20,cue:'Torso tall. Step back, do not lean forward.'}]},
    {rounds:3,exercises:[
     {n:'Barbell Hip Thrust',secs:45,w:135,cue:'Floor bar. Glutes finish the rep, not the low back.'},
-    {n:'Band Pallof Press',secs:45,w:0,cue:'Resist the twist. Ribs stacked over hips.'},
+    {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Resist the twist. Ribs stacked over hips.'},
     {n:'Standing Barbell Calf Raise',secs:45,w:135,cue:'Same cage bar as the squat - leave the load alone.'}]},
    {rounds:3,exercises:[
-    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips square. Reach back, do not bend down.'},
+    {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Hips square. Reach back, do not bend down.'},
     {n:'Ab Rollout',secs:45,w:0,cue:'Only as far as the ribs stay down. Short beats sagging.'},
     {n:'DB Goblet Squat',secs:45,w:40,cue:'Elbows inside the knees, chest tall.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
     {n:'Barbell Front Squat',secs:60,w:95,cue:'Elbows up. Ribs stacked over the hips.'},
     {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. Not a leg raise.'},
-    {n:'DB Bulgarian Split Squat',secs:45,w:20,cue:'Front shin vertical. Do not chase depth.'}]},
+    {n:'DB Bulgarian Split Squat',side:true,secs:45,w:20,cue:'Front shin vertical. Do not chase depth.'}]},
    {rounds:3,exercises:[
     {n:'Barbell Romanian Deadlift',secs:45,w:95,cue:'Floor bar. Push the hips back, flat back.'},
-    {n:'Band Pallof Press',secs:45,w:0,cue:'Slow out, slow back. Hips still.'},
+    {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Slow out, slow back. Hips still.'},
     {n:'Standing Barbell Calf Raise',secs:45,w:95,cue:'Same bar as the front squat - no plate change.'}]},
    {rounds:3,exercises:[
     {n:'DB Goblet Squat',secs:45,w:40,cue:'Sit between the hips. Heels down.'},
     {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the whole way out.'},
-    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Slow. Hamstrings load as you reach back.'}]}]},
+    {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Slow. Hamstrings load as you reach back.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
     {n:'Barbell Pause Back Squat',secs:60,w:115,cue:'2s pause at the bottom. Stay braced through it.'},
     {n:'Dead Bug',secs:45,w:0,cue:'Exhale as the leg goes out. Ribs down.'},
-    {n:'DB Split Squat',secs:45,w:20,cue:'Upright torso, controlled descent.'}]},
+    {n:'DB Split Squat',side:true,secs:45,w:20,cue:'Upright torso, controlled descent.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Balance is the point, not the weight.'},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Stop before the low back gives. Range is earned.'},
+    {n:'DB Reverse Lunge',secs:45,w:20,cue:'Quiet feet. Control the way down.'}]},
    {rounds:3,exercises:[
     {n:'Landmine Squat',secs:45,w:45,cue:'Floor bar in the sleeve. The bar path keeps you upright.'},
-    {n:'Band Standing Ab Twist',secs:45,w:0,cue:'Turn from the ribs, hips face forward.'},
-    {n:'DB Standing Calf Raise',secs:45,w:40,cue:'Full stretch at the bottom, pause at the top.'}]},
-   {rounds:3,exercises:[
-    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Balance is the point, not the weight.'},
-    {n:'Ab Rollout',secs:45,w:0,cue:'Stop before the low back gives. Range is earned.'},
-    {n:'DB Reverse Lunge',secs:45,w:20,cue:'Quiet feet. Control the way down.'}]}]}
+    {n:'Band Standing Ab Twist',side:true,secs:45,w:0,cue:'Turn from the ribs, hips face forward.'},
+    {n:'DB Standing Calf Raise',secs:45,w:40,cue:'Full stretch at the bottom, pause at the top.'}]}]}
  ]},
  {day:'Tue',name:'Upper Body A',variants:[
   {label:'A',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Bench Press',secs:45,w:115,cue:'Cage bar. Shoulder blades pinned back and down.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned back and down, press up and slightly together.'},
     {n:'Bent-Over Barbell Row',secs:45,w:95,cue:'Floor bar. Pull to the belly, ribs down.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead. Light on purpose.'},
     {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the shoulder blades.'}]},
    {rounds:3,exercises:[
-    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Do not let the ribs flare at the top.'},
+    {n:'DB Floor Press',secs:45,w:30,cue:'On the floor - the bench stays on the incline all workout. Elbows brush down, then press.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows to the ribs.'},
     {n:'DB Skullcrusher',secs:45,w:20,cue:'Upper arms vertical and still.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms. The slow return is the work.'}]},
@@ -245,23 +266,23 @@ const PROGRAM=[
     {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over. Squeeze, do not swing.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
-    {n:'DB Bench Press',secs:45,w:30,cue:'Wrists over elbows. Control the bottom.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Wrists over the elbows, control the bottom.'},
     {n:'Wide-Grip Lat Pulldown',secs:45,w:70,cue:'Lean back slightly, drive the elbows down.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
     {n:"Prone T's",secs:45,w:0,cue:'Forehead down, neck relaxed.'}]},
    {rounds:3,exercises:[
-    {n:'Barbell Incline Bench Press',secs:45,w:95,cue:'Cage bar. Do not arch to move it.'},
+    {n:'DB Floor Press',secs:45,w:30,cue:'Floor, not the bench - the dips later need it flat. Short range, easy on the shoulder.'},
     {n:'Bent-Over DB Row',secs:45,w:30,cue:'Flat back. Elbow past the ribs.'},
     {n:'Bench Dip',secs:45,w:0,cue:'Shoulders down. Do not sink into the joint.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades.'}]},
    {rounds:3,exercises:[
     {n:'DB Flye',secs:45,w:20,cue:'Slight elbow bend, wide arc. Light.'},
     {n:'DB Biceps Curl',secs:45,w:20,cue:'No swinging. Shoulders stay back.'},
-    {n:'Side Plank',secs:45,w:0,cue:'Stack the hips. Bottom shoulder away from the ear.'},
+    {n:'Side Plank',side:true,secs:45,w:0,cue:'Stack the hips. Bottom shoulder away from the ear.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Pull to the forehead, elbows high. Squeeze 1s.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Bench Press',secs:45,w:115,cue:'Cage bar. Feet planted, glutes on the bench.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Do not let the ribs flare to move it.'},
     {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Chest stays up.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Lead with the elbows, not the hands.'},
     {n:"Prone T's",secs:45,w:0,cue:'Lift from the mid-back, not the arms.'}]},
@@ -298,7 +319,7 @@ const PROGRAM=[
    {rounds:3,exercises:[
     {n:'Barbell Hip Thrust',secs:45,w:95,cue:'Same bar, same load - no plate change.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Drive the elbows down and back.'},
-    {n:'Side Plank',secs:45,w:0,cue:'Hips high, stacked, and still.'}]},
+    {n:'Side Plank',side:true,secs:45,w:0,cue:'Hips high, stacked, and still.'}]},
    {rounds:3,exercises:[
     {n:'Band Lying Hamstring Curl',secs:45,w:0,cue:'Hamstrings get trained here, not stretched.'},
     {n:"Prone T's",secs:45,w:0,cue:'Squeeze 1s at the top of each rep.'},
@@ -309,7 +330,7 @@ const PROGRAM=[
     {n:'Band Face Pull',secs:45,w:0,cue:'Highest-value exercise in this session.'},
     {n:'Dead Bug',secs:45,w:0,cue:'Four slow reps beats twenty fast ones.'}]},
    {rounds:3,exercises:[
-    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips level. Slow on the way back.'},
+    {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Hips level. Slow on the way back.'},
     {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows tight to the body.'},
     {n:'Ab Rollout',secs:45,w:0,cue:'Stop the moment the ribs flare.'}]},
    {rounds:3,exercises:[
@@ -325,8 +346,8 @@ const PROGRAM=[
     {n:'DB Skullcrusher',secs:45,w:20,cue:'Upper arms locked in place.'},
     {n:"Prone T's",secs:45,w:0,cue:'Neck long, chin slightly tucked.'}]},
    {rounds:3,exercises:[
-    {n:'DB Bench Press',secs:45,w:30,cue:'Control the bottom. Blades pinned.'},
-    {n:'One-Arm DB Row',secs:45,w:30,cue:'Do not rotate the torso to lift it.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned, control the bottom.'},
+    {n:'One-Arm DB Row',side:true,secs:45,w:30,cue:'Do not rotate the torso to lift it.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Light. Elbows lead.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Every session. This is the forward-head fix.'}]},
    {rounds:3,exercises:[
@@ -341,15 +362,15 @@ const PROGRAM=[
     {n:'Band Triceps Pushdown',secs:45,w:0,cue:'Elbows still, full lockout.'},
     {n:"Prone T's",secs:45,w:0,cue:'Lift the arms, not the head.'}]},
    {rounds:3,exercises:[
-    {n:'Landmine Press',secs:45,w:45,cue:'Floor bar in the sleeve. Kind to the shoulder.'},
-    {n:'Bent-Over DB Row',secs:45,w:30,cue:'Row to the ribs, squeeze at the top.'},
-    {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
-    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows above the wrists. Do not shrug.'}]},
-   {rounds:3,exercises:[
     {n:'Bench Dip',secs:45,w:0,cue:'Chest up, shoulders away from ears.'},
     {n:'DB Biceps Curl',secs:45,w:20,cue:'Shoulders stay back and down.'},
-    {n:'Side Plank',secs:45,w:0,cue:'One long line from ear to ankle.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow both ways.'}]}]},
+    {n:'Side Plank',side:true,secs:45,w:0,cue:'One long line from ear to ankle.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow both ways.'}]},
+   {rounds:3,exercises:[
+    {n:'Landmine Press',side:true,secs:45,w:45,cue:'Floor bar in the sleeve. Kind to the shoulder.'},
+    {n:'Bent-Over DB Row',secs:45,w:30,cue:'Row to the ribs, squeeze at the top.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows above the wrists. Do not shrug.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
     {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Brace the abs before every rep.'},
@@ -357,15 +378,15 @@ const PROGRAM=[
     {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs stay down, elbows in.'},
     {n:"Prone T's",secs:45,w:0,cue:'The mid-back work nothing else covers.'}]},
    {rounds:3,exercises:[
-    {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor, then press.'},
-    {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Flat back.'},
-    {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead, no swinging.'},
-    {n:'Band Face Pull',secs:45,w:0,cue:'High elbows, squeeze and hold.'}]},
-   {rounds:3,exercises:[
     {n:'Diamond Push-Up',secs:45,w:0,cue:'Elbows close, body straight.'},
     {n:'DB Zottman Curl',secs:45,w:20,cue:'Rotate at the top, lower slowly.'},
     {n:'Dead Bug',secs:45,w:0,cue:'Low back flat is the whole exercise.'},
-    {n:'DB Rear Delt Raise',secs:45,w:10,cue:'Thumbs down, lift wide.'}]}]}
+    {n:'DB Rear Delt Raise',secs:45,w:10,cue:'Thumbs down, lift wide.'}]},
+   {rounds:3,exercises:[
+    {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor, then press.'},
+    {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Flat back.'},
+    {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead, no swinging.'},
+    {n:'Band Face Pull',secs:45,w:0,cue:'High elbows, squeeze and hold.'}]}]}
  ]},
  {day:'Fri',name:'Hips & Postural Control',variants:[
   {label:'A',blocks:[
@@ -374,25 +395,25 @@ const PROGRAM=[
     {n:'Band Face Pull',secs:45,w:0,cue:'Slow, high elbows, real squeeze.'},
     {n:'Dead Bug',secs:45,w:0,cue:'Four slow reps. Quality only today.'}]},
    {rounds:3,exercises:[
-    {n:'DB Single-Leg RDL',secs:45,w:30,cue:'Hips square. Hamstrings load as you reach back.'},
+    {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Hips square. Hamstrings load as you reach back.'},
     {n:"Prone T's",secs:45,w:0,cue:'Squeeze the blades, hold 1s.'},
     {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. No momentum.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Hips back, glutes finish. Low back quiet.'},
-    {n:'Band Pallof Press',secs:45,w:0,cue:'Resist the twist. Ribs over hips.'},
+    {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Resist the twist. Ribs over hips.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms, chest tall.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
-    {n:'Single-Leg Glute Bridge',secs:45,w:0,cue:'Push through the heel. Do not arch to finish.'},
+    {n:'Single-Leg Glute Bridge',side:true,secs:45,w:0,cue:'Push through the heel. Do not arch to finish.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Elbows high, thumbs back.'},
     {n:'Bird Dog',secs:45,w:0,cue:'Long reach, level hips.'}]},
    {rounds:3,exercises:[
-    {n:'DB Split Squat',secs:45,w:20,cue:'Upright torso, front shin vertical.'},
+    {n:'DB Split Squat',side:true,secs:45,w:20,cue:'Upright torso, front shin vertical.'},
     {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the mid-back.'},
     {n:'Hollow Body Hold',secs:45,w:0,cue:'Bend the knees if the low back lifts.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Pure glute work, no low-back help.'},
-    {n:'Band Standing Ab Twist',secs:45,w:0,cue:'Rotate the ribs, hips face forward.'},
+    {n:'Band Standing Ab Twist',side:true,secs:45,w:0,cue:'Rotate the ribs, hips face forward.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow return, squeeze the blades.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
@@ -402,7 +423,7 @@ const PROGRAM=[
    {rounds:3,exercises:[
     {n:'DB Reverse Lunge',secs:45,w:20,cue:'Control the descent. Torso tall.'},
     {n:"Prone T's",secs:45,w:0,cue:'Neck relaxed, chin lightly tucked.'},
-    {n:'Side Plank',secs:45,w:0,cue:'One straight line, hips stacked.'}]},
+    {n:'Side Plank',side:true,secs:45,w:0,cue:'One straight line, hips stacked.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Glutes drive it, low back stays out of it.'},
     {n:'Ab Rollout',secs:45,w:0,cue:'Stop the moment the ribs flare.'},
@@ -431,25 +452,25 @@ migrateProgram();persist();   // upgrade any pre-variant D.program in place
 
 /* Matt's stretch routines: timed items auto-advance, rep items wait for a Done tap */
 const ROUTINES=[
- {key:'morning',name:'Morning Stretch',emoji:'🧘',mins:7,items:[
+ {key:'morning',name:'Morning Stretch',emoji:'🧘',items:[
   {name:'90/90 Rib Stack Breathing',secs:60,note:'Exhale all the way out and feel the ribs drop. This is the rib position everything else borrows.'},
-  {name:'Chest Doorway Stretch',secs:20},
+  {name:'Chest Doorway Stretch',side:true,secs:20},
   {name:'Dead Hang',secs:20},
-  {name:'Head Tilt',secs:20},
+  {name:'Head Tilt',side:true,secs:20},
   {name:'Chin Tuck',secs:30,note:'5 slow holds. Make the back of the neck long - not a nod.'},
-  {name:'Lateral Lunge Stretch',secs:20},
-  {name:'Side Bend Stretch',secs:20},
-  {name:'Reach Behind and Open',secs:20},
-  {name:'Lunge with Ankle Grab',secs:20},
+  {name:'Lateral Lunge Stretch',side:true,secs:20},
+  {name:'Side Bend Stretch',side:true,secs:20},
+  {name:'Reach Behind and Open',side:true,secs:20},
+  {name:'Lunge with Ankle Grab',side:true,secs:20},
   {name:"Prone T's",secs:30,note:'1 set x 10 reps. Thumbs up, lift from the shoulder blades.'},
   {name:'Dead Bug',secs:45,note:'4 slow reps per side. Low back stays flat on the floor.'},
   {name:'Reverse Crunch',secs:30,note:'Curl the pelvis up. Small range, no swinging.'},
   {name:"Child's Pose",secs:20},
-  {name:'Knee to Chest Stretch',secs:20},
-  {name:'Seated Figure Four',secs:20},
-  {name:'Supine Back Stretch',secs:20}
+  {name:'Knee to Chest Stretch',side:true,secs:20},
+  {name:'Seated Figure Four',side:true,secs:20},
+  {name:'Supine Back Stretch',side:true,secs:20}
  ]},
- {key:'active',name:'Active Stretch',emoji:'🤸',mins:6,items:[
+ {key:'active',name:'Active Stretch',emoji:'🤸',items:[
   {name:"Prone T's",reps:10},
   {name:'Butt Kick',reps:10},
   {name:'Airplane',reps:10},
@@ -458,16 +479,157 @@ const ROUTINES=[
   {name:'Shoulder Squeeze',reps:10},
   {name:'Crab Reach',reps:5},
   {name:'Fan Stretch',reps:10},
-  {name:'Knee to Chest Stretch',secs:15},
-  {name:'Reverse Leg Crossover',reps:5},
-  {name:'Supine Back Stretch',secs:15},
-  {name:'Standing Hip Circle',reps:10},
-  {name:'Lateral Lunge Stretch',secs:15},
+  {name:'Knee to Chest Stretch',side:true,secs:15},
+  {name:'Reverse Leg Crossover',side:true,reps:5},
+  {name:'Supine Back Stretch',side:true,secs:15},
+  {name:'Standing Hip Circle',side:true,reps:10},
+  {name:'Lateral Lunge Stretch',side:true,secs:15},
   {name:'Lower Back Stretch',secs:15},
   {name:'Partner Medicine Ball Full Twist',reps:20,note:'30 lb ball'}
  ]}
 ];
+/* A stretch restored from storage is always paused: wall-clock kept running
+   while the app was closed, so resuming where the countdown "would" be is wrong. */
+if(ST&&(!ROUTINES[ST.r]||!ROUTINES[ST.r].items[ST.i])){ST=null;localStorage.removeItem(STRETCH_KEY)}
+else if(ST){ST.side=ST.side||0;ST.phase=ST.phase==='ready'?'ready':'go';
+  if(!ST.paused&&ST.endsAt){ST.remaining=Math.max(3000,ST.endsAt-Date.now());ST.paused=true}}
 const CATALOG=['DB Squat','Ab Rollout','Toe Touches','Standing Barbell Calf Raise','Band Standing Ab Twist','DB Lunge','Bent-Over Barbell Row','Biceps Curl to Shoulder Press','Concentration Curl','Bent-Over DB Row','Cable Rope Tricep Extension','Rack Pull','Landmine Core Rotation','Crunch','Chin-Up','Pull-Up','Landmine Squat to Press','Landmine Row','DB Rear Delt Raise','DB Shoulder Press','Bicycle Crunch','Barbell Back Squat','Barbell Bench Press','Barbell Romanian Deadlift','Barbell Deadlift','Barbell Hip Thrust','Barbell Row','Barbell Overhead Press','Incline DB Bench Press','DB Bench Press','DB Goblet Squat','DB Reverse Lunge','Bulgarian Split Squat','DB Single-Leg RDL','One-Arm DB Row','DB Biceps Curl','Incline DB Curl','DB Hammer Curl','Overhead DB Triceps Extension','DB Skullcrusher','Standing DB Overhead Press','Seated DB Press','DB Lateral Raise','DB Front Raise','DB Rear Delt Fly','DB Shrug','DB Pullover','Standing DB Calf Raise','Seated DB Calf Raise','DB Weighted Crunch','Lying Leg Raise','Dead Bug','Bird Dog','Side Plank','Plank','Superman Hold','Russian Twist','Wide-Grip Lat Pulldown','Neutral-Grip Lat Pulldown','Close-Grip Lat Pulldown','Band Triceps Pushdown','Band Face Pull','Band Pull-Apart','Band Lying Hamstring Curl','Banded Glute Bridge','Band Lateral Walk','Band Biceps Curl','Push-Up','Band Pallof Press','Barbell Front Squat','Reverse Crunch','DB Romanian Deadlift','DB Bulgarian Split Squat','Hollow Body Hold','Barbell Pause Back Squat','Landmine Squat','Barbell Incline Bench Press','Bench Dip','DB Incline Curl','DB Floor Press','Band Pull-Through','Barbell Sumo Deadlift','Landmine Press','DB Zottman Curl','Diamond Push-Up','Single-Leg Glute Bridge','DB Split Squat',"Prone T's",'DB Standing Calf Raise','DB Flye'];
+
+/* ============ what the movement actually is ============
+   One line per movement: the setup, then the thing that makes it count. Reached
+   from the ℹ️ on any exercise or stretch. The video button is a YouTube *search*
+   rather than a fixed clip - a hand-picked id would rot, and search always lands
+   on something current for a name this standard. */
+const INFO={
+ "90/90 Rib Stack Breathing":"On your back with the hips and knees at ninety. Exhale all the way out and feel the ribs drop. This is the rib position every other move borrows.",
+ "Ab Rollout":"From the knees, roll the wheel out and pull it back with the abs. If the low back sags, the range was too long.",
+ "Airplane":"Arms out wide, hinge and rotate the torso open then closed. Thoracic mobility.",
+ "Backward Arm Circle":"Big slow circles backwards. Opens the front of the shoulder.",
+ "Band Biceps Curl":"Stand on the band and curl the handles to the shoulders. Constant tension, elbows pinned.",
+ "Band Face Pull":"Band anchored at face height. Pull to the forehead and finish with the hands wide and the thumbs back.",
+ "Band Lateral Walk":"Band at the shins or knees, quarter squat, step sideways without letting the knees cave in.",
+ "Band Lying Hamstring Curl":"Face down, band on the ankle, curl the heel toward the glute. Hamstrings only - the hips stay still.",
+ "Band Pallof Press":"Band at chest height from the side. Press straight out and refuse to rotate - anti-rotation is the whole exercise.",
+ "Band Pull-Apart":"Arms straight at chest height, pull the band apart until the arms are wide. The slow return is the work.",
+ "Band Pull-Through":"Band between the legs from a low anchor. Hinge back, then snap the hips forward to stand tall.",
+ "Band Standing Ab Twist":"Band at chest height from the side. Rotate away through the ribs while the hips stay facing forward.",
+ "Band Triceps Pushdown":"Band anchored overhead, elbows locked to the sides. Straighten the arms and control the way back.",
+ "Banded Glute Bridge":"Band above the knees, feet flat, drive the hips up and press the knees out.",
+ "Barbell Back Squat":"Cage bar across the upper back. Brace, sit down between the hips, drive back up. Knees track over the toes.",
+ "Barbell Bench Press":"Flat bench in the cage. Shoulder blades pinned back and down, bar to the lower chest, press.",
+ "Barbell Deadlift":"Floor bar. Hips back, flat back, push the floor away and stand tall. The bar stays against the legs.",
+ "Barbell Front Squat":"Bar racked on the front delts with the elbows high. The torso stays upright, so the quads take it.",
+ "Barbell Hip Thrust":"Upper back on the bench, bar over the hips. Drive up until the hips lock out - glutes finish it, not the low back.",
+ "Barbell Incline Bench Press":"Incline bench in the cage. Bar to the upper chest. Do not arch to get it moving.",
+ "Barbell Overhead Press":"Standing, bar at the collarbone. Ribs braced down, press until the head passes through the window.",
+ "Barbell Pause Back Squat":"A back squat with a two-second stop at the bottom, braced the whole time. No bouncing out of the hole.",
+ "Barbell Romanian Deadlift":"From standing, push the hips back and let the bar trace the thighs. Hamstrings stretch; the back never rounds.",
+ "Barbell Row":"Hinged over, pull the bar to the belly and squeeze the shoulder blades. The torso does not rise with the bar.",
+ "Barbell Sumo Deadlift":"Wide stance, hands inside the knees. Push the knees out and the floor away - kinder to the low back than conventional.",
+ "Bench Dip":"Hands on the bench behind you, lower until the elbows hit ninety. Shoulders stay down - do not sink into the joint.",
+ "Bent-Over Barbell Row":"Floor bar, flat back, pull to the belly button with the elbows going past the ribs. No jerking it up.",
+ "Bent-Over DB Row":"Both dumbbells, hinged flat back. Row to the ribs, squeeze, lower slowly.",
+ "Biceps Curl to Shoulder Press":"Curl the dumbbells up, then press them overhead in one flowing rep.",
+ "Bicycle Crunch":"Alternate elbow toward the opposite knee, slowly. Turn from the ribs, not the neck.",
+ "Bird Dog":"On all fours, extend the opposite arm and leg. The hips stay level and nothing rotates.",
+ "Bulgarian Split Squat":"Rear foot on the bench, front shin vertical. Descend under control - the front leg does everything.",
+ "Butt Kick":"Jog in place kicking the heels to the glutes. Wakes up the hamstrings.",
+ "Cable Rope Tricep Extension":"Rope at head height, elbows fixed, spread the rope at lockout. No usable cable stack here - the band pushdown stands in.",
+ "Chest Doorway Stretch":"Forearm on the door frame at shoulder height, step through and turn away. One side at a time.",
+ "Child's Pose":"Sit back onto the heels with the arms long. Breathe into the upper back.",
+ "Chin Tuck":"Draw the chin straight back to make the back of the neck long. Not a nod - this is the posture one.",
+ "Chin-Up":"Palms facing you, chin over the bar. More biceps than a pull-up.",
+ "Close-Grip Lat Pulldown":"Narrow handle, chest up, elbows down to the ribs. More lat stretch at the top.",
+ "Concentration Curl":"Seated, elbow braced on the inner thigh. Curl slowly with zero swing.",
+ "Crab Reach":"From a reverse tabletop, lift the hips and reach one arm overhead. Opens the whole front of the body.",
+ "Crunch":"Curl the ribs toward the hips a few inches. Small range on purpose; the neck stays relaxed.",
+ "DB Bench Press":"Flat bench, dumbbells over the chest. Wrists stacked over the elbows, control the bottom.",
+ "DB Biceps Curl":"Elbows at the sides, curl up and lower under control. No swinging from the hips.",
+ "DB Bulgarian Split Squat":"Rear foot on the bench, dumbbells at the sides. Front shin vertical; do not chase depth.",
+ "DB Floor Press":"Lying on the floor, press from where the elbows touch down. Short range, easy on the shoulders.",
+ "DB Flye":"Slight elbow bend, wide arc down and back together. Light - it is a stretch, not a press.",
+ "DB Front Raise":"Raise the dumbbells to shoulder height in front. Front delts - rarely needed when you already press.",
+ "DB Goblet Squat":"One dumbbell held at the chest. Elbows land inside the knees at the bottom, chest tall.",
+ "DB Hammer Curl":"Neutral grip, thumbs up, elbows pinned. Hits the brachialis and the forearm.",
+ "DB Incline Curl":"Seated on an incline with the arms hanging behind the body. The long stretch at the bottom is the point.",
+ "DB Lateral Raise":"Elbows lead, raise to shoulder height and stop. Deliberately light - this is side delts, not a heave.",
+ "DB Lunge":"Step forward, drop the back knee, push back to standing. The torso stays tall throughout.",
+ "DB Pullover":"Lying on the bench, one dumbbell arcs back over the head. Ribs stay down as the arms travel.",
+ "DB Rear Delt Fly":"Hinged over, raise the dumbbells out to the sides. Squeeze the shoulder blades - do not swing them up.",
+ "DB Rear Delt Raise":"Bent over, arms wide, lift with the rear delts. Light and slow beats heavy and sloppy.",
+ "DB Reverse Lunge":"Step back, drop the knee, return. Easier on the knees than lunging forward.",
+ "DB Romanian Deadlift":"Hips back, dumbbells trace the thighs. The hamstrings load; the back stays flat.",
+ "DB Shoulder Press":"Press from the shoulders to overhead without letting the ribs flare.",
+ "DB Shrug":"Shrug straight up toward the ears, pause, lower slowly. No rolling the shoulders.",
+ "DB Single-Leg RDL":"One leg down, hips square, reach the dumbbell toward the floor as the free leg goes back. Balance is the point, not the load.",
+ "DB Skullcrusher":"Lying down, upper arms vertical and still. Lower to the forehead, press back up.",
+ "DB Split Squat":"Staggered stance with both feet on the floor. Straight up and down on the front leg.",
+ "DB Squat":"Dumbbells at the sides or shoulders. Sit between the hips with the heels down.",
+ "DB Standing Calf Raise":"Dumbbells at the sides. Full stretch at the bottom, pause at the top, lower slowly.",
+ "DB Weighted Crunch":"Same short crunch, holding a dumbbell at the chest.",
+ "DB Zottman Curl":"Curl palms up, rotate at the top, lower palms down. Biceps on the way up, forearms on the way down.",
+ "Dead Bug":"On the back, opposite arm and leg reach out. The low back stays flat - stop the moment it lifts.",
+ "Dead Hang":"Hang from the bar with the shoulders relaxed. Decompresses the spine and opens the lats.",
+ "Diamond Push-Up":"Hands together under the chest, elbows close to the body. The triceps do most of it.",
+ "Fan Stretch":"Wide stance, hands to the floor, walk them side to side. Adductors and hamstrings.",
+ "Forward Arm Circle":"Big slow circles forwards. Warms the shoulder through its full range.",
+ "Head Tilt":"Ear toward the shoulder while the opposite shoulder stays down. Gentle, one side at a time.",
+ "Hollow Body Hold":"On the back with the low back pressed into the floor, shoulders and legs lifted. Hold the shape.",
+ "Incline DB Bench Press":"Bench on an incline, dumbbells press up and slightly together. Upper chest - do not let the ribs flare at the top.",
+ "Incline DB Curl":"Seated on an incline with the arms hanging behind the body. The long stretch at the bottom is the point.",
+ "Knee to Chest Stretch":"On your back, pull one knee to the chest and keep the other leg long. Glute and low back.",
+ "Landmine Core Rotation":"Hands on the bar end, arc it side to side. Turn from the ribs while the hips stay quiet.",
+ "Landmine Press":"One hand on the bar end, press up and slightly forward. The arc is much kinder to the shoulder than a straight press.",
+ "Landmine Row":"Chest over the bar, pull the end to the ribs. Flat back, one hand at a time or both.",
+ "Landmine Squat":"Floor bar in the sleeve, hold the end at the chest. The bar path keeps the torso upright the whole way down.",
+ "Landmine Squat to Press":"Squat holding the bar end at the chest, then drive up and press it away in one rep.",
+ "Lateral Lunge Stretch":"Shift your weight sideways over one bent leg with the other leg straight. Adductor of the straight leg.",
+ "Lower Back Stretch":"Knees to the chest, rock gently. The low back lets go.",
+ "Lunge with Ankle Grab":"Deep lunge, grab the back ankle and pull the heel toward the glute. Hip flexor and quad.",
+ "Lying Leg Raise":"On the back, legs straight, lower them slowly. Stop before the low back arches off the floor.",
+ "Neutral-Grip Lat Pulldown":"Palms facing each other, chest up, elbows to the ribs. The most shoulder-friendly pulldown.",
+ "One-Arm DB Row":"One hand braced on the bench, row the dumbbell to the hip. The torso must not rotate to lift it.",
+ "Overhead DB Triceps Extension":"Dumbbell overhead, elbows pointing forward. Lower behind the head and press back up.",
+ "Partner Medicine Ball Full Twist":"Rotate and pass the 30 lb ball side to side. Turn from the ribs with the hips quiet.",
+ "Plank":"Straight line from head to heels. Squeeze the glutes so the hips neither sag nor pike.",
+ "Prone T's":"Face down, arms out in a T with the thumbs up. Lift from the shoulder blades - the movement is small on purpose.",
+ "Pull-Up":"Palms away, pull the chin over the bar. The shoulder blades pull down before the arms bend.",
+ "Push-Up":"One straight line from head to heels, hands under the shoulders. The hips do not sag.",
+ "Rack Pull":"Bar on the pins at knee height. A short-range deadlift that loads the upper back and the lockout.",
+ "Reach Behind and Open":"Side lying with the arms together, sweep the top arm back and open the chest. Follow the hand with your eyes.",
+ "Reverse Crunch":"Curl the pelvis up toward the ribs. Small range, no swinging - this is not a leg raise.",
+ "Reverse Leg Crossover":"On your back, take one leg across the body and let it drop. Rotation through the low back and hip.",
+ "Russian Twist":"Seated and leaned back, rotate side to side through the ribs.",
+ "Seated DB Calf Raise":"Seated with the weight on the knees. Bent knees shift the work to the soleus.",
+ "Seated DB Press":"Back supported, press overhead. The bench takes the cheating out of it.",
+ "Seated Figure Four":"Ankle over the opposite knee, lean forward with a flat back. Glute and outer hip.",
+ "Shoulder Squeeze":"Pull the shoulder blades together and down, hold a beat, release.",
+ "Side Bend Stretch":"Reach one arm overhead and lean away. The stretch runs from the ribs down to the hip.",
+ "Side Plank":"On one forearm, body in a line, hips stacked and lifted.",
+ "Single-Leg Glute Bridge":"One foot planted, drive the hips up. Hips stay level - the glute does the work, not the low back.",
+ "Standing Barbell Calf Raise":"Bar on the back, rise onto the toes, pause at the top. Deliberately shares whatever the squat is loaded to.",
+ "Standing DB Calf Raise":"Dumbbells at the sides. Full stretch at the bottom, pause at the top, lower slowly.",
+ "Standing DB Overhead Press":"Standing press. Brace the ribs down so the low back does not arch to help.",
+ "Standing Hip Circle":"Knee up, draw a big circle with the hip. Opens the joint before you load it.",
+ "Superman Hold":"Face down, chest and legs lifted. Left in the library but kept out of the program - loaded lumbar extension aggravates your back.",
+ "Supine Back Stretch":"On your back, let the knees drop to one side while the shoulders stay down. Spinal rotation.",
+ "Toe Touches":"Reach toward the toes by hinging at the hips rather than rounding hard through the spine.",
+ "Wide-Grip Lat Pulldown":"Wide grip, lean back slightly, drive the elbows down. Lats, not arms."
+};
+const STRETCH_ONLY=new Set(["90/90 Rib Stack Breathing", "Airplane", "Backward Arm Circle", "Butt Kick", "Chest Doorway Stretch", "Child's Pose", "Chin Tuck", "Crab Reach", "Dead Hang", "Fan Stretch", "Forward Arm Circle", "Head Tilt", "Knee to Chest Stretch", "Lateral Lunge Stretch", "Lower Back Stretch", "Lunge with Ankle Grab", "Partner Medicine Ball Full Twist", "Reach Behind and Open", "Reverse Leg Crossover", "Seated Figure Four", "Shoulder Squeeze", "Side Bend Stretch", "Standing Hip Circle", "Supine Back Stretch"]);
+function ytSearch(name){
+  const stretchy=STRETCH_ONLY.has(name)||/Stretch|Pose|Hang|Circle|Tuck|Tilt/.test(name);
+  return 'https://www.youtube.com/results?search_query='+
+    encodeURIComponent(name+(stretchy?' stretch how to':' exercise proper form'));
+}
+function showInfo(name){
+  const d=INFO[name];
+  showModal(`<h3>${esc(name)}</h3>
+    <p style="margin:0 0 14px;line-height:1.5">${d?esc(d):'<span class="hint">No description written for this one yet.</span>'}</p>
+    <a class="btn btn-primary" style="display:block;text-align:center;text-decoration:none"
+       href="${esc(ytSearch(name))}" target="_blank" rel="noopener">▶ Watch it on YouTube</a>
+    <button class="btn" data-action="closeModal">Close</button>`);
+}
 
 /* ============ helpers ============ */
 const $=s=>document.querySelector(s);
@@ -536,7 +698,7 @@ function setHead(t,sub){$('#title').textContent=t;$('#subtitle').textContent=sub
 
 /* ---- workout: start screen ---- */
 function renderWorkout(){
-  if(ST){renderStretch();return}
+  if(ST&&!ST.min){renderStretch();return}
   if(A){renderActive();return}
   if(previewIdx!=null){renderPreview();return}
   renderStart();
@@ -557,7 +719,8 @@ function renderPreview(){
       const ex=mkEx(e,p.name);
       const meta=(ex.secs?fmtClock(ex.secs):'reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
       h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span><span class="nm">${esc(ex.name)}</span><span class="sum">${meta}</span>
-        <button class="addex" style="padding:2px 4px 2px 12px;font-size:18px;margin:0" data-action="swapOpen" data-b="${bi}" data-e="${ei}">⇄</button></div>`;
+        <button class="infobtn" style="padding:2px 2px 2px 10px" data-action="info" data-n="${esc(ex.name)}">ℹ️</button>
+        <button class="addex" style="padding:2px 4px 2px 8px;font-size:18px;margin:0" data-action="swapOpen" data-b="${bi}" data-e="${ei}">⇄</button></div>`;
     });
     h+='</div>';
   });
@@ -605,50 +768,91 @@ function applySwap(always){
   toast((always?'Swapped every week: ':'Swapped for today: ')+swapCtx.name);
   swapCtx=null;closeModal();render();
 }
+/* ---- stretch runner ----
+   ST = {r, i, side, phase, endsAt, paused, remaining, min}
+     phase 'ready' = the get-ready gap between positions, 'go' = holding it.
+     side  0/1 on items flagged side:true - the routine now runs those twice, so
+           both sides actually get stretched instead of silently only the first.
+     min   = backed out to the menu; the routine is parked, not ended.
+   ST lives in its own storage key so leaving the screen (or the app) keeps it. */
+function persistST(){if(ST)save(STRETCH_KEY,ST);else localStorage.removeItem(STRETCH_KEY)}
+function stSecs(it){return it.secs||Math.max(10,(it.reps||10)*2)}
+function stSteps(R){return R.items.reduce((a,it)=>a+(it.side?2:1),0)}
+function stStepIdx(R,i,side){let k=0;for(let x=0;x<i;x++)k+=R.items[x].side?2:1;return k+(side||0)}
+function routineMins(R){const tr=D.settings.transition||0;
+  let s=0;R.items.forEach(it=>{const reps=it.side?2:1;
+    s+=reps*stSecs(it)+(it.secs?reps:reps-1)*tr});   // rep moves self-pace, only sides need the gap
+  return Math.max(1,Math.round(s/60));}
 function stretchSetup(){
   const it=ROUTINES[ST.r].items[ST.i];
-  ST.paused=false;ST.remaining=0;
+  ST.phase='go';ST.paused=false;ST.remaining=0;ST.cd=0;
   ST.endsAt=it.secs?Date.now()+it.secs*1000:null;
+  persistST();
+}
+function stretchReady(){          // a few seconds to get into the next position
+  const tr=D.settings.transition||0;
+  const it=ROUTINES[ST.r].items[ST.i];
+  if(!tr||(!it.secs&&!ST.side)){stretchSetup();return}
+  ST.phase='ready';ST.paused=false;ST.remaining=0;ST.cd=0;
+  ST.endsAt=Date.now()+tr*1000;persistST();
+}
+function stretchListHTML(R){
+  return R.items.map((x,xi)=>`<div class="strow${xi===ST.i?' cur':''}${xi<ST.i?' done':''}" data-action="stJump" data-i="${xi}">
+    <span class="nm">${xi<ST.i?'✓ ':''}${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
+    <span class="sum">${x.secs?fmtClock(x.secs):'× '+x.reps}</span></div>`).join('');
 }
 function renderStretch(){
   const R=ROUTINES[ST.r],it=R.items[ST.i];
-  setHead(R.name,(ST.i+1)+' of '+R.items.length+' · ~'+R.mins+' min total');
-  const next=R.items[ST.i+1];
-  const pct=Math.round(100*ST.i/R.items.length);
+  const step=stStepIdx(R,ST.i,ST.side),total=stSteps(R);
+  setHead(R.name,(step+1)+' of '+total+' · ~'+routineMins(R)+' min total');
+  const ready=ST.phase==='ready';
+  const nextTxt=it.side&&!ST.side?esc(it.name)+' — other side'
+    :(R.items[ST.i+1]?esc(R.items[ST.i+1].name):'Last one — finish strong');
+  const left=ST.paused?ST.remaining:Math.max(0,(ST.endsAt||0)-Date.now());
+  const pct=Math.round(100*step/total);
   let mid;
-  if(it.secs){
-    const left=ST.paused?ST.remaining:Math.max(0,ST.endsAt-Date.now());
-    mid=`<div id="stClock" style="font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;margin:10px 0;${ST.paused?'opacity:.5':''}">${fmtClock(Math.ceil(left/1000))}</div>`;
-  }else{
-    mid=`<div style="font-size:54px;font-weight:800;margin:10px 0">× ${it.reps}<span style="font-size:22px;color:var(--dim)"> reps</span></div>`;
-  }
+  if(ready)mid=`<div class="stclock" id="stClock" style="color:var(--accent)">${Math.ceil(left/1000)}</div>
+    <div class="hint">Get into position…</div>`;
+  else if(it.secs)mid=`<div class="stclock" id="stClock"${ST.paused?' style="opacity:.5"':''}>${fmtClock(Math.ceil(left/1000))}</div>`;
+  else mid=`<div class="stclock" style="font-size:54px">× ${it.reps}<span style="font-size:22px;color:var(--dim)"> reps${it.side?' / side':''}</span></div>`;
   $('#main').innerHTML=`
-  <div class="card" style="text-align:center;padding:26px 16px">
-    <div style="font-size:26px;font-weight:800;line-height:1.2">${esc(it.name)}</div>
-    ${it.note?`<div class="hint" style="margin-top:4px">${esc(it.note)}</div>`:''}
+  <div class="card" style="text-align:center;padding:22px 16px 18px">
+    <div style="font-size:26px;font-weight:800;line-height:1.2">${esc(it.name)}
+      <button class="infobtn" style="font-size:19px;vertical-align:middle" data-action="info" data-n="${esc(it.name)}">ℹ️</button></div>
+    ${it.side?`<div class="sidechip">${ST.side?'▶ Right side':'Left side'}</div>`:''}
+    ${it.note?`<div class="hint" style="margin-top:6px">${esc(it.note)}</div>`:''}
     ${mid}
     <div style="height:6px;border-radius:3px;background:var(--card2);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--accent)"></div></div>
-    <div class="hint" style="margin-top:12px">${next?'Next: '+esc(next.name):'Last one — finish strong'}</div>
+    <div class="hint" style="margin-top:12px">Next: ${nextTxt}</div>
   </div>
   <div class="row">
     <button class="btn" style="flex:1" data-action="stretchPrev">⏮ Back</button>
-    ${it.secs?`<button class="btn btn-primary" style="flex:1.4" data-action="stretchPause">${ST.paused?'▶ Resume':'⏸ Pause'}</button>
-    <button class="btn" style="flex:1" data-action="stretchSkip">⏭ Skip</button>`
-    :`<button class="btn btn-primary" style="flex:1.6" data-action="stretchSkip">✓ Done — Next</button>`}
+    ${it.secs&&!ready?`<button class="btn" style="flex:1" data-action="stretchPause">${ST.paused?'▶ Resume':'⏸ Pause'}</button>`:''}
+    <button class="btn btn-primary" style="flex:1.4" data-action="stretchSkip">${ready?'▶ Start now':'✓ Done — Next'}</button>
   </div>
+  <div class="card" style="margin-top:12px;padding:4px 14px" id="stList">${stretchListHTML(R)}</div>
+  <p class="hint" style="text-align:center;margin:6px 0 0">Tap any move to jump to it</p>
+  <button class="btn btn-ghost" data-action="stretchMin">← Back to menu — keep my place</button>
   <button class="btn btn-danger" data-action="stretchEnd">End stretching</button>`;
+  const cur=$('#stList .strow.cur');
+  if(cur)cur.scrollIntoView({block:'nearest'});
 }
 function stretchAdvance(){
   if(!ST)return;
-  const R=ROUTINES[ST.r];
+  const R=ROUTINES[ST.r],it=R.items[ST.i];
+  if(it.side&&!ST.side){ST.side=1;stretchReady();render();return}   // same move, other side
   if(ST.i+1>=R.items.length){
     const key=R.key,nm=R.name;
-    ST=null;if(!A)releaseWake();
+    ST=null;persistST();if(!A)releaseWake();
     if(!D.routineDates[key].includes(todayStr())){D.routineDates[key].push(todayStr());persist()}
-    beep();toast(nm+' done 🧘');render();return;
+    endBeep();toast(nm+' done 🧘');render();return;
   }
-  ST.i++;stretchSetup();
-  beepN(1);render();
+  ST.i++;ST.side=0;stretchReady();render();
+}
+function stretchJump(i){
+  if(!ST)return;
+  ST.i=Math.max(0,Math.min(ROUTINES[ST.r].items.length-1,i));ST.side=0;
+  stretchSetup();render();
 }
 function renderStart(){
   const dow=new Date().getDay(); // 0 Sun .. 6 Sat
@@ -664,8 +868,9 @@ function renderStart(){
   }
   ROUTINES.forEach((r,ri)=>{
     const done=D.routineDates[r.key].includes(todayStr());
-    h+=`<button class="btn tpl-btn" data-action="stretchStart" data-r="${ri}">
-      <span>${r.emoji} ${esc(r.name)}${done?' ✓':''}</span><span class="hint">${r.items.length} moves · ~${r.mins} min</span></button>`;
+    const parked=ST&&ST.r===ri;
+    h+=`<button class="btn tpl-btn${parked?' btn-primary':''}" data-action="stretchStart" data-r="${ri}">
+      <span>${r.emoji} ${parked?'Resume ':''}${esc(r.name)}${done?' ✓':''}</span><span class="hint"${parked?' style="color:rgba(255,255,255,.8)"':''}>${parked?'paused at '+esc(ROUTINES[ri].items[ST.i].name):stSteps(r)+' moves · ~'+routineMins(r)+' min'}</span></button>`;
   });
   h+='<p class="hint" style="margin:16px 0 4px">This week</p>';
   PROG().forEach((p,i)=>{
@@ -700,7 +905,8 @@ function mkEx(entry,tpl){
   else if(fb)w=String(fb.w);
   const rSrc=ls||fb;
   const cue=(typeof entry==='object'&&typeof entry.cue==='string')?entry.cue:'';
-  return {name,secs,cue,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
+  const side=!!(typeof entry==='object'&&entry.side);
+  return {name,secs,cue,side,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):''};
 }
 function startSession(i,draftBlocks,variantLabel){
   const p=i==='empty'?null:PROG()[i];
@@ -735,6 +941,7 @@ function renderActive(){
         const sg=stallSuggest(ex.name);
         h+=`<div class="exfocus">
           <div class="row"><span class="nm grow">▶ ${esc(ex.name)}</span>
+            <button class="infobtn" data-action="info" data-n="${esc(ex.name)}">ℹ️</button>
             <button style="border:none;background:none;color:var(--dim);font-size:18px;padding:4px 8px" data-action="rmEx" data-b="${bi}" data-e="${ei}">✕</button></div>
           ${ex.cue?`<div class="hint" style="margin-top:2px">💡 ${esc(ex.cue)}</div>`:''}
           ${sg?`<div style="margin-top:4px"><button class="setchip" data-action="bumpW" data-b="${bi}" data-e="${ei}" data-w="${sg.to}">📈 ${sg.from} ${unit()} for ${sg.n} sessions — try ${sg.to}?</button></div>`:''}
@@ -790,7 +997,7 @@ function startWorkFor(bi,ei){
   const ex=A.blocks[bi].exercises[ei];
   if(!ex.secs){render();return}   // rep-based: focus and wait for a manual log
   A.cur={b:bi,e:ei};persistA();
-  T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei};
+  T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei,sw:0,cd:0};
   save(TIMER_KEY,T);
   renderActive.scrollNext=true;render();
 }
@@ -805,16 +1012,20 @@ function workComplete(bi,ei,secs){
   if(w>0&&w>prevMax)toast('🎉 New PR on '+ex.name+'!');
   else toast('Interval done — '+(w>0?w+' '+unit():'BW')+' × '+fmtClock(secs));
   advance(bi,ei);
-  // auto-flow: if no rest started and the next exercise is timed, run a 5s get-ready countdown
-  if(!T&&A.cur){
-    const nx=A.blocks[A.cur.b]&&A.blocks[A.cur.b].exercises[A.cur.e];
-    if(nx&&nx.secs&&!A.blocks[A.cur.b].done){
-      T={mode:'next',endsAt:Date.now()+5000,total:5,done:false,b:A.cur.b,e:A.cur.e};
-      save(TIMER_KEY,T);
-    }
-  }
+  queueNext();
   renderActive.scrollNext=true;
   persistA();render();
+}
+/* Auto-flow between exercises: unless a rest timer already took over, hold for the
+   get-ready gap so there is time to change stations and set up the next move. */
+function queueNext(){
+  const tr=D.settings.transition||0;
+  if(T||!tr||!A||!A.cur)return;
+  const blk=A.blocks[A.cur.b];
+  const nx=blk&&blk.exercises[A.cur.e];
+  if(!nx||!nx.secs||blk.done)return;
+  T={mode:'next',endsAt:Date.now()+tr*1000,total:tr,done:false,b:A.cur.b,e:A.cur.e};
+  save(TIMER_KEY,T);
 }
 function logSet(bi,ei){
   const blk=A.blocks[bi],ex=blk.exercises[ei];
@@ -826,6 +1037,7 @@ function logSet(bi,ei){
   ex.sets.push({w,r});
   if(w>0&&w>prevMax)toast('🎉 New PR on '+ex.name+'!');
   advance(bi,ei);
+  queueNext();
   renderActive.scrollNext=true;
   persistA();render();
 }
@@ -1013,6 +1225,9 @@ function showExDetail(name){
   const custom=D.customExercises.includes(name);
   const removable=custom&&!use.length&&!lastSess;
   showModal(`<h3>${esc(name)}</h3>
+   ${INFO[name]?`<p style="margin:0 0 12px;line-height:1.5">${esc(INFO[name])}</p>`:''}
+   <a class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px"
+      href="${esc(ytSearch(name))}" target="_blank" rel="noopener">▶ Watch it on YouTube</a>
    ${use.length?use.map(u=>`<div class="stat"><span>${u.day}${u.variant?' '+esc(u.variant):''} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs):'reps'}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
    ${last?`<div class="stat"><span>Last logged${lastSess?' · '+fmtDate(lastSess.date):''}</span><b>${esc(fmtSets(last))}</b></div>`:''}
    ${pr>0?`<div class="stat"><span>Heaviest</span><b>${pr} ${unit()}</b></div>`:''}
@@ -1045,6 +1260,11 @@ function renderMore(){
     <div class="seg">
       ${[0,45,60,75,90].map(s=>`<button class="${D.settings.roundRest===s?'on':''}" data-action="roundRest" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}
     </div>
+    <div class="lbl" style="text-align:left;margin-top:14px">Get ready between moves</div>
+    <div class="seg">
+      ${[0,3,5,8,12].map(s=>`<button class="${D.settings.transition===s?'on':''}" data-action="transition" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}
+    </div>
+    <p class="hint" style="margin:6px 0 0">A breather to change station or get into the next stretch. Counts you in out loud.</p>
     <div class="lbl" style="text-align:left;margin-top:14px">Session target</div>
     <div class="seg">
       ${[20,25,30,40].map(m=>`<button class="${D.settings.sessionTarget===m?'on':''}" data-action="target" data-m="${m}">${m}m</button>`).join('')}
@@ -1141,52 +1361,111 @@ function beepN(n){
     if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go();
   }catch(e){}
 }
-function beep(){beepN(3)}
+/* One shaped tone. The countdown ticks low and short; the end tone is higher and
+   longer, so "nearly" and "now" never sound alike from across the garage. */
+function tone(freq,dur,vol){
+  try{
+    audioSessionPlayback();
+    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const go=()=>{const t=audioCtx.currentTime;
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;
+      g.gain.setValueAtTime(.001,t);
+      g.gain.exponentialRampToValueAtTime(vol,t+.015);
+      g.gain.exponentialRampToValueAtTime(.001,t+dur);
+      o.start(t);o.stop(t+dur+.03);};
+    if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go();
+  }catch(e){}
+}
+function tickBeep(){tone(620,.1,.35)}
+function endBeep(){tone(1245,.55,.5)}
+function switchBeep(){beepN(2)}
+function beep(){endBeep()}
+/* Countdown ticks for whatever is running. `o` carries its own last-ticked second
+   so a 500 ms loop cannot double-fire, and a backgrounded tab that comes back
+   late just resumes ticking rather than replaying the ones it missed. */
+function countdown(o,leftMs){
+  const s=Math.ceil(leftMs/1000);
+  if(s<=5&&s>0){if(o.cd!==s){o.cd=s;tickBeep()}}
+  else if(s>5)o.cd=0;
+}
 function renderTimer(){
   const w=$('#timerWrap');
-  if(!T){w.innerHTML='';return}
+  if(!T){w.innerHTML='';document.documentElement.style.setProperty('--timer-h','0px');return}
   const left=Math.max(0,Math.ceil((T.endsAt-Date.now())/1000));
   const work=T.mode==='work',nxt=T.mode==='next';
   let label='';
   if((work||nxt)&&A&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e])label=A.blocks[T.b].exercises[T.e].name;
   const bg=work?' style="background:#b45309"':nxt?' style="background:#6d28d9"':'';
+  const ex=(work||nxt)&&A&&A.blocks[T.b]?A.blocks[T.b].exercises[T.e]:null;
+  const half=work&&ex&&ex.side&&left<=Math.floor(T.total/2);
   w.innerHTML=`<div class="timer-bar${T.done?' flash':''}"${bg}>
-    <span style="font-size:20px">${work?'🔥':nxt?'🚀':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
-    ${(work||nxt)?`<span style="font-size:13px;font-weight:700;opacity:.9;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${nxt?'Next: ':''}${esc(label)}</span>`:''}
-    <span class="grow" style="flex:1"></span>
-    ${work?'<button data-action="workDone">✓ Done</button>':''}
-    ${nxt?'<button data-action="goNow">Go now</button>':'<button data-action="timerPlus">+30s</button>'}
-    <button data-action="timerStop">${work?'Cancel':nxt?'Stop':'Stop'}</button></div>`;
+    <div class="tb-main">
+      <span style="font-size:20px">${work?'🔥':nxt?'🚀':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
+      ${(work||nxt)?`<span class="tb-nm">${nxt?'Next: ':''}${esc(label)}</span>`:''}
+      <span class="grow" style="flex:1"></span>
+      ${work?'<button data-action="workDone">✓ Done</button>':''}
+      ${nxt?'<button data-action="goNow">Go now</button>':''}
+      ${!work&&!nxt?'<button data-action="timerPlus">+30s</button>':''}
+      ${!work&&!nxt&&A&&A.cur?'<button data-action="restGo">▶ Go</button>':''}
+      <button data-action="timerStop">${work?'Cancel':'Stop'}</button>
+    </div>
+    ${ex?`<div class="tb-w">
+      ${ex.side?`<span class="tb-side${half?' on':''}">${half?'▶ RIGHT':'LEFT'}</span>`:''}
+      <span class="tb-lbl">${unit()}</span>
+      <button data-action="stepW" data-d="-1">−</button>
+      <span class="tb-val" id="tbW">${parseFloat(ex._w)>0?esc(ex._w):'BW'}</span>
+      <button data-action="stepW" data-d="1">+</button></div>`:''}
+    </div>`;
+  // the bar is two rows deep during an interval - tell the page how much room to leave
+  const bar=w.firstElementChild;
+  document.documentElement.style.setProperty('--timer-h',(bar?bar.offsetHeight:60)+'px');
 }
 setInterval(()=>{
-  if(ST&&!ST.paused&&ST.endsAt){
+  if(ST&&!ST.min&&!ST.paused&&ST.endsAt){
     const sl=ST.endsAt-Date.now();
-    if(sl<=0)stretchAdvance();
-    else{const el=$('#stClock');if(el)el.textContent=fmtClock(Math.ceil(sl/1000))}
+    if(sl<=0){
+      if(ST.phase==='ready'){stretchSetup();render()}
+      else{endBeep();if(navigator.vibrate)navigator.vibrate(200);stretchAdvance()}
+    }else{
+      countdown(ST,sl);
+      const el=$('#stClock');
+      if(el)el.textContent=ST.phase==='ready'?String(Math.ceil(sl/1000)):fmtClock(Math.ceil(sl/1000));
+    }
   }
   if(A&&view==='workout'){const el=$('#sessClock');if(el){el.textContent=sessionClockText();
     el.classList.toggle('over',(Date.now()-new Date(A.startedAt).getTime())/1000>D.settings.sessionTarget*60)}}
   if(!T)return;
   const left=T.endsAt-Date.now();
+  if(left>0)countdown(T,left);
+  // halfway through a one-sided interval: two beeps and the bar flips to RIGHT
+  if(left>0&&T.mode==='work'&&!T.sw&&A&&A.blocks[T.b]){
+    const sx=A.blocks[T.b].exercises[T.e];
+    if(sx&&sx.side&&left<=T.total*500){
+      T.sw=1;save(TIMER_KEY,T);switchBeep();
+      if(navigator.vibrate)navigator.vibrate([120,80,120]);
+      renderTimer();
+    }
+  }
   if(left<=0&&!T.done){
     const late=Date.now()-T.endsAt>=5000;
     if(T.mode==='work'){
       const wb=T.b,we=T.e,secs=T.total;
       T=null;localStorage.removeItem(TIMER_KEY);
-      if(!late){beep();if(navigator.vibrate)navigator.vibrate([250,120,250]);}
+      if(!late){endBeep();if(navigator.vibrate)navigator.vibrate([250,120,250]);}
       workComplete(wb,we,secs);
       return;
     }
     if(T.mode==='next'){
       const nb=T.b,ne=T.e;
       T=null;localStorage.removeItem(TIMER_KEY);
-      if(!late){beepN(1);startWorkFor(nb,ne)}
+      if(!late)startWorkFor(nb,ne);
       else{toast('Ready when you are — tap Start');render()}
       return;
     }
     const nx=T.next;
     T.done=true;save(TIMER_KEY,T);
-    if(!late){beep();
+    if(!late){endBeep();
       if(navigator.vibrate)navigator.vibrate([250,120,250]);
       if(nx){T=null;localStorage.removeItem(TIMER_KEY);startWorkFor(nx.b,nx.e);return}
       toast('Rest over — go! 💪');}
@@ -1471,12 +1750,24 @@ document.addEventListener('click',e=>{
   else if(a==='swapToday')applySwap(false);
   else if(a==='swapAlways')applySwap(true);
   else if(a==='resetProgram')showConfirm('Reset weekly program?','All every-week swaps go back to the original program. Your workout history is untouched.',()=>{delete D.program;touchProgram();persist();closeModal();render();toast('Program reset to defaults')});
-  else if(a==='stretchStart'){unlockAudio();ST={r:+el.dataset.r||0,i:0,paused:false,remaining:0,endsAt:null};stretchSetup();acquireWake();view='workout';render()}
+  else if(a==='stretchStart'){unlockAudio();
+    const r=+el.dataset.r||0;
+    if(ST&&ST.r===r){ST.min=false;stretchReady();acquireWake();view='workout';render();return}
+    ST={r,i:0,side:0,phase:'go',paused:false,remaining:0,endsAt:null,min:false};
+    stretchSetup();acquireWake();view='workout';render()}
   else if(a==='stretchPause'){if(!ST.endsAt&&!ST.paused)return;
-    if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}render()}
-  else if(a==='stretchSkip')stretchAdvance();
-  else if(a==='stretchPrev'){ST.i=Math.max(0,ST.i-1);stretchSetup();render()}
-  else if(a==='stretchEnd'){ST=null;if(!A)releaseWake();render()}
+    if(ST.paused){ST.endsAt=Date.now()+ST.remaining;ST.paused=false}else{ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}
+    persistST();render()}
+  else if(a==='stretchSkip'){if(ST.phase==='ready'){stretchSetup();render()}else stretchAdvance()}
+  else if(a==='stretchPrev'){
+    if(ST.side){ST.side=0;stretchSetup();render();return}      // back = the other side first
+    stretchJump(ST.i-1)}
+  else if(a==='stJump')stretchJump(+el.dataset.i);
+  else if(a==='stretchMin'){                                    // park it, do not lose it
+    if(ST.endsAt&&!ST.paused){ST.remaining=Math.max(0,ST.endsAt-Date.now());ST.paused=true}
+    ST.min=true;persistST();if(!A)releaseWake();render();toast('Paused — pick it back up any time')}
+  else if(a==='stretchEnd')showConfirm('End stretching?','Progress in this routine is dropped.',
+    ()=>{ST=null;persistST();if(!A)releaseWake();closeModal();render()});
   else if(a==='focus'){const blk=A.blocks[bi];if(blk.done){blk.done=false}A.cur={b:bi,e:ei};renderActive.scrollNext=true;persistA();render()}
   else if(a==='addEx'){pickerBlock=bi;showPicker('')}
   else if(a==='addBlock'){A.blocks.push({rounds:3,round:1,done:false,exercises:[]});persistA();render()}
@@ -1499,7 +1790,7 @@ document.addEventListener('click',e=>{
     unlockAudio();
     const ex=A.blocks[bi].exercises[ei];
     A.cur={b:bi,e:ei};persistA();
-    T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei};
+    T={endsAt:Date.now()+ex.secs*1000,total:ex.secs,done:false,mode:'work',b:bi,e:ei,sw:0,cd:0};
     save(TIMER_KEY,T);render()}
   else if(a==='delSet'){const ex=A.blocks[bi].exercises[ei];const j=+el.dataset.j;const s=ex.sets[j];
     showConfirm('Delete set?',setW(s)+' × '+(s.secs?fmtClock(s.secs):s.r)+' will be removed.',()=>{ex.sets.splice(j,1);persistA();closeModal();render()})}
@@ -1520,6 +1811,7 @@ document.addEventListener('click',e=>{
   else if(a==='timer')startTimer(+el.dataset.s);
   else if(a==='workDone')finishWorkEarly();
   else if(a==='exDetail')showExDetail(el.dataset.n);
+  else if(a==='info')showInfo(el.dataset.n);
   else if(a==='exAddOpen')showModal(`<h3>New exercise</h3>
     <input class="search" id="newExName" placeholder="e.g. DB Floor Press" autocomplete="off">
     <button class="btn btn-primary" data-action="exAdd">Add to library</button>`);
@@ -1530,6 +1822,21 @@ document.addEventListener('click',e=>{
   else if(a==='exDelete'){const n=el.dataset.n;D.customExercises=D.customExercises.filter(x=>x!==n);persist();closeModal();toast('Deleted '+n);render()}
   else if(a==='exProgress'){progressEx=el.dataset.n;view='progress';closeModal();render()}
   else if(a==='goNow'){if(T&&T.mode==='next'){const nb=T.b,ne=T.e;T=null;localStorage.removeItem(TIMER_KEY);beepN(1);startWorkFor(nb,ne)}}
+  else if(a==='stepW'){
+    if(!T||!A||!A.blocks[T.b])return;
+    const wx=A.blocks[T.b].exercises[T.e];if(!wx)return;
+    const by=unit()==='kg'?2.5:5;
+    let v=(parseFloat(wx._w)||0)+(+el.dataset.d)*by;if(v<0)v=0;
+    wx._w=String(Math.round(v*100)/100);persistA();
+    const tw=$('#tbW');if(tw)tw.textContent=parseFloat(wx._w)>0?wx._w:'BW';
+    const inp=document.querySelector('input[data-input="w"][data-b="'+T.b+'"][data-e="'+T.e+'"]');
+    if(inp)inp.value=wx._w;
+  }
+  else if(a==='restGo'){
+    const nx=(T&&T.next)||(A&&A.cur);
+    stopTimer();
+    if(nx&&A&&A.blocks[nx.b]&&A.blocks[nx.b].exercises[nx.e])startWorkFor(nx.b,nx.e);else render();
+  }
   else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
   else if(a==='sync')syncNow(false);
@@ -1556,6 +1863,7 @@ document.addEventListener('click',e=>{
   else if(a==='importDo')importData($('#importTxt').value);
   else if(a==='unit'){D.settings.unit=el.dataset.u;touchSettings();persist();render()}
   else if(a==='roundRest'){D.settings.roundRest=+el.dataset.s;touchSettings();persist();render()}
+  else if(a==='transition'){D.settings.transition=+el.dataset.s;touchSettings();persist();render()}
   else if(a==='target'){D.settings.sessionTarget=+el.dataset.m;touchSettings();persist();render()}
   else if(a==='clearAll'){
     const cloud=signedIn();
@@ -1568,7 +1876,8 @@ document.addEventListener('click',e=>{
     // this button says "on this device", so it must not propagate. Cleared and
     // still signed in, the next sync pulls the history back down instead.
     localStorage.removeItem(DATA_KEY);localStorage.removeItem(ACTIVE_KEY);
-    localStorage.removeItem(TIMER_KEY);localStorage.removeItem(SYNC_KEY);location.reload()});
+    localStorage.removeItem(TIMER_KEY);localStorage.removeItem(SYNC_KEY);
+    localStorage.removeItem(STRETCH_KEY);location.reload()});
   }
   else if(a==='dismissInstallHint'){D.settings.installHintDismissed=true;persist();render()}
   else if(a==='confirmYes'){const cb=window._confirmCb;window._confirmCb=null;if(cb)cb()}
