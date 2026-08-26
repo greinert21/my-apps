@@ -150,6 +150,18 @@ select{width:100%;border:1px solid var(--line);border-radius:12px;background:var
 .wk{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--dim)}
 a{color:var(--accent)}
 /* ---- weekly plan sheet ---- */
+/* ---- exercise tiles ---- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.tile{background:var(--card2);border:1px solid var(--line);border-radius:14px;
+  padding:12px;text-align:left;color:var(--text);font:inherit;cursor:pointer;
+  display:flex;flex-direction:column;gap:5px;min-height:82px}
+.tile.has{border-color:var(--accent-dark)}
+.tile .tn{font-weight:700;font-size:15px;line-height:1.25}
+.tile .tm{font-size:12px;color:var(--dim);margin-top:auto}
+/* ---- reorderable routine ---- */
+#stOrder.reordering .strow{background:var(--card2);border-radius:10px;margin:3px 0;
+  border-top-color:transparent}
+#stOrder .strow.dragging{opacity:.6;outline:2px dashed var(--accent)}
 .sheet h2{margin:0 0 2px;font-size:20px}
 .sheet .sday{page-break-inside:avoid;break-inside:avoid}
 .sheet .sday-h{font-weight:800;font-size:16px;border-bottom:1px solid var(--line);
@@ -198,13 +210,14 @@ const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1',
 function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){try{toast('⚠️ Couldn’t save — storage full? Export a backup')}catch(_){}return false}}
-const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5,holds:{}};
+const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5,holds:{},order:{}};
 let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
 D.settings=Object.assign({},DEFAULTS,D.settings||{});
 // never share the DEFAULTS object itself - stepping a hold would mutate the defaults
 if(!D.settings.holds||typeof D.settings.holds!=='object')D.settings.holds={};
+if(!D.settings.order||typeof D.settings.order!=='object')D.settings.order={};
 delete D.settings.relayUrl;                       // Notion relay retired in favour of cloud sync
 // Change-times for the only two records that can conflict across devices.
 if(typeof D.settingsAt!=='string')D.settingsAt='';
@@ -231,11 +244,13 @@ if(T&&T.endsAt<=Date.now()){
 let view='workout', expanded={}, progressEx='', progressMetric='top';
 let ST=load(STRETCH_KEY,null);  // active stretch routine - see the stretch runner below
 let stretchPrev=null; // stretch routine being set up before starting
+let reorder=false;    // setup screen is in reorder mode (entered by long-press)
 let planOpen=false;   // the printable week-at-a-glance sheet
 let previewIdx=null;  // day being previewed before starting
 let previewDraft=null;// editable copy of that day's blocks (session-only swaps live here)
 let previewVar=0;     // which variant the preview is showing
 let swapCtx=null;     // {b,e,name} mid-swap
+let previewEdit=null; // 'b.e' of the exercise whose ± panel is open on the preview
 let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
 function touchSettings(){D.settingsAt=new Date().toISOString()}
@@ -527,6 +542,24 @@ const ROUTINES=[
   {name:'Partner Medicine Ball Full Twist',reps:20,note:'30 lb ball'}
  ]}
 ];
+/* His own order for a routine, applied to ROUTINES in place at startup. Doing it
+   here rather than at every read means the runner, the minute estimate and the
+   setup screen all see it without knowing the order can be changed at all.
+   Anything added to the built-in routine later lands at the end rather than
+   vanishing because it is missing from a saved order. */
+function applyRoutineOrder(){
+  const ord=D.settings.order||{};
+  ROUTINES.forEach(R=>{
+    R.orig=R.items.slice();          // kept so "original order" is one click, not a reload
+    const want=ord[R.key];
+    if(!Array.isArray(want)||!want.length)return;
+    const by=new Map(R.items.map(it=>[it.name,it])),out=[];
+    want.forEach(nm=>{if(by.has(nm)){out.push(by.get(nm));by.delete(nm)}});
+    by.forEach(it=>out.push(it));
+    R.items=out;
+  });
+}
+applyRoutineOrder();
 /* A stretch restored from storage is always paused: wall-clock kept running
    while the app was closed, so resuming where the countdown "would" be is wrong. */
 if(ST&&(!ROUTINES[ST.r]||!ROUTINES[ST.r].items[ST.i])){ST=null;localStorage.removeItem(STRETCH_KEY)}
@@ -761,7 +794,9 @@ function renderWorkout(){
 }
 function renderPreview(){
   const p=PROG()[previewIdx];
-  setHead(p.name,p.day+' · '+previewDraft.length+' intervals · '+previewDraft[0].rounds+' rounds each','previewBack');
+  const rs=[...new Set(previewDraft.map(b=>b.rounds))];
+  setHead(p.name,p.day+' · '+previewDraft.length+' intervals · '
+    +(rs.length===1?rs[0]+' rounds each':rs.join('/')+' rounds'),'previewBack');
   let h='';
   if(p.variants.length>1){
     const sug=weekVariant(p);
@@ -770,17 +805,39 @@ function renderPreview(){
     if(previewVar===weekVariant(p))h+=`<p class="hint" style="margin:-4px 0 10px;text-align:center">★ = this week's rotation</p>`;
   }
   previewDraft.forEach((blk,bi)=>{
-    h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b><span class="rounds">${blk.rounds} rounds</span></div>`;
+    h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b>
+      <span class="rounds">${blk.rounds} round${blk.rounds===1?'':'s'}</span>
+      <span class="stedit" style="margin-left:0">
+        <button data-action="pvRounds" data-b="${bi}" data-d="-1">−</button>
+        <button data-action="pvRounds" data-b="${bi}" data-d="1">+</button></span></div>`;
     blk.exercises.forEach((e,ei)=>{
       const ex=mkEx(e,p.name);
-      const meta=(ex.secs?fmtClock(ex.secs):'reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
-      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span><span class="nm">${esc(ex.name)}</span><span class="sum">${meta}</span>
-        <button class="infobtn" style="padding:2px 2px 2px 10px" data-action="info" data-n="${esc(ex.name)}">ℹ️</button>
+      const open=previewEdit===bi+'.'+ei;
+      const meta=(ex.secs?fmtClock(ex.secs):'× '+(ex._r||'?')+' reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
+      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span>
+        <span class="nm" data-action="info" data-n="${esc(ex.name)}">${esc(ex.name)}${ex.side?' <span class="hint">· each side</span>':''}</span>
+        <button class="setchip" style="margin-left:auto" data-action="pvEdit" data-b="${bi}" data-e="${ei}">${meta} ✎</button>
         <button class="addex" style="padding:2px 4px 2px 8px;font-size:18px;margin:0" data-action="swapOpen" data-b="${bi}" data-e="${ei}">⇄</button></div>`;
+      if(open){
+        const timed=!!ex.secs;
+        h+=`<div class="inrow" style="margin:2px 0 8px">
+          <div class="grow"><div class="lbl">Weight (${unit()})</div>
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="-1">−</button>
+            <input readonly value="${parseFloat(ex._w)>0?esc(ex._w):'BW'}" style="pointer-events:none">
+            <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="1">+</button></div></div>
+          <div class="grow"><div class="lbl">${timed?'Interval':'Reps'}</div>
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="${timed?'s':'r'}" data-d="-1">−</button>
+            <input readonly value="${timed?fmtClock(ex.secs):(ex._r||'8')}" style="pointer-events:none">
+            <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="${timed?'s':'r'}" data-d="1">+</button></div></div>
+        </div>
+        <button class="addex" style="padding:0 4px 10px" data-action="pvMode" data-b="${bi}" data-e="${ei}">${timed?'⇄ make it rep-based (Done tap)':'⇄ make it a timed interval'}</button>`;
+      }
     });
     h+='</div>';
   });
   h+=`<button class="btn btn-primary" style="padding:17px" data-action="previewStart">▶ Start Workout</button>`;
+  h+=`<button class="btn btn-ghost" data-action="pvSave">💾 Save this as my weekly ${esc(p.day)} ${esc(p.variants[previewVar].label)}</button>`;
+  h+=`<p class="hint" style="text-align:center;margin:-4px 0 10px">Otherwise every change here is just for today.</p>`;
   h+=`<button class="btn" data-action="previewBack">← Back</button>`;
   $('#main').innerHTML=h;
 }
@@ -838,6 +895,34 @@ function renderPlan(){
   h+=`</div></div>
   <button class="btn noprint" data-action="planBack">\u2190 Back</button>`;
   $('#main').innerHTML=h;
+}
+/* A draft entry may be a bare string; anything editable has to become an object
+   first. Everything here writes to previewDraft only - pvSave is the one door
+   through to D.program. */
+function pvNorm(bi,ei){
+  const e=previewDraft[bi].exercises[ei];
+  if(typeof e==='string')previewDraft[bi].exercises[ei]={n:e};
+  return previewDraft[bi].exercises[ei];
+}
+function pvStep(bi,ei,f,d){
+  const e=pvNorm(bi,ei),cur=mkEx(e,PROG()[previewIdx].name);
+  if(f==='w')e.w=Math.max(0,(parseFloat(cur._w)||0)+d*5);
+  else if(f==='s')e.secs=Math.max(15,Math.min(300,(e.secs||45)+d*5));
+  else if(f==='r')e.r=Math.max(1,Math.min(50,(e.r!=null?e.r:(parseInt(cur._r,10)||8))+d));
+  render();
+}
+function pvMode(bi,ei){
+  const e=pvNorm(bi,ei);
+  if(e.secs){delete e.secs;if(e.r==null)e.r=8}
+  else{e.secs=45;delete e.r}
+  render();
+}
+function pvSave(){
+  const p=PROG()[previewIdx],lbl=p.variants[previewVar].label;
+  const prog=editableProgram();
+  prog[previewIdx].variants[previewVar].blocks=JSON.parse(JSON.stringify(previewDraft));
+  touchProgram();persist();
+  toast('Saved — that is your '+p.day+' '+lbl+' from now on');
 }
 function swapName(e){return typeof e==='string'?e:e.n}
 function swapListHTML(filter){
@@ -960,6 +1045,61 @@ function renderStretch(){
   const at=ST.i+'/'+ST.side;
   if(renderStretch.at!==at){renderStretch.at=at;window.scrollTo(0,0)}
 }
+/* ---- reordering a routine ----
+   Long-press a row to pick the routine up; then drag it, or use the arrows that
+   appear. The drag moves the real DOM nodes and only reads the final order on
+   release - re-rendering mid-gesture would tear out the element the touch
+   sequence is bound to and the drag would die halfway. */
+function saveRoutineOrder(R){
+  D.settings.order[R.key]=R.items.map(it=>it.name);
+  touchSettings();persist();
+}
+function routineReordered(R){
+  const o=D.settings.order[R.key];
+  return Array.isArray(o)&&o.length>0;
+}
+function moveRoutineItem(R,from,d){
+  const to=from+d;
+  if(to<0||to>=R.items.length)return;
+  const [it]=R.items.splice(from,1);R.items.splice(to,0,it);
+  saveRoutineOrder(R);render();
+}
+function wireReorder(R){
+  const box=$('#stOrder');if(!box)return;
+  let timer=null,startY=0,drag=null;
+  const stopPress=()=>{if(timer){clearTimeout(timer);timer=null}};
+  box.addEventListener('touchstart',ev=>{
+    const row=ev.target.closest('.strow');
+    if(!row||ev.target.closest('button'))return;
+    startY=ev.touches[0].clientY;
+    if(reorder){drag=row;row.classList.add('dragging');return}
+    stopPress();
+    timer=setTimeout(()=>{timer=null;reorder=true;drag=row;
+      box.classList.add('reordering');row.classList.add('dragging');
+      if(navigator.vibrate)navigator.vibrate(30);},450);
+  },{passive:true});
+  box.addEventListener('touchmove',ev=>{
+    if(timer&&Math.abs(ev.touches[0].clientY-startY)>8)stopPress();   // a scroll, not a press
+    if(!drag)return;
+    ev.preventDefault();
+    const t=ev.touches[0];
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    const over=el&&el.closest('.strow');
+    if(!over||over===drag||over.parentNode!==box)return;
+    const r=over.getBoundingClientRect();
+    box.insertBefore(drag,(t.clientY>r.top+r.height/2)?over.nextSibling:over);
+  },{passive:false});
+  const end=()=>{
+    stopPress();
+    if(!drag)return;
+    drag.classList.remove('dragging');drag=null;
+    const order=[...box.children].map(el=>el.dataset.n);
+    R.items.sort((a,b)=>order.indexOf(a.name)-order.indexOf(b.name));
+    saveRoutineOrder(R);render();
+  };
+  box.addEventListener('touchend',end);
+  box.addEventListener('touchcancel',end);
+}
 function renderStretchPreview(){
   const R=ROUTINES[stretchPrev];
   setHead(R.name,stSteps(R)+' steps · ~'+routineMins(R)+' min','stretchPreviewBack');
@@ -972,12 +1112,15 @@ function renderStretchPreview(){
     </div>
     ${tweaked?`<button class="addex" data-action="holdReset">↺ Back to the original times</button>`:''}
   </div>
-  <div class="card" style="padding:4px 14px">`;
+  <div class="card${reorder?' reordering':''}" style="padding:4px 14px" id="stOrder">`;
   R.items.forEach((x,xi)=>{
-    h+=`<div class="strow" style="cursor:default">
-      <span class="nm" data-action="info" data-n="${esc(x.name)}">${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
+    h+=`<div class="strow" style="cursor:default" data-n="${esc(x.name)}">
+      <span class="nm"${reorder?'':` data-action="info" data-n="${esc(x.name)}"`}>${reorder?'☰ ':''}${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
       <span class="sum">${x.secs?fmtClock(holdSecs(R,x)):'× '+x.reps}</span>
-      ${x.secs?`<span class="stedit">
+      ${reorder?`<span class="stedit">
+        <button data-action="ordMove" data-i="${xi}" data-d="-1">▲</button>
+        <button data-action="ordMove" data-i="${xi}" data-d="1">▼</button></span>`
+       :x.secs?`<span class="stedit">
         <button data-action="holdStep" data-i="${xi}" data-d="-1">−</button>
         <button data-action="holdStep" data-i="${xi}" data-d="1">+</button></span>`
        :`<span class="stedit ghost"></span>`}</div>`;
@@ -985,10 +1128,13 @@ function renderStretchPreview(){
   h+=`</div>
   <div class="card"><div class="lbl" style="text-align:left">Get ready between moves</div>
     <div class="seg">${[0,3,5,8,12].map(s=>`<button class="${D.settings.transition===s?'on':''}" data-action="transition" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}</div>
-    <p class="hint" style="margin:8px 0 0">Tap a name to read what it is or watch it.</p></div>
+    <p class="hint" style="margin:8px 0 0">${reorder?'Drag a row, or use the arrows.':'Long-press any move to drag it into a new order. Tap a name to read what it is.'}</p></div>
+  ${reorder?`<button class="btn btn-primary" data-action="ordDone">✓ Done reordering</button>`:''}
+  ${routineReordered(R)?`<button class="btn btn-ghost" data-action="ordReset">↺ Back to the original order</button>`:''}
   <button class="btn btn-primary" style="padding:17px" data-action="stretchGo">▶ Start ${esc(R.name)}</button>
   <button class="btn" data-action="stretchPreviewBack">← Back</button>`;
   $('#main').innerHTML=h;
+  wireReorder(R);
 }
 function stretchAdvance(){
   if(!ST)return;
@@ -1087,7 +1233,10 @@ function renderActive(){
   A.blocks.forEach((blk,bi)=>{
     h+=`<div class="card block${blk.done?' done-blk':''}">
       <div class="block-head"><b>Interval ${bi+1}</b>
-        <span class="rounds">${blk.done?'✓ done':'Round '+blk.round+' of '+blk.rounds}</span></div>`;
+        <span class="rounds">${blk.done?'✓ done':'Round '+blk.round+' of '+blk.rounds}</span>
+        ${blk.done?'':`<span class="stedit" style="margin-left:0">
+          <button data-action="actRounds" data-b="${bi}" data-d="-1">−</button>
+          <button data-action="actRounds" data-b="${bi}" data-d="1">+</button></span>`}</div>`;
     blk.exercises.forEach((ex,ei)=>{
       const focused=A.cur&&A.cur.b===bi&&A.cur.e===ei&&!blk.done;
       if(focused){
@@ -1354,13 +1503,12 @@ function exListHTML(filter){
   if(!list.length)return '<div class="center">No matches — add it below.</div>';
   return list.map(n=>{
     const use=programUsage(n);
-    const logged=!!lastSets(n);
+    const last=lastSets(n);
     const custom=D.customExercises.includes(n);
-    const meta=use.length?[...new Set(use.map(u=>u.day))].join(' · '):'';
-    return `<div class="exrow" data-action="exDetail" data-n="${esc(n)}">
-      <span class="dot${logged?' has':''}">${logged?'●':'○'}</span>
-      <span class="nm">${esc(n)}${custom?' <span class="hint">(custom)</span>':''}</span>
-      <span class="sum">${esc(meta)}</span></div>`;
+    const days=use.length?[...new Set(use.map(u=>u.day))].join(' · '):(custom?'custom':'library only');
+    return `<button class="tile${last?' has':''}" data-action="exDetail" data-n="${esc(n)}">
+      <span class="tn">${esc(n)}</span>
+      <span class="tm">${esc(days)}${last?'<br>last: '+esc(fmtSets(last)):''}</span></button>`;
   }).join('');
 }
 function renderExercises(){
@@ -1368,8 +1516,8 @@ function renderExercises(){
   $('#main').innerHTML=`
   <input class="search" data-input="exSearch" placeholder="Search exercises…" value="${esc(exFilter)}" autocomplete="off">
   <button class="btn btn-ghost" data-action="exAddOpen">+ Add new exercise</button>
-  <div class="card" style="padding:4px 14px;margin-top:10px" id="exList">${exListHTML(exFilter)}</div>
-  <p class="hint" style="text-align:center">● = logged before · days show where it lives in your week</p>`;
+  <div class="tiles" style="margin-top:10px" id="exList">${exListHTML(exFilter)}</div>
+  <p class="hint" style="text-align:center;margin-top:12px">Tap a card for what it is, where it sits in your week, your last sets and your best.</p>`;
 }
 function showExDetail(name){
   const use=programUsage(name);
@@ -1904,7 +2052,14 @@ document.addEventListener('click',e=>{
     previewDraft=JSON.parse(JSON.stringify(pp.variants[previewVar].blocks));render()}
   else if(a==='previewVar'){previewVar=+el.dataset.v;
     previewDraft=JSON.parse(JSON.stringify(PROG()[previewIdx].variants[previewVar].blocks));render()}
-  else if(a==='previewBack'){previewIdx=null;previewDraft=null;render()}
+  else if(a==='previewBack'){previewIdx=null;previewDraft=null;previewEdit=null;render()}
+  else if(a==='pvEdit'){const k=el.dataset.b+'.'+el.dataset.e;previewEdit=previewEdit===k?null:k;render()}
+  else if(a==='pvStep')pvStep(bi,ei,el.dataset.f,+el.dataset.d);
+  else if(a==='pvMode')pvMode(bi,ei);
+  else if(a==='pvRounds'){const blk=previewDraft[bi];blk.rounds=Math.max(1,Math.min(8,blk.rounds+(+el.dataset.d)));render()}
+  else if(a==='pvSave')pvSave();
+  else if(a==='actRounds'){const blk=A.blocks[bi];
+    blk.rounds=Math.max(blk.round,Math.min(8,blk.rounds+(+el.dataset.d)));persistA();render()}
   else if(a==='planOpen'){e.preventDefault();planOpen=true;view='workout';render()}
   else if(a==='planBack'){planOpen=false;render()}
   else if(a==='planPrint'){window.print()}
@@ -1923,10 +2078,16 @@ document.addEventListener('click',e=>{
     // a parked routine picks up where it was; anything else opens the setup screen
     if(ST&&ST.r===r){ST.min=false;stretchReady();acquireWake();view='workout';render();return}
     stretchPrev=r;view='workout';render()}
-  else if(a==='stretchGo'){unlockAudio();
+  else if(a==='stretchGo'){unlockAudio();reorder=false;
     ST={r:stretchPrev,i:0,side:0,phase:'go',paused:false,remaining:0,endsAt:null,min:false};
     stretchPrev=null;stretchSetup();acquireWake();render()}
-  else if(a==='stretchPreviewBack'){stretchPrev=null;render()}
+  else if(a==='stretchPreviewBack'){stretchPrev=null;reorder=false;render()}
+  else if(a==='ordMove')moveRoutineItem(ROUTINES[stretchPrev],+el.dataset.i,+el.dataset.d);
+  else if(a==='ordDone'){reorder=false;render()}
+  else if(a==='ordReset'){const R=ROUTINES[stretchPrev];
+    R.items=R.orig.slice();
+    delete D.settings.order[R.key];touchSettings();persist();render();
+    toast('Original order restored')}
   else if(a==='holdStep'){
     const R=ROUTINES[stretchPrev],it=R.items[+el.dataset.i];
     const v=Math.max(5,Math.min(300,holdSecs(R,it)+(+el.dataset.d)*5));
