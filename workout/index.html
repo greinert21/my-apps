@@ -69,7 +69,8 @@ main{padding:14px 14px calc(90px + var(--timer-h,60px));max-width:560px;margin:0
 .setchip{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:999px;
   padding:6px 12px;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
 .setchip span{color:var(--dim);font-weight:400;margin-left:4px}
-.inrow{display:flex;gap:8px;margin-top:10px}
+.inrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.inrow>.grow{flex:1 1 140px;min-width:0}
 .inrow .group{flex:1;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card2)}
 .inrow input{flex:1;width:40px;min-width:0;border:none;background:transparent;color:var(--text);
   font-size:19px;font-weight:700;text-align:center;padding:12px 2px;outline:none}
@@ -113,6 +114,7 @@ main{padding:14px 14px calc(90px + var(--timer-h,60px));max-width:560px;margin:0
   border-radius:9px;width:36px;height:36px;font-size:20px;font-weight:700;cursor:pointer}
 .stedit.ghost{width:80px}
 .timer-bar.flash{animation:flash .5s 4}
+.timer-bar.paused{opacity:.68}
 @keyframes flash{50%{background:var(--warn)}}
 .timer-bar .t{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
 .timer-bar button{border:none;border-radius:10px;background:rgba(255,255,255,.18);color:#fff;
@@ -210,7 +212,7 @@ const DATA_KEY='wt_data_v1', ACTIVE_KEY='wt_active_v1', TIMER_KEY='wt_timer_v1',
 function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){try{toast('⚠️ Couldn’t save — storage full? Export a backup')}catch(_){}return false}}
-const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5,holds:{},order:{}};
+const DEFAULTS={unit:'lb',roundRest:60,sessionTarget:25,transition:5,volume:1.5,holds:{},order:{}};
 let D=load(DATA_KEY,null);
 if(!D)D={version:2,sessions:[],customExercises:[],settings:Object.assign({},DEFAULTS)};
 if(D.version===1){D.version=2;if(D.settings&&D.settings.autoTimer>0)D.settings.roundRest=D.settings.autoTimer}
@@ -225,6 +227,9 @@ if(typeof D.programAt!=='string')D.programAt='';
 if(!D.routineDates||typeof D.routineDates!=='object')D.routineDates={};
 if(Array.isArray(D.stretchDates)){D.routineDates.morning=D.stretchDates;delete D.stretchDates}
 ['morning','active'].forEach(k=>{if(!Array.isArray(D.routineDates[k]))D.routineDates[k]=[]});
+// Body measurements: weight plus the tape-measure numbers, one record per entry.
+if(!Array.isArray(D.measurements))D.measurements=[];
+if([1,1.5,2.4].indexOf(+D.settings.volume)<0)D.settings.volume=1.5;
 save(DATA_KEY,D);
 let A=load(ACTIVE_KEY,null);            // active (in-progress) session
 if(A&&!A.blocks){                       // migrate any v1 in-flight session
@@ -232,7 +237,7 @@ if(A&&!A.blocks){                       // migrate any v1 in-flight session
   delete A.exercises;A.cur={b:0,e:0};
 }
 let T=load(TIMER_KEY,null);             // timer {endsAt,total,done} (+mode:'work',b,e for work intervals)
-if(T&&T.endsAt<=Date.now()){
+if(T&&!T.paused&&T.endsAt<=Date.now()){
   // a work interval that finished while the app was closed still counts — log it
   if(T.mode==='work'&&A&&A.blocks&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e]){
     const ex=A.blocks[T.b].exercises[T.e];
@@ -242,6 +247,9 @@ if(T&&T.endsAt<=Date.now()){
   T=null;localStorage.removeItem(TIMER_KEY);
 }
 let view='workout', expanded={}, progressEx='', progressMetric='top';
+let progressTab='ex';  // 'ex' = a lift's line over time, 'body' = the tape measure
+let measMetric='weight';
+let measDraft=null;    // the half-typed "log today" row, kept across re-renders
 let ST=load(STRETCH_KEY,null);  // active stretch routine - see the stretch runner below
 let stretchPrev=null; // stretch routine being set up before starting
 let reorder=false;    // setup screen is in reorder mode (entered by long-press)
@@ -263,7 +271,7 @@ const PROGRAM=[
  {day:'Mon',name:'Legs & Core',variants:[
   {label:'A',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Back Squat',secs:60,w:135,cue:'Cage bar. Ribs down, brace before you unrack.'},
+    {n:'Barbell Back Squat',secs:60,w:135,r:5,cue:'Cage bar. 5 reps a round - ribs down, brace before you unrack.'},
     {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Resist the twist. Ribs stacked over hips.'},
     {n:'DB Reverse Lunge',secs:45,w:20,cue:'Torso tall. Step back, do not lean forward.'}]},
    {rounds:3,exercises:[
@@ -276,20 +284,20 @@ const PROGRAM=[
     {n:'Seated Leg Extension',secs:45,w:50,cue:'Machine. Pause a beat at the top, lower slow. Pure quad.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Front Squat',secs:60,w:95,cue:'Elbows up. Ribs stacked over the hips.'},
+    {n:'Barbell Back Squat',secs:60,w:135,r:5,cue:'Cage bar. 5 heavy reps, then rack it. Ribs stacked over the hips.'},
     {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. Not a leg raise.'},
     {n:'DB Bulgarian Split Squat',side:true,secs:45,w:20,cue:'Front shin vertical. Do not chase depth.'}]},
    {rounds:3,exercises:[
     {n:'DB Goblet Squat',secs:45,w:40,cue:'Sit between the hips. Heels down.'},
     {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Slow out, slow back. Hips still.'},
-    {n:'Standing Barbell Calf Raise',secs:45,w:95,cue:'Same bar as the front squat - no plate change.'}]},
+    {n:'Standing Barbell Calf Raise',secs:45,w:135,cue:'Same cage bar as the squat - leave the load alone.'}]},
    {rounds:3,exercises:[
     {n:'DB Reverse Lunge',secs:45,w:20,cue:'Control the descent. Torso tall.'},
     {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the whole way out.'},
     {n:'Seated Leg Extension',secs:45,w:50,cue:'Machine. The slow lower is the set - five seconds down.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Pause Back Squat',secs:60,w:115,cue:'2s pause at the bottom. Stay braced through it.'},
+    {n:'Barbell Back Squat',secs:60,w:135,r:5,cue:'Cage bar. 5 reps, 2s pause at the bottom of the first one.'},
     {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Resist the twist. Ribs over hips.'},
     {n:'DB Split Squat',side:true,secs:45,w:20,cue:'Upright torso, controlled descent.'}]},
    {rounds:3,exercises:[
@@ -304,12 +312,12 @@ const PROGRAM=[
  {day:'Tue',name:'Upper Body A',variants:[
   {label:'A',blocks:[
    {rounds:3,exercises:[
-    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned back and down, press up and slightly together.'},
+    {n:'Barbell Bench Press',secs:60,w:115,r:5,cue:'Cage bar, bench flat under it. 5 reps - blades pinned, bar to the lower chest.'},
     {n:'Bent-Over Barbell Row',secs:45,w:95,cue:'Floor bar. Pull to the belly, ribs down.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Elbows lead. Light on purpose.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the shoulder blades.'}]},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Elbows high, thumbs back. Squeeze and hold.'}]},
    {rounds:3,exercises:[
-    {n:'DB Floor Press',secs:45,w:30,cue:'On the floor - the bench stays on the incline all workout. Elbows brush down, then press.'},
+    {n:'DB Floor Press',secs:45,w:30,cue:'On the floor - the bench stays flat under the cage bar. Elbows brush down, then press.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows to the ribs.'},
     {n:'EZ-Bar Skullcrusher',secs:45,w:40,cue:'EZ bar, bench flat. Upper arms vertical and still.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms. The slow return is the work.'}]},
@@ -320,12 +328,12 @@ const PROGRAM=[
     {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over. Squeeze, do not swing.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
-    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Wrists over the elbows, control the bottom.'},
+    {n:'Barbell Bench Press',secs:60,w:115,r:5,cue:'Cage bar, flat bench. 5 reps - wrists over the elbows, control the bottom.'},
     {n:'Wide-Grip Lat Pulldown',secs:45,w:70,cue:'Lean back slightly, drive the elbows down.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Stop at shoulder height.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Forehead down, neck relaxed.'}]},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over. Small weight, real squeeze.'}]},
    {rounds:3,exercises:[
-    {n:'DB Floor Press',secs:45,w:30,cue:'Floor, not the bench - the dips later need it flat. Short range, easy on the shoulder.'},
+    {n:'DB Floor Press',secs:45,w:30,cue:'Floor, not the bench. Short range, easy on the shoulder.'},
     {n:'Bent-Over DB Row',secs:45,w:30,cue:'Flat back. Elbow past the ribs.'},
     {n:'Bench Dip',secs:45,w:0,cue:'Shoulders down. Do not sink into the joint.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades.'}]},
@@ -336,10 +344,10 @@ const PROGRAM=[
     {n:'Band Face Pull',secs:45,w:0,cue:'Pull to the forehead, elbows high. Squeeze 1s.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
-    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Do not let the ribs flare to move it.'},
+    {n:'Barbell Bench Press',secs:60,w:115,r:5,cue:'Cage bar, flat bench. 5 reps. Do not let the ribs flare to move it.'},
     {n:'Landmine Row',secs:45,w:45,cue:'Floor bar in the sleeve. Chest stays up.'},
     {n:'DB Lateral Raise',secs:45,w:10,cue:'Lead with the elbows, not the hands.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Lift from the mid-back, not the arms.'}]},
+    {n:'Band Face Pull',secs:45,w:0,cue:'Pull to the forehead, elbows high. Squeeze 1s.'}]},
    {rounds:3,exercises:[
     {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor. Easy on the shoulders.'},
     {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone, never behind the neck.'},
@@ -354,7 +362,7 @@ const PROGRAM=[
  {day:'Wed',name:'Posterior Chain & Core',variants:[
   {label:'A',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Deadlift',secs:60,w:135,cue:'Floor bar. Set the back before the bar moves.'},
+    {n:'Barbell Deadlift',secs:60,w:135,r:5,cue:'Floor bar. 5 reps - set the back before the bar moves.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Elbows high, thumbs back. Squeeze and hold.'},
     {n:'Hollow Body Hold',secs:45,w:0,cue:'Low back pressed flat - that is the whole drill. Knees bent if it lifts.'}]},
    {rounds:3,exercises:[
@@ -367,20 +375,20 @@ const PROGRAM=[
     {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the entire way out.'}]}]},
   {label:'B',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Romanian Deadlift',secs:60,w:95,cue:'Floor bar stays at 95 all session.'},
+    {n:'Barbell Deadlift',secs:60,w:135,r:5,cue:'Floor bar. 5 reps, reset the brace between each one.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Pull apart as you pull back.'},
     {n:'Bird Dog',secs:45,w:0,cue:'Reach long, hips level. Spine stays still.'}]},
    {rounds:3,exercises:[
-    {n:'Barbell Hip Thrust',secs:45,w:95,cue:'Same bar, same load - no plate change.'},
+    {n:'Barbell Hip Thrust',secs:45,w:135,cue:'Same floor bar, same 135 - no plate change.'},
     {n:'One-Arm DB Row',side:true,secs:45,w:30,cue:'Knee on the bench. Do not rotate the torso to lift it.'},
     {n:'Side Plank',side:true,secs:45,w:0,cue:'Hips high, stacked, and still.'}]},
    {rounds:3,exercises:[
     {n:'Band Lying Hamstring Curl',secs:45,w:0,cue:'Hamstrings get trained here, not stretched.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Squeeze 1s at the top of each rep.'},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms. The slow return is the work.'},
     {n:'Reverse Crunch',secs:45,w:0,cue:'Pelvis up, ribs down.'}]}]},
   {label:'C',blocks:[
    {rounds:3,exercises:[
-    {n:'Barbell Sumo Deadlift',secs:60,w:135,cue:'Floor bar. Knees out, chest up.'},
+    {n:'Barbell Deadlift',secs:60,w:135,r:5,cue:'Floor bar. 5 reps. Knees out, chest up, push the floor away.'},
     {n:'Band Face Pull',secs:45,w:0,cue:'Highest-value exercise in this session.'},
     {n:'Hollow Body Hold',secs:45,w:0,cue:'Ribs down, low back flat. Knees bent if you need it.'}]},
    {rounds:3,exercises:[
@@ -398,7 +406,7 @@ const PROGRAM=[
     {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Ribs down - do not lean back to press.'},
     {n:'Pull-Up',w:0,r:4,cue:'Every clean rep you have, then stop - no grinding. Tap Done.'},
     {n:'EZ-Bar Skullcrusher',secs:45,w:40,cue:'EZ bar, bench flat. Upper arms locked in place.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Neck long, chin slightly tucked.'}]},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades. Slow both ways.'}]},
    {rounds:3,exercises:[
     {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned, control the bottom.'},
     {n:'One-Arm DB Row',side:true,secs:45,w:30,cue:'Do not rotate the torso to lift it.'},
@@ -414,7 +422,7 @@ const PROGRAM=[
     {n:'Seated DB Press',secs:45,w:20,cue:'Back flat on the bench, ribs down.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, drive elbows down.'},
     {n:'Band Triceps Pushdown',secs:45,w:0,cue:'Elbows still, full lockout.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Lift the arms, not the head.'}]},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over, thumbs down. Squeeze, do not swing.'}]},
    {rounds:3,exercises:[
     {n:'Bench Dip',secs:45,w:0,cue:'Chest up, shoulders away from ears.'},
     {n:'EZ-Bar Curl',secs:45,w:40,cue:'EZ bar. Shoulders stay back and down.'},
@@ -430,7 +438,7 @@ const PROGRAM=[
     {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Brace the abs before every rep.'},
     {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone.'},
     {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs stay down, elbows in.'},
-    {n:"Prone T's",secs:45,w:0,cue:'The mid-back work nothing else covers.'}]},
+    {n:'Band Pull-Apart',secs:45,w:0,cue:'Arms straight throughout. The mid-back does the work.'}]},
    {rounds:3,exercises:[
     {n:'Machine Chest Fly',secs:45,w:40,cue:'Machine set for flyes. Wide arc, squeeze, slow on the way back out.'},
     {n:'DB Zottman Curl',secs:45,w:20,cue:'Rotate at the top, lower slowly.'},
@@ -450,7 +458,7 @@ const PROGRAM=[
     {n:'Hollow Body Hold',secs:45,w:0,cue:'Low back glued down. Knees bent if it lifts.'}]},
    {rounds:3,exercises:[
     {n:'DB Single-Leg RDL',side:true,secs:45,w:30,cue:'Hips square. Hamstrings load as you reach back.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Squeeze the blades, hold 1s.'},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over. Tiny weight, long squeeze.'},
     {n:'Reverse Crunch',secs:45,w:0,cue:'Curl the pelvis up. No momentum.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Hips back, glutes finish. Low back quiet.'},
@@ -463,7 +471,7 @@ const PROGRAM=[
     {n:'Bird Dog',secs:45,w:0,cue:'Long reach, level hips.'}]},
    {rounds:3,exercises:[
     {n:'DB Split Squat',side:true,secs:45,w:20,cue:'Upright torso, front shin vertical.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Thumbs up, lift from the mid-back.'},
+    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Squeeze the blades and hold 1s.'},
     {n:'Hollow Body Hold',secs:45,w:0,cue:'Bend the knees if the low back lifts.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Pure glute work, no low-back help.'},
@@ -476,7 +484,7 @@ const PROGRAM=[
     {n:'Plank',secs:45,w:0,cue:'Ribs down, glutes on, one straight line.'}]},
    {rounds:3,exercises:[
     {n:'DB Reverse Lunge',secs:45,w:20,cue:'Control the descent. Torso tall.'},
-    {n:"Prone T's",secs:45,w:0,cue:'Neck relaxed, chin lightly tucked.'},
+    {n:'DB Rear Delt Raise',secs:45,w:10,cue:'Thumbs down, lift wide. Light on purpose.'},
     {n:'Side Plank',side:true,secs:45,w:0,cue:'One straight line, hips stacked.'}]},
    {rounds:3,exercises:[
     {n:'Band Pull-Through',secs:45,w:0,cue:'Glutes drive it, low back stays out of it.'},
@@ -550,10 +558,10 @@ const ROUTINES=[
 function applyRoutineOrder(){
   const ord=D.settings.order||{};
   ROUTINES.forEach(R=>{
-    R.orig=R.items.slice();          // kept so "original order" is one click, not a reload
-    const want=ord[R.key];
-    if(!Array.isArray(want)||!want.length)return;
-    const by=new Map(R.items.map(it=>[it.name,it])),out=[];
+    if(!R.orig)R.orig=R.items.slice();  // captured once: a re-apply after a sync must not
+    const want=ord[R.key];              // freeze the CURRENT order in as "the original"
+    if(!Array.isArray(want)||!want.length){R.items=R.orig.slice();return}
+    const by=new Map(R.orig.map(it=>[it.name,it])),out=[];
     want.forEach(nm=>{if(by.has(nm)){out.push(by.get(nm));by.delete(nm)}});
     by.forEach(it=>out.push(it));
     R.items=out;
@@ -724,7 +732,12 @@ function fmtDate(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}/.test(s))return
 function fmtClock(sec){sec=Math.max(0,Math.round(sec));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}
 function unit(){return D.settings.unit}
 function setW(s){return s.w>0?s.w+' '+unit():'BW'}
-function fmtSets(sets){return sets.map(s=>(s.w>0?s.w:'BW')+'×'+(s.secs?fmtClock(s.secs):s.r)).join(', ')}
+/* A timed set can now carry a rep target too - "225 x 5" inside a 60 s window.
+   Reps are the number he actually cares about, so they win the label. */
+function fmtSets(sets){return sets.map(s=>(s.w>0?s.w:'BW')+'×'+(s.r>0?s.r:(s.secs?fmtClock(s.secs):s.r))).join(', ')}
+/* The rounds ARE the sets, so the only thing missing from "3 sets of 5" was the
+   rep target - it goes on the button and into the logged set. */
+function setTgt(ex){const r=parseInt(ex._r,10)||0;return r>0?' × '+r:''}
 function sessExercises(s){return s.blocks?s.blocks.flatMap(b=>b.exercises):(s.exercises||[])}
 function volume(s){let v=0;sessExercises(s).forEach(e=>e.sets.forEach(x=>v+=(x.w||0)*(x.r!=null?x.r:(x.secs||0)/60)));return v}
 function setCount(s){let n=0;sessExercises(s).forEach(e=>n+=e.sets.length);return n}
@@ -813,7 +826,8 @@ function renderPreview(){
     blk.exercises.forEach((e,ei)=>{
       const ex=mkEx(e,p.name);
       const open=previewEdit===bi+'.'+ei;
-      const meta=(ex.secs?fmtClock(ex.secs):'× '+(ex._r||'?')+' reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
+      const tgt=parseInt(ex._r,10)||0;
+      const meta=(ex.secs?fmtClock(ex.secs)+(tgt?' × '+tgt:''):'× '+(ex._r||'?')+' reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
       h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span>
         <span class="nm" data-action="info" data-n="${esc(ex.name)}">${esc(ex.name)}${ex.side?' <span class="hint">· each side</span>':''}</span>
         <button class="setchip" style="margin-left:auto" data-action="pvEdit" data-b="${bi}" data-e="${ei}">${meta} ✎</button>
@@ -825,10 +839,14 @@ function renderPreview(){
             <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="-1">−</button>
             <input readonly value="${parseFloat(ex._w)>0?esc(ex._w):'BW'}" style="pointer-events:none">
             <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="1">+</button></div></div>
-          <div class="grow"><div class="lbl">${timed?'Interval':'Reps'}</div>
-            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="${timed?'s':'r'}" data-d="-1">−</button>
-            <input readonly value="${timed?fmtClock(ex.secs):(ex._r||'8')}" style="pointer-events:none">
-            <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="${timed?'s':'r'}" data-d="1">+</button></div></div>
+          ${timed?`<div class="grow"><div class="lbl">Interval</div>
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="s" data-d="-1">−</button>
+            <input readonly value="${fmtClock(ex.secs)}" style="pointer-events:none">
+            <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="s" data-d="1">+</button></div></div>`:''}
+          <div class="grow"><div class="lbl">Reps${timed?' (target)':''}</div>
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="r" data-d="-1">−</button>
+            <input readonly value="${timed?(tgt||'–'):(ex._r||'8')}" style="pointer-events:none">
+            <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>
         </div>
         <button class="addex" style="padding:0 4px 10px" data-action="pvMode" data-b="${bi}" data-e="${ei}">${timed?'⇄ make it rep-based (Done tap)':'⇄ make it a timed interval'}</button>`;
       }
@@ -879,7 +897,7 @@ function renderPlan(){
         const prev=lastSetsTpl(nm,p.name)||lastSets(nm);
         const pw=prev?Math.max(...prev.map(x=>x.w||0)):null;
         h+=`<tr><td>${esc(nm)}${(typeof e==='object'&&e.side)?' <span class="hint">\u00b7 each side</span>':''}</td>
-        <td class="t">${secs?fmtClock(secs):(reps?'\u00d7 '+reps:'reps')}</td>
+        <td class="t">${secs?fmtClock(secs)+(reps?' \u00d7 '+reps:''):(reps?'\u00d7 '+reps:'reps')}</td>
         <td class="g">${w>0?w+' '+unit():'BW'}</td>
         <td class="l">${pw!=null?(pw>0?'was '+pw:'was BW'):''}</td>
         <td class="w"></td></tr>`;
@@ -908,13 +926,17 @@ function pvStep(bi,ei,f,d){
   const e=pvNorm(bi,ei),cur=mkEx(e,PROG()[previewIdx].name);
   if(f==='w')e.w=Math.max(0,(parseFloat(cur._w)||0)+d*5);
   else if(f==='s')e.secs=Math.max(15,Math.min(300,(e.secs||45)+d*5));
-  else if(f==='r')e.r=Math.max(1,Math.min(50,(e.r!=null?e.r:(parseInt(cur._r,10)||8))+d));
+  else if(f==='r'){
+    const min=e.secs?0:1;      // a timed slot is allowed to have no rep target at all
+    const v=Math.max(min,Math.min(50,(e.r!=null?e.r:(parseInt(cur._r,10)||(e.secs?0:8)))+d));
+    if(v===0)delete e.r;else e.r=v;
+  }
   render();
 }
 function pvMode(bi,ei){
   const e=pvNorm(bi,ei);
   if(e.secs){delete e.secs;if(e.r==null)e.r=8}
-  else{e.secs=45;delete e.r}
+  else e.secs=45;              // a rep target survives the switch - it is the "3 sets of 5"
   render();
 }
 function pvSave(){
@@ -1258,14 +1280,15 @@ function renderActive(){
             ${ex.secs?`<div class="grow"><div class="lbl">Interval</div>
               <div class="group"><button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="s" data-d="-1">−</button>
               <input readonly value="${fmtClock(ex.secs)}" style="pointer-events:none">
-              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="s" data-d="1">+</button></div></div>`
-            :`<div class="grow"><div class="lbl">Reps</div>
+              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="s" data-d="1">+</button></div></div>`:''}
+            <div class="grow"><div class="lbl">Reps${ex.secs?' (target)':''}</div>
               <div class="group"><button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="-1">−</button>
-              <input data-input="r" data-b="${bi}" data-e="${ei}" inputmode="numeric" value="${esc(ex._r||'')}" placeholder="0">
-              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>`}
+              <input data-input="r" data-b="${bi}" data-e="${ei}" inputmode="numeric" value="${esc(ex._r||'')}" placeholder="${ex.secs?'–':'0'}">
+              <button class="step" data-action="step" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>
           </div>
-          ${ex.secs?`<button class="btn btn-primary" data-action="startWork" data-b="${bi}" data-e="${ei}">${(T&&T.mode==='work'&&T.b===bi&&T.e===ei)?'✓ Done — next exercise':'▶ Start '+fmtClock(ex.secs)+' interval — Round '+(ex.sets.length+1)}</button>`
-          :`<button class="btn btn-primary" data-action="logSet" data-b="${bi}" data-e="${ei}">Log Set ${ex.sets.length+1}</button>`}
+          ${ex.secs?`<button class="btn btn-primary" data-action="startWork" data-b="${bi}" data-e="${ei}">${(T&&T.mode==='work'&&T.b===bi&&T.e===ei)?'✓ Done — next exercise':'▶ Start '+fmtClock(ex.secs)+' · Set '+(ex.sets.length+1)+' of '+blk.rounds+setTgt(ex)}</button>`
+          :`<button class="btn btn-primary" data-action="logSet" data-b="${bi}" data-e="${ei}">Log Set ${ex.sets.length+1} of ${blk.rounds}${setTgt(ex)}</button>`}
+          <button class="addex" style="padding:0 4px 6px" data-action="actMode" data-b="${bi}" data-e="${ei}">${ex.secs?'⇄ make it rep-based (Done tap)':'⇄ make it a timed interval'}</button>
         </div>`;
       }else{
         h+=`<div class="exrow" data-action="focus" data-b="${bi}" data-e="${ei}">
@@ -1290,7 +1313,7 @@ function renderActive(){
 }
 function finishWorkEarly(){
   if(!T||T.mode!=='work')return;
-  const elapsed=Math.max(1,Math.round(T.total-Math.max(0,(T.endsAt-Date.now())/1000)));
+  const elapsed=Math.max(1,Math.round(T.total-Math.max(0,timerLeftMs()/1000)));
   const wb=T.b,we=T.e;
   T=null;localStorage.removeItem(TIMER_KEY);
   workComplete(wb,we,elapsed);
@@ -1311,9 +1334,11 @@ function workComplete(bi,ei,secs){
   const n=ex.name.toLowerCase();
   const sessMax=Math.max(0,...A.blocks.flatMap(b=>b.exercises).filter(x=>x.name.toLowerCase()===n).flatMap(x=>x.sets.map(s=>s.w||0)));
   const prevMax=Math.max(maxWeight(ex.name),sessMax);
-  ex.sets.push({w,secs});
+  const r=parseInt(ex._r,10)||0;
+  const set={w,secs};if(r>0)set.r=r;         // the rep target rides along with the interval
+  ex.sets.push(set);
   if(w>0&&w>prevMax)toast('🎉 New PR on '+ex.name+'!');
-  else toast('Interval done — '+(w>0?w+' '+unit():'BW')+' × '+fmtClock(secs));
+  else toast('Interval done — '+(w>0?w+' '+unit():'BW')+' × '+(r>0?r+' reps':fmtClock(secs)));
   advance(bi,ei);
   queueNext();
   renderActive.scrollNext=true;
@@ -1421,8 +1446,14 @@ function exerciseNames(){
 }
 function renderProgress(){
   setHead('Progress','');
+  $('#main').innerHTML=`<div class="seg">
+    <button class="${progressTab==='ex'?'on':''}" data-action="progTab" data-t="ex">Lifts</button>
+    <button class="${progressTab==='body'?'on':''}" data-action="progTab" data-t="body">Body</button>
+  </div>`+(progressTab==='body'?bodyHTML():liftHTML());
+}
+function liftHTML(){
   const names=exerciseNames();
-  if(!names.length){$('#main').innerHTML='<div class="center">Log a few workouts first —<br>then watch the line go up. 📈</div>';return}
+  if(!names.length)return '<div class="center">Log a few workouts first —<br>then watch the line go up. 📈</div>';
   if(!progressEx||!names.includes(progressEx))progressEx=names[0];
   const pts=[];
   sortedSessions().slice().reverse().forEach(s=>{
@@ -1447,7 +1478,79 @@ function renderProgress(){
     <div class="stat"><span>Most recent</span><b>${lastP.y.toLocaleString()} ${unit()} · ${fmtDate(lastP.d)}</b></div>
     <div class="stat"><span>Sessions</span><b>${pts.length}</b></div>
   </div>`;
-  $('#main').innerHTML=h;
+  return h;
+}
+/* ---- body measurements ----
+   One record per entry and never edited in place: the sync ledger propagates
+   adds and deletes by diffing ids, so "correcting" today's number has to be a
+   delete plus a fresh id, not a mutation the push would never notice. */
+const MEAS=[{k:'weight',label:'Weight',u:()=>unit()},
+            {k:'arm',label:'Arm',u:()=>lenUnit()},
+            {k:'leg',label:'Leg',u:()=>lenUnit()},
+            {k:'belly',label:'Belly',u:()=>lenUnit()}];
+function lenUnit(){return unit()==='kg'?'cm':'in'}
+function sortedMeas(){return D.measurements.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''))}
+function lastMeas(){const l=sortedMeas();return l[l.length-1]||null}
+function sanitizeMeas(m){
+  if(!m||typeof m!=='object')return null;
+  if(typeof m.id!=='string'||!m.id)return null;
+  if(typeof m.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(m.date))return null;
+  const out={id:m.id.replace(/[^\w-]/g,''),date:m.date};
+  if(!out.id)return null;
+  let any=false;
+  MEAS.forEach(f=>{const v=parseFloat(m[f.k]);
+    if(isFinite(v)&&v>0&&v<2000){out[f.k]=Math.round(v*10)/10;any=true}});
+  return any?out:null;
+}
+function measSave(){
+  const d=measDraft||{};
+  const row={id:uid(),date:todayStr()};
+  MEAS.forEach(f=>{const v=parseFloat(d[f.k]);if(isFinite(v)&&v>0)row[f.k]=v});
+  const clean=sanitizeMeas(row);
+  if(!clean){toast('Fill in at least one number');return}
+  D.measurements=D.measurements.filter(x=>x.date!==clean.date);   // one entry a day, latest wins
+  D.measurements.push(clean);
+  D.measurements.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  measDraft=null;
+  if(!persist())return;
+  render();toast('Logged for '+fmtDate(clean.date));
+  if(signedIn())syncNow(true);
+}
+function bodyHTML(){
+  const list=sortedMeas(),last=lastMeas();
+  const d=measDraft||(measDraft={});
+  let h=`<div class="card" style="margin-top:12px"><h3>📏 Log today</h3>
+    <div class="inrow">`;
+  MEAS.forEach(f=>{
+    const prev=(last&&last[f.k]!=null)?String(last[f.k]):'';
+    h+=`<div class="grow"><div class="lbl">${f.label} (${f.u()})</div>
+      <div class="group"><input data-input="meas" data-f="${f.k}" inputmode="decimal"
+        value="${esc(d[f.k]!=null?d[f.k]:'')}" placeholder="${prev||'–'}" style="text-align:center"></div></div>`;
+  });
+  h+=`</div>
+    <button class="btn btn-primary" data-action="measSave">Save ${fmtDate(todayStr())}</button>
+    <p class="hint" style="margin:2px 0 0">Blank fields are skipped — the greyed number is last time. Saving twice in a day replaces the earlier entry.</p></div>`;
+  if(!list.length)return h+`<div class="center">No measurements yet.<br>Weight, arm, leg and belly — the line starts once there are two.</div>`;
+  h+=`<div class="seg">${MEAS.map(f=>`<button class="${measMetric===f.k?'on':''}" data-action="measMetric" data-m="${f.k}">${f.label}</button>`).join('')}</div>`;
+  const fld=MEAS.filter(f=>f.k===measMetric)[0]||MEAS[0];
+  const pts=list.filter(m=>m[fld.k]!=null).map(m=>({d:m.date,y:m[fld.k]}));
+  if(pts.length){
+    const first=pts[0],lastP=pts[pts.length-1];
+    const delta=Math.round((lastP.y-first.y)*10)/10;
+    h+=`<div class="card" style="margin-top:12px">${chart(pts)}</div>
+    <div class="card">
+      <div class="stat"><span>Latest</span><b>${lastP.y} ${fld.u()} · ${fmtDate(lastP.d)}</b></div>
+      ${pts.length>1?`<div class="stat"><span>Since ${fmtDate(first.d)}</span><b>${delta>0?'+':''}${delta} ${fld.u()}</b></div>`:''}
+      <div class="stat"><span>Entries</span><b>${pts.length}</b></div>
+    </div>`;
+  }else h+=`<div class="center">No ${fld.label.toLowerCase()} numbers logged yet.</div>`;
+  h+=`<div class="card"><h3>History</h3>`;
+  list.slice().reverse().forEach(m=>{
+    const bits=MEAS.filter(f=>m[f.k]!=null).map(f=>f.label+' '+m[f.k]+' '+f.u()).join(' · ');
+    h+=`<div class="stat"><span><b>${fmtDate(m.date)}</b><div class="hint">${esc(bits)}</div></span>
+      <button class="setchip" data-action="measDel" data-id="${esc(m.id)}">✕</button></div>`;
+  });
+  return h+`</div>`;
 }
 function chart(pts){
   const W=340,H=190,P={l:14,r:14,t:18,b:26};
@@ -1493,6 +1596,7 @@ function programUsage(name){
     const en=typeof e==='string'?e:e.n;
     if(en.toLowerCase()===n)out.push({day:p.day,tpl:p.name,variant:v.label,interval:bi+1,
       secs:(typeof e==='object'&&e.secs)?e.secs:null,
+      r:(typeof e==='object'&&e.r!=null)?e.r:null,
       w:(typeof e==='object'&&e.w!=null)?e.w:null});
   }))));
   return out;
@@ -1530,7 +1634,7 @@ function showExDetail(name){
    ${INFO[name]?`<p style="margin:0 0 12px;line-height:1.5">${esc(INFO[name])}</p>`:''}
    <a class="btn" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px"
       href="${esc(ytSearch(name))}" target="_blank" rel="noopener">▶ Watch it on YouTube</a>
-   ${use.length?use.map(u=>`<div class="stat"><span>${u.day}${u.variant?' '+esc(u.variant):''} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs):'reps'}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
+   ${use.length?use.map(u=>`<div class="stat"><span>${u.day}${u.variant?' '+esc(u.variant):''} · Interval ${u.interval}</span><b>${u.secs?fmtClock(u.secs)+(u.r?' × '+u.r:''):(u.r?'× '+u.r+' reps':'reps')}${u.w?' · '+u.w+' '+unit():''}</b></div>`).join(''):'<p class="hint">Not in your weekly program.</p>'}
    ${last?`<div class="stat"><span>Last logged${lastSess?' · '+fmtDate(lastSess.date):''}</span><b>${esc(fmtSets(last))}</b></div>`:''}
    ${pr>0?`<div class="stat"><span>Heaviest</span><b>${pr} ${unit()}</b></div>`:''}
    ${last?`<button class="btn btn-primary" data-action="exProgress" data-n="${esc(name)}">📈 View progress</button>`:''}
@@ -1567,6 +1671,11 @@ function renderMore(){
       ${[0,3,5,8,12].map(s=>`<button class="${D.settings.transition===s?'on':''}" data-action="transition" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}
     </div>
     <p class="hint" style="margin:6px 0 0">A breather to change station or get into the next stretch. Counts you in out loud.</p>
+    <div class="lbl" style="text-align:left;margin-top:14px">Beep volume</div>
+    <div class="seg">
+      ${[[1,'Normal'],[1.5,'Loud'],[2.4,'Max']].map(v=>`<button class="${volLevel()===v[0]?'on':''}" data-action="volume" data-v="${v[0]}">${v[1]}</button>`).join('')}
+    </div>
+    <p class="hint" style="margin:6px 0 0">Garage-loud by default. Tap one to hear it.</p>
     <div class="lbl" style="text-align:left;margin-top:14px">Session target</div>
     <div class="seg">
       ${[20,25,30,40].map(m=>`<button class="${D.settings.sessionTarget===m?'on':''}" data-action="target" data-m="${m}">${m}m</button>`).join('')}
@@ -1620,9 +1729,15 @@ function showPicker(filter){
   const inp=document.querySelector('[data-input="pickerSearch"]');
   if(inp)inp.focus();
 }
+/* Added mid-session, an exercise used to land rep-based, so it had no interval
+   and no timer - which reads as "the timer did not work for the one I added".
+   It now inherits the block's interval; the toggle on the card undoes that. */
 function addPicked(name){
   const blk=A.blocks[pickerBlock];
-  blk.exercises.push(mkEx(name,A.template));
+  const ex=mkEx(name,A.template);
+  if(!ex.secs){const timed=blk.exercises.filter(x=>x.secs);
+    ex.secs=timed.length?timed[timed.length-1].secs:45}
+  blk.exercises.push(ex);
   if(blk.done){blk.done=false}             // adding to a finished block reopens it
   if(!A.cur)A.cur={b:pickerBlock,e:blk.exercises.length-1};
   persistA();closeModal();render();
@@ -1655,44 +1770,55 @@ function startTimer(secs){
   save(TIMER_KEY,T);renderTimer();
 }
 function stopTimer(){T=null;localStorage.removeItem(TIMER_KEY);renderTimer()}
-function beepN(n){
-  try{
-    audioSessionPlayback();
-    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    const go=()=>{const t=audioCtx.currentTime;
-      for(let i=0;i<n;i++){const off=i*.35;
-        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-        o.connect(g);g.connect(audioCtx.destination);o.frequency.value=880;
-        g.gain.setValueAtTime(.001,t+off);
-        g.gain.exponentialRampToValueAtTime(.9,t+off+.02);
-        g.gain.exponentialRampToValueAtTime(.001,t+off+.3);
-        o.start(t+off);o.stop(t+off+.32);
-      }};
-    if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go();
-  }catch(e){}
+/* Paused, the clock lives in T.rem and endsAt goes stale - so nothing may read
+   endsAt directly any more. */
+function timerLeftMs(){return T?(T.paused?(T.rem||0):(T.endsAt-Date.now())):0}
+/* Everything goes through one compressor and a makeup gain. A phone speaker in
+   a garage does not get louder from a bigger sine - it gets louder from squashed
+   peaks pushed up, and from a square wave, which a tinny driver carries far
+   better than a sine. Makeup gain above 1 is deliberate; the compressor in front
+   of it is what keeps that from turning into a crackle. */
+let masterOut=null,masterGain=null;
+function audioOut(){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(!masterOut){
+    masterOut=audioCtx.createDynamicsCompressor();
+    masterOut.threshold.value=-20;masterOut.knee.value=10;masterOut.ratio.value=12;
+    masterOut.attack.value=.003;masterOut.release.value=.12;
+    masterGain=audioCtx.createGain();
+    masterOut.connect(masterGain);masterGain.connect(audioCtx.destination);
+  }
+  masterGain.gain.value=volLevel();
+  return masterOut;
 }
-/* One shaped tone. The countdown ticks low and short; the end tone is higher and
-   longer, so "nearly" and "now" never sound alike from across the garage. */
+function volLevel(){const v=+D.settings.volume;return [1,1.5,2.4].indexOf(v)>=0?v:1.5}
+function beepN(n){for(let i=0;i<n;i++)setTimeout(()=>tone(880,.18,.9),i*300)}
+/* One shaped tone, fundamental plus an octave so it cuts. The countdown ticks
+   short and lower; the end tone is higher and longer, so "nearly" and "now"
+   never sound alike from across the garage. */
 function tone(freq,dur,vol){
   try{
     audioSessionPlayback();
-    if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const out=audioOut();
     const go=()=>{const t=audioCtx.currentTime;
-      const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-      o.connect(g);g.connect(audioCtx.destination);o.frequency.value=freq;
-      g.gain.setValueAtTime(.001,t);
-      g.gain.exponentialRampToValueAtTime(vol,t+.015);
-      g.gain.exponentialRampToValueAtTime(.001,t+dur);
-      o.start(t);o.stop(t+dur+.03);};
+      [[1,1],[2,.45]].forEach(p=>{
+        const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+        o.type='square';o.frequency.value=freq*p[0];
+        o.connect(g);g.connect(out);
+        g.gain.setValueAtTime(.001,t);
+        g.gain.exponentialRampToValueAtTime(Math.max(.01,vol*p[1]),t+.015);
+        g.gain.exponentialRampToValueAtTime(.001,t+dur);
+        o.start(t);o.stop(t+dur+.03);});
+      };
     if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go();
   }catch(e){}
 }
-function tickBeep(){tone(620,.12,.6)}
-function endBeep(){tone(1245,.55,.95)}
+function tickBeep(){tone(880,.11,.7)}
+function endBeep(){tone(1245,.6,1)}
 function switchBeep(){beepN(2)}
 /* Two high beeps = "go now". This replaces the ticking on the get-ready gap:
    the countdown between moves is silent, and the start of the move is the signal. */
-function startBeep(){tone(1245,.14,.95);setTimeout(()=>tone(1245,.14,.95),200)}
+function startBeep(){tone(1245,.15,1);setTimeout(()=>tone(1245,.15,1),200)}
 function beep(){endBeep()}
 /* Countdown ticks for whatever is running. `o` carries its own last-ticked second
    so a 500 ms loop cannot double-fire, and a backgrounded tab that comes back
@@ -1705,18 +1831,19 @@ function countdown(o,leftMs){
 function renderTimer(){
   const w=$('#timerWrap');
   if(!T){w.innerHTML='';document.documentElement.style.setProperty('--timer-h','0px');return}
-  const left=Math.max(0,Math.ceil((T.endsAt-Date.now())/1000));
+  const left=Math.max(0,Math.ceil(timerLeftMs()/1000));
   const work=T.mode==='work',nxt=T.mode==='next';
   let label='';
   if((work||nxt)&&A&&A.blocks[T.b]&&A.blocks[T.b].exercises[T.e])label=A.blocks[T.b].exercises[T.e].name;
   const bg=work?' style="background:#b45309"':nxt?' style="background:#6d28d9"':'';
   const ex=(work||nxt)&&A&&A.blocks[T.b]?A.blocks[T.b].exercises[T.e]:null;
   const half=work&&ex&&ex.side&&left<=Math.floor(T.total/2);
-  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}"${bg}>
+  w.innerHTML=`<div class="timer-bar${T.done?' flash':''}${T.paused?' paused':''}"${bg}>
     <div class="tb-main">
       <span style="font-size:20px">${work?'🔥':nxt?'🚀':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
       ${(work||nxt)?`<span class="tb-nm">${nxt?'Next: ':''}${esc(label)}</span>`:''}
       <span class="grow" style="flex:1"></span>
+      ${work?'<button data-action="timerPause">'+(T.paused?'▶︎':'⏸')+'</button>':''}
       ${work?'<button data-action="workDone">✓ Done</button>':''}
       ${nxt?'<button data-action="goNow">Go now</button>':''}
       ${!work&&!nxt?'<button data-action="timerPlus">+30s</button>':''}
@@ -1749,6 +1876,9 @@ setInterval(()=>{
   if(A&&view==='workout'){const el=$('#sessClock');if(el){el.textContent=sessionClockText();
     el.classList.toggle('over',(Date.now()-new Date(A.startedAt).getTime())/1000>D.settings.sessionTarget*60)}}
   if(!T)return;
+  if(T.paused){const pe=document.querySelector('.timer-bar .t');
+    if(pe)pe.textContent=fmtClock(Math.ceil((T.rem||0)/1000));
+    return}
   const left=T.endsAt-Date.now();
   if(left>0&&T.mode==='work')countdown(T,left);   // get-ready and rest count down silently
   // halfway through a one-sided interval: two beeps and the bar flips to RIGHT
@@ -1806,8 +1936,8 @@ const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
 const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
 const AUTH_KEY='wt_auth_v1', SYNC_KEY='wt_sync_v1';
 const T_SESS='wt_sessions', T_ROUT='wt_routineDates', T_CUST='wt_customExercises',
-      T_SET='wt_settings', T_PROG='wt_program';
-const SYNC_TABLES=[T_SESS,T_ROUT,T_CUST,T_SET,T_PROG];
+      T_SET='wt_settings', T_PROG='wt_program', T_MEAS='wt_measurements';
+const SYNC_TABLES=[T_SESS,T_ROUT,T_CUST,T_SET,T_PROG,T_MEAS];
 const EPOCH='1970-01-01T00:00:00Z';
 let AU=load(AUTH_KEY,null);
 let SY=load(SYNC_KEY,null);
@@ -1859,6 +1989,7 @@ function localRows(){
   m[T_ROUT]=[];
   ['morning','active'].forEach(k=>(D.routineDates[k]||[]).forEach(d=>m[T_ROUT].push({id:k+'|'+d,data:{k:k,d:d}})));
   m[T_CUST]=D.customExercises.map(n=>({id:n,data:{n:n}}));
+  m[T_MEAS]=D.measurements.map(x=>({id:x.id,data:x}));
   m[T_SET]=[{id:'settings',data:{at:D.settingsAt||'',v:D.settings}}];
   m[T_PROG]=Array.isArray(D.program)?[{id:'program',data:{at:D.programAt||'',v:D.program}}]:[];
   return m;
@@ -1911,13 +2042,30 @@ function applyRemote(row){
     if(typeof id!=='string'||!id||D.customExercises.indexOf(id)>=0)return false;
     D.customExercises.push(id);return true;
   }
+  if(t===T_MEAS){
+    if(row.deleted){const n=D.measurements.length;
+      D.measurements=D.measurements.filter(x=>x.id!==id);ledgerDrop(t,id);
+      return D.measurements.length!==n}
+    if(D.measurements.some(x=>x.id===id))return false;   // entries are never edited in place
+    const mm=sanitizeMeas(row.data);
+    if(!mm)return false;
+    D.measurements.push(mm);
+    D.measurements.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    return true;
+  }
   if(t===T_SET){
     if(row.deleted||!d.v||typeof d.v!=='object')return false;
     if((d.at||'')<=(D.settingsAt||''))return false;
     const v=d.v;
     if(v.unit==='lb'||v.unit==='kg')D.settings.unit=v.unit;
     if([0,45,60,75,90].indexOf(+v.roundRest)>=0)D.settings.roundRest=+v.roundRest;
+    if([0,3,5,8,12].indexOf(+v.transition)>=0)D.settings.transition=+v.transition;
     if([20,25,30,40].indexOf(+v.sessionTarget)>=0)D.settings.sessionTarget=+v.sessionTarget;
+    if([1,1.5,2.4].indexOf(+v.volume)>=0)D.settings.volume=+v.volume;
+    // retimed holds and the custom routine order ride this singleton too - the old
+    // whitelist silently dropped them, so they never actually crossed devices
+    if(v.holds&&typeof v.holds==='object')D.settings.holds=v.holds;
+    if(v.order&&typeof v.order==='object'){D.settings.order=v.order;applyRoutineOrder()}
     D.settingsAt=d.at;return true;
   }
   if(t===T_PROG){
@@ -1982,7 +2130,12 @@ async function copyData(){
   try{await navigator.clipboard.writeText(JSON.stringify(D));toast('Copied — paste somewhere safe')}
   catch(e){toast('Copy failed — use Download instead')}
 }
-function cleanSets(arr){return Array.isArray(arr)?arr.filter(x=>x&&typeof x==='object').map(x=>x.secs?{w:+x.w||0,secs:+x.secs||0}:{w:+x.w||0,r:+x.r||0}):[]}
+/* A timed set may now carry a rep target as well - keep it through a restore. */
+function cleanSets(arr){return Array.isArray(arr)?arr.filter(x=>x&&typeof x==='object').map(x=>{
+  if(!x.secs)return {w:+x.w||0,r:+x.r||0};
+  const o={w:+x.w||0,secs:+x.secs||0};
+  if(+x.r>0)o.r=+x.r;
+  return o}):[]}
 function sanitizeSession(s){
   if(!s||typeof s!=='object')return null;
   if(typeof s.id!=='string'||!s.id)return null;
@@ -2015,6 +2168,12 @@ function importData(txt){
     if(!s){skipped++;return}
     if(!have.has(s.id)){have.add(s.id);D.sessions.push(s);added++}
   });
+  if(Array.isArray(obj.measurements)){
+    const haveM=new Set(D.measurements.map(m=>m.id));
+    obj.measurements.forEach(raw=>{const m=sanitizeMeas(raw);
+      if(m&&!haveM.has(m.id)){haveM.add(m.id);D.measurements.push(m)}});
+    D.measurements.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  }
   if(Array.isArray(obj.customExercises))
     obj.customExercises.forEach(n=>{if(typeof n==='string'&&n&&!D.customExercises.includes(n))D.customExercises.push(n)});
   if(Array.isArray(obj.program)&&obj.program.length===PROGRAM.length&&
@@ -2033,7 +2192,11 @@ function importData(txt){
     const inc=obj.settings,st=D.settings;
     if(inc.unit==='lb'||inc.unit==='kg')st.unit=inc.unit;
     if([0,45,60,75,90].includes(+inc.roundRest))st.roundRest=+inc.roundRest;
+    if([0,3,5,8,12].includes(+inc.transition))st.transition=+inc.transition;
     if([20,25,30,40].includes(+inc.sessionTarget))st.sessionTarget=+inc.sessionTarget;
+    if([1,1.5,2.4].includes(+inc.volume))st.volume=+inc.volume;
+    if(inc.holds&&typeof inc.holds==='object')st.holds=inc.holds;
+    if(inc.order&&typeof inc.order==='object'){st.order=inc.order;applyRoutineOrder()}
   }
   persist();closeModal();
   toast(added?'Restored '+added+' workout'+(added===1?'':'s')+(skipped?' ('+skipped+' invalid skipped)':''):'Nothing new to restore');render();
@@ -2133,6 +2296,11 @@ document.addEventListener('click',e=>{
     if(ex.sets.length)showConfirm('Remove '+ex.name+'?',ex.sets.length+' logged set(s) will be lost.',doRm);
     else doRm()}
   else if(a==='logSet')logSet(bi,ei);
+  else if(a==='actMode'){
+    if(T&&T.mode==='work'&&T.b===bi&&T.e===ei){toast('Stop the interval first');return}
+    const ex=A.blocks[bi].exercises[ei];
+    ex.secs=ex.secs?null:45;
+    persistA();render()}
   else if(a==='startWork'){
     if(T&&T.mode==='work'){
       if(T.b===bi&&T.e===ei){finishWorkEarly();return}
@@ -2158,6 +2326,13 @@ document.addEventListener('click',e=>{
   else if(a==='delSess'){const id=el.dataset.id;
     showConfirm('Delete this workout?','It will be removed from this device.',()=>{D.sessions=D.sessions.filter(s=>s.id!==id);persist();closeModal();render()})}
   else if(a==='metric'){progressMetric=el.dataset.m;render()}
+  else if(a==='progTab'){progressTab=el.dataset.t;render()}
+  else if(a==='measMetric'){measMetric=el.dataset.m;render()}
+  else if(a==='measSave')measSave();
+  else if(a==='measDel'){const id=el.dataset.id,m=D.measurements.filter(x=>x.id===id)[0];
+    showConfirm('Delete this entry?',(m?fmtDate(m.date):'It')+' will be removed from this device.',
+      ()=>{D.measurements=D.measurements.filter(x=>x.id!==id);persist();closeModal();render();
+           if(signedIn())syncNow(true)})}
   else if(a==='timer')startTimer(+el.dataset.s);
   else if(a==='workDone')finishWorkEarly();
   else if(a==='exDetail')showExDetail(el.dataset.n);
@@ -2187,7 +2362,14 @@ document.addEventListener('click',e=>{
     stopTimer();
     if(nx&&A&&A.blocks[nx.b]&&A.blocks[nx.b].exercises[nx.e])startWorkFor(nx.b,nx.e);else render();
   }
-  else if(a==='timerPlus'){if(T){T.endsAt+=30000;T.done=false;save(TIMER_KEY,T);renderTimer()}}
+  else if(a==='timerPlus'){if(T){if(T.paused)T.rem=(T.rem||0)+30000;else T.endsAt+=30000;
+    T.done=false;save(TIMER_KEY,T);renderTimer()}}
+  else if(a==='timerPause'){
+    if(!T)return;
+    if(T.paused){T.endsAt=Date.now()+(T.rem||0);T.paused=false}
+    else{T.rem=Math.max(0,T.endsAt-Date.now());T.paused=true}
+    save(TIMER_KEY,T);renderTimer();
+    toast(T.paused?'Paused — the set waits for you':'Back on the clock')}
   else if(a==='timerStop'){const wasWork=T&&T.mode==='work';stopTimer();if(wasWork){toast('Interval cancelled');render()}}
   else if(a==='sync')syncNow(false);
   else if(a==='signInOpen')showSignIn();
@@ -2214,6 +2396,7 @@ document.addEventListener('click',e=>{
   else if(a==='unit'){D.settings.unit=el.dataset.u;touchSettings();persist();render()}
   else if(a==='roundRest'){D.settings.roundRest=+el.dataset.s;touchSettings();persist();render()}
   else if(a==='transition'){D.settings.transition=+el.dataset.s;touchSettings();persist();render()}
+  else if(a==='volume'){D.settings.volume=+el.dataset.v;touchSettings();persist();render();endBeep()}
   else if(a==='target'){D.settings.sessionTarget=+el.dataset.m;touchSettings();persist();render()}
   else if(a==='clearAll'){
     const cloud=signedIn();
@@ -2241,6 +2424,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.input==='w'||t.dataset.input==='r'){
     const ex=A.blocks[+t.dataset.b].exercises[+t.dataset.e];
     if(t.dataset.input==='w')ex._w=t.value;else ex._r=t.value;persistA()}
+  else if(t.dataset.input==='meas'){if(!measDraft)measDraft={};measDraft[t.dataset.f]=t.value}
   else if(t.dataset.input==='notes'){A.notes=t.value;persistA()}
   else if(t.dataset.input==='pickerSearch'){const pl=$('#pickList');if(pl)pl.innerHTML=pickListHTML(t.value)}
   else if(t.dataset.input==='exSearch'){exFilter=t.value;const xl=$('#exList');if(xl)xl.innerHTML=exListHTML(exFilter)}
