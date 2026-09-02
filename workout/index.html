@@ -320,7 +320,7 @@ const PROGRAM=[
     {n:'DB Floor Press',secs:45,w:30,cue:'On the floor - the bench stays flat under the cage bar. Elbows brush down, then press.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, elbows to the ribs.'},
     {n:'EZ-Bar Skullcrusher',secs:45,w:40,cue:'EZ bar, bench flat. Upper arms vertical and still.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Straight arms. The slow return is the work.'}]},
+    {n:'Hollow Body Hold',secs:45,w:0,cue:'Low back pressed flat. Knees bent if it lifts.'}]},
    {rounds:3,exercises:[
     {n:'Push-Up',secs:45,w:0,cue:'One straight line. Hips do not sag.'},
     {n:'DB Hammer Curl',secs:45,w:20,cue:'Elbows pinned to your sides.'},
@@ -336,7 +336,7 @@ const PROGRAM=[
     {n:'DB Floor Press',secs:45,w:30,cue:'Floor, not the bench. Short range, easy on the shoulder.'},
     {n:'Bent-Over DB Row',secs:45,w:30,cue:'Flat back. Elbow past the ribs.'},
     {n:'Bench Dip',secs:45,w:0,cue:'Shoulders down. Do not sink into the joint.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades.'}]},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Only as far as the ribs stay down. Short beats sagging.'}]},
    {rounds:3,exercises:[
     {n:'Machine Chest Fly',secs:45,w:40,cue:'Machine set for flyes. Slight elbow bend, squeeze where the hands meet.'},
     {n:'EZ-Bar Curl',secs:45,w:40,cue:'EZ bar. Elbows pinned to the sides, no swing.'},
@@ -352,7 +352,7 @@ const PROGRAM=[
     {n:'DB Floor Press',secs:45,w:30,cue:'Elbows brush the floor. Easy on the shoulders.'},
     {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone, never behind the neck.'},
     {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs down - this one loves to flare them.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow. Feel it between the shoulder blades.'}]},
+    {n:'Band Pallof Press',side:true,secs:45,w:0,cue:'Resist the twist. Ribs stacked over hips.'}]},
    {rounds:3,exercises:[
     {n:'Diamond Push-Up',secs:45,w:0,cue:'Elbows close, body straight.'},
     {n:'EZ-Bar Reverse Curl',secs:45,w:30,cue:'EZ bar, palms down. Go light - the forearms decide this one.'},
@@ -406,7 +406,7 @@ const PROGRAM=[
     {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Ribs down - do not lean back to press.'},
     {n:'Pull-Up',w:0,r:4,cue:'Every clean rep you have, then stop - no grinding. Tap Done.'},
     {n:'EZ-Bar Skullcrusher',secs:45,w:40,cue:'EZ bar, bench flat. Upper arms locked in place.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Chest tall, squeeze the blades. Slow both ways.'}]},
+    {n:'Ab Rollout',secs:45,w:0,cue:'Ribs down the whole way out. Stop before the low back gives.'}]},
    {rounds:3,exercises:[
     {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned, control the bottom.'},
     {n:'One-Arm DB Row',side:true,secs:45,w:30,cue:'Do not rotate the torso to lift it.'},
@@ -422,9 +422,9 @@ const PROGRAM=[
     {n:'Seated DB Press',secs:45,w:20,cue:'Back flat on the bench, ribs down.'},
     {n:'Neutral-Grip Lat Pulldown',secs:45,w:70,cue:'Chest up, drive elbows down.'},
     {n:'Band Triceps Pushdown',secs:45,w:0,cue:'Elbows still, full lockout.'},
-    {n:'DB Rear Delt Fly',secs:45,w:10,cue:'Hinge over, thumbs down. Squeeze, do not swing.'}]},
+    {n:'Hollow Body Hold',secs:45,w:0,cue:'Ribs down, low back flat. Bend the knees if it lifts.'}]},
    {rounds:3,exercises:[
-    {n:'Bench Dip',secs:45,w:0,cue:'Chest up, shoulders away from ears.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Blades pinned back and down, control the bottom.'},
     {n:'EZ-Bar Curl',secs:45,w:40,cue:'EZ bar. Shoulders stay back and down.'},
     {n:'Side Plank',side:true,secs:45,w:0,cue:'One long line from ear to ankle.'},
     {n:'Band Pull-Apart',secs:45,w:0,cue:'Slow both ways.'}]},
@@ -438,9 +438,9 @@ const PROGRAM=[
     {n:'Barbell Overhead Press',secs:45,w:65,cue:'Cage bar. Brace the abs before every rep.'},
     {n:'Close-Grip Lat Pulldown',secs:45,w:70,cue:'Pull to the collarbone.'},
     {n:'Overhead DB Triceps Extension',secs:45,w:20,cue:'Ribs stay down, elbows in.'},
-    {n:'Band Pull-Apart',secs:45,w:0,cue:'Arms straight throughout. The mid-back does the work.'}]},
+    {n:'Band Standing Ab Twist',side:true,secs:45,w:0,cue:'Turn from the ribs, hips face forward.'}]},
    {rounds:3,exercises:[
-    {n:'Machine Chest Fly',secs:45,w:40,cue:'Machine set for flyes. Wide arc, squeeze, slow on the way back out.'},
+    {n:'Incline DB Bench Press',secs:45,w:30,cue:'Incline bench. Press up and slightly together, no rib flare.'},
     {n:'DB Zottman Curl',secs:45,w:20,cue:'Rotate at the top, lower slowly.'},
     {n:'Side Plank',side:true,secs:45,w:0,cue:'Stack the hips. One line from ear to ankle.'},
     {n:'DB Rear Delt Raise',secs:45,w:10,cue:'Thumbs down, lift wide.'}]},
@@ -1126,7 +1126,8 @@ function renderStretchPreview(){
   const R=ROUTINES[stretchPrev];
   setHead(R.name,stSteps(R)+' steps · ~'+routineMins(R)+' min','stretchPreviewBack');
   const tweaked=R.items.some(x=>x.secs&&holdSecs(R,x)!==x.secs);
-  let h=`<div class="card">
+  let h=`<button class="btn btn-primary" style="padding:17px;margin-bottom:12px" data-action="stretchGo">▶ Start ${esc(R.name)}</button>
+  <div class="card">
     <div class="lbl" style="text-align:left">Every hold at once</div>
     <div class="row" style="margin-top:6px">
       <button class="btn" style="flex:1" data-action="holdAll" data-d="-1">− 5s each</button>
@@ -1153,7 +1154,6 @@ function renderStretchPreview(){
     <p class="hint" style="margin:8px 0 0">${reorder?'Drag a row, or use the arrows.':'Long-press any move to drag it into a new order. Tap a name to read what it is.'}</p></div>
   ${reorder?`<button class="btn btn-primary" data-action="ordDone">✓ Done reordering</button>`:''}
   ${routineReordered(R)?`<button class="btn btn-ghost" data-action="ordReset">↺ Back to the original order</button>`:''}
-  <button class="btn btn-primary" style="padding:17px" data-action="stretchGo">▶ Start ${esc(R.name)}</button>
   <button class="btn" data-action="stretchPreviewBack">← Back</button>`;
   $('#main').innerHTML=h;
   wireReorder(R);
