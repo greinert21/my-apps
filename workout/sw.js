@@ -1,5 +1,5 @@
 // Tiny offline cache: network-first so updates land, cache fallback for the gym.
-const CACHE = 'workout-v10';
+const CACHE = 'workout-v11';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(

@@ -157,9 +157,7 @@ a{color:var(--accent)}
 .tile .tn{font-weight:700;font-size:15px;line-height:1.25}
 .tile .tm{font-size:12px;color:var(--dim);margin-top:auto}
 /* ---- reorderable routine ---- */
-#stOrder.reordering .strow{background:var(--card2);border-radius:10px;margin:3px 0;
-  border-top-color:transparent}
-#stOrder .strow.dragging{opacity:.6;outline:2px dashed var(--accent)}
+#stOrder.reordering .bub{border-style:dashed}
 /* ---- the day, as bubbles ----
    One tile per exercise on the preview screen. The whole tile is the tap target
    - a small pencil chip beside a long exercise name was easy to miss, which is
@@ -1218,7 +1216,7 @@ function wireReorder(R){
   let timer=null,startY=0,drag=null;
   const stopPress=()=>{if(timer){clearTimeout(timer);timer=null}};
   box.addEventListener('touchstart',ev=>{
-    const row=ev.target.closest('.strow');
+    const row=ev.target.closest('.bub');
     if(!row||ev.target.closest('button'))return;
     startY=ev.touches[0].clientY;
     if(reorder){drag=row;row.classList.add('dragging');return}
@@ -1233,7 +1231,7 @@ function wireReorder(R){
     ev.preventDefault();
     const t=ev.touches[0];
     const el=document.elementFromPoint(t.clientX,t.clientY);
-    const over=el&&el.closest('.strow');
+    const over=el&&el.closest('.bub');
     if(!over||over===drag||over.parentNode!==box)return;
     const r=over.getBoundingClientRect();
     box.insertBefore(drag,(t.clientY>r.top+r.height/2)?over.nextSibling:over);
@@ -1262,24 +1260,32 @@ function renderStretchPreview(){
     </div>
     ${tweaked?`<button class="addex" data-action="holdReset">↺ Back to the original times</button>`:''}
   </div>
-  <div class="card${reorder?' reordering':''}" style="padding:4px 14px" id="stOrder">`;
+  <div class="card${reorder?' reordering':''}" style="padding:6px 14px" id="stOrder">`;
+  /* Same bubble tiles as the workout preview. The ± stays inline rather than
+     hiding behind a tap the way the preview's numbers do - there is only one
+     number per move here, and a tap to reach it would be a step backwards. */
   R.items.forEach((x,xi)=>{
-    h+=`<div class="strow" style="cursor:default" data-n="${esc(x.name)}">
-      <span class="nm"${reorder?'':` data-action="info" data-n="${esc(x.name)}"`}>${reorder?'☰ ':''}${esc(x.name)}${x.side?' <span class="dim">· each side</span>':''}</span>
-      <span class="sum">${x.secs?fmtClock(holdSecs(R,x)):'× '+x.reps}</span>
+    const held=x.secs?holdSecs(R,x):0;
+    h+=`<div class="bub" data-n="${esc(x.name)}"><div class="btop">
+      <span class="bgrip">${reorder?'\u2630':'\u283f'}</span>
+      <span class="bbody"${reorder?'':` data-action="info" data-n="${esc(x.name)}"`}>
+        <span class="bnm">${esc(x.name)}</span>
+        <span class="bmeta">${x.secs?fmtClock(held)+' hold'+(held!==x.secs?' \u00b7 was '+fmtClock(x.secs):'')
+          :'\u00d7 '+x.reps+' reps'}${x.side?' \u00b7 each side':''}</span></span>
       ${reorder?`<span class="stedit">
-        <button data-action="ordMove" data-i="${xi}" data-d="-1">▲</button>
-        <button data-action="ordMove" data-i="${xi}" data-d="1">▼</button></span>`
+        <button data-action="ordMove" data-i="${xi}" data-d="-1">\u25b2</button>
+        <button data-action="ordMove" data-i="${xi}" data-d="1">\u25bc</button></span>`
        :x.secs?`<span class="stedit">
-        <button data-action="holdStep" data-i="${xi}" data-d="-1">−</button>
-        <button data-action="holdStep" data-i="${xi}" data-d="1">+</button></span>`
-       :`<span class="stedit ghost"></span>`}</div>`;
+        <button data-action="holdStep" data-i="${xi}" data-d="-1">\u2212</button>
+        <button data-action="holdStep" data-i="${xi}" data-d="1">+</button></span>`:''}
+      </div></div>`;
   });
   h+=`</div>
   <div class="card"><div class="lbl" style="text-align:left">Get ready between moves</div>
     <div class="seg">${[0,3,5,8,12].map(s=>`<button class="${D.settings.transition===s?'on':''}" data-action="transition" data-s="${s}">${s===0?'Off':s+'s'}</button>`).join('')}</div>
-    <p class="hint" style="margin:8px 0 0">${reorder?'Drag a row, or use the arrows.':'Long-press any move to drag it into a new order. Tap a name to read what it is.'}</p></div>
-  ${reorder?`<button class="btn btn-primary" data-action="ordDone">✓ Done reordering</button>`:''}
+    <p class="hint" style="margin:8px 0 0">${reorder?'Drag a bubble, or use the arrows.':'Long-press any bubble to drag it into a new order. Tap a name to read what the move is.'}</p></div>
+  ${reorder?`<button class="btn btn-primary" data-action="ordDone">\u2713 Done reordering</button>`
+    :`<div style="text-align:center;margin-bottom:10px"><button class="addex" data-action="ordOn">\u2630 Reorder these moves</button></div>`}
   ${routineReordered(R)?`<button class="btn btn-ghost" data-action="ordReset">↺ Back to the original order</button>`:''}
   <button class="btn" data-action="stretchPreviewBack">← Back</button>`;
   $('#main').innerHTML=h;
@@ -2376,6 +2382,7 @@ document.addEventListener('click',e=>{
     stretchPrev=null;stretchReady(true);acquireWake();render()}
   else if(a==='stretchPreviewBack'){stretchPrev=null;reorder=false;render()}
   else if(a==='ordMove')moveRoutineItem(ROUTINES[stretchPrev],+el.dataset.i,+el.dataset.d);
+  else if(a==='ordOn'){reorder=true;render()}
   else if(a==='ordDone'){reorder=false;render()}
   else if(a==='ordReset'){const R=ROUTINES[stretchPrev];
     R.items=R.orig.slice();
