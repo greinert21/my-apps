@@ -91,10 +91,6 @@ main{padding:14px 14px calc(90px + var(--timer-h,60px));max-width:560px;margin:0
   display:flex;flex-direction:column;gap:7px;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 .tb-main{display:flex;align-items:center;gap:10px}
 .tb-nm{font-size:13px;font-weight:700;opacity:.9;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tb-w{display:flex;align-items:center;gap:8px;border-top:1px solid rgba(255,255,255,.22);padding-top:7px}
-.tb-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.6px;opacity:.75}
-.tb-val{flex:1;font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;text-align:center}
-.tb-w button{width:46px;font-size:22px;padding:5px 0}
 .tb-side{font-size:12px;font-weight:800;letter-spacing:.5px;background:rgba(255,255,255,.2);border-radius:8px;padding:5px 8px}
 .tb-side.on{background:#fff;color:#b45309}
 .stclock{font-size:64px;font-weight:800;font-variant-numeric:tabular-nums;margin:10px 0;line-height:1}
@@ -164,6 +160,27 @@ a{color:var(--accent)}
 #stOrder.reordering .strow{background:var(--card2);border-radius:10px;margin:3px 0;
   border-top-color:transparent}
 #stOrder .strow.dragging{opacity:.6;outline:2px dashed var(--accent)}
+/* ---- the day, as bubbles ----
+   One tile per exercise on the preview screen. The whole tile is the tap target
+   - a small pencil chip beside a long exercise name was easy to miss, which is
+   how "couldn't edit some of the weights" happened - and a long-press picks the
+   tile up to drag. */
+.pvhead{display:flex;align-items:baseline;gap:10px;padding:14px 0 2px;
+  border-top:1px solid var(--line);margin-top:6px}
+.pvhead:first-child{border-top:none;margin-top:0;padding-top:2px}
+.pvhead b{font-size:16px}
+.bub{background:var(--card2);border:1px solid var(--line);border-radius:18px;
+  padding:10px 12px;margin:8px 0}
+.bub.open{border-color:var(--accent-dark);background:var(--card)}
+.btop{display:flex;align-items:center;gap:10px;cursor:pointer}
+.btop .bgrip{color:var(--dim);font-size:15px;flex:0 0 14px;text-align:center}
+.btop .bbody{flex:1;min-width:0}
+.btop .bnm{display:block;font-weight:700;font-size:15px;line-height:1.25}
+.btop .bmeta{display:block;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.btop .bcue{color:var(--accent);font-size:15px;flex:0 0 auto;padding:0 2px}
+.brow{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.bub.dragging{opacity:.6;outline:2px dashed var(--accent);outline-offset:-2px}
+#pvTiles.reordering .bub{border-style:dashed}
 .sheet h2{margin:0 0 2px;font-size:20px}
 .sheet .sday{page-break-inside:avoid;break-inside:avoid}
 .sheet .sday-h{font-weight:800;font-size:16px;border-bottom:1px solid var(--line);
@@ -259,6 +276,7 @@ let previewDraft=null;// editable copy of that day's blocks (session-only swaps 
 let previewVar=0;     // which variant the preview is showing
 let swapCtx=null;     // {b,e,name} mid-swap
 let previewEdit=null; // 'b.e' of the exercise whose ± panel is open on the preview
+let pvReorder=false;  // preview screen is in bubble-drag mode (entered by long-press)
 let exFilter='';      // exercises tab search
 function persist(){return save(DATA_KEY,D)}
 function touchSettings(){D.settingsAt=new Date().toISOString()}
@@ -805,59 +823,152 @@ function renderWorkout(){
   if(planOpen){renderPlan();return}
   renderStart();
 }
+/* ---- previewing the day: one bubble per exercise ----
+   Every exercise is its own tile and the whole tile opens its numbers, so there
+   is nothing on this screen he cannot set before he starts. Long-press picks a
+   tile up; the drag crosses interval boundaries as well as moving inside one,
+   because the order he wants to work in is a call made at the rack. */
 function renderPreview(){
   const p=PROG()[previewIdx];
   const rs=[...new Set(previewDraft.map(b=>b.rounds))];
-  setHead(p.name,p.day+' · '+previewDraft.length+' intervals · '
+  setHead(p.name,p.day+' \u00b7 '+previewDraft.length+' intervals \u00b7 '
     +(rs.length===1?rs[0]+' rounds each':rs.join('/')+' rounds'),'previewBack');
   let h='';
-  if(p.variants.length>1){
+  if(!pvReorder)
+    h+=`<button class="btn btn-primary" style="padding:17px;margin:0 0 12px" data-action="previewStart">\u25b6 Start Workout</button>`;
+  if(p.variants.length>1&&!pvReorder){
     const sug=weekVariant(p);
     h+=`<div class="seg" style="margin-bottom:12px">${p.variants.map((v,vi)=>
-      `<button class="${vi===previewVar?'on':''}" data-action="previewVar" data-v="${vi}">${esc(v.label)}${vi===sug?' ★':''}</button>`).join('')}</div>`;
-    if(previewVar===weekVariant(p))h+=`<p class="hint" style="margin:-4px 0 10px;text-align:center">★ = this week's rotation</p>`;
+      `<button class="${vi===previewVar?'on':''}" data-action="previewVar" data-v="${vi}">${esc(v.label)}${vi===sug?' \u2605':''}</button>`).join('')}</div>`;
+    if(previewVar===weekVariant(p))h+=`<p class="hint" style="margin:-4px 0 10px;text-align:center">\u2605 = this week's rotation</p>`;
   }
+  h+=`<div class="card${pvReorder?' reordering':''}" id="pvTiles">`;
   previewDraft.forEach((blk,bi)=>{
-    h+=`<div class="card"><div class="block-head"><b>Interval ${bi+1}</b>
+    h+=`<div class="pvhead" data-h="${bi}"><b>Interval ${bi+1}</b>
       <span class="rounds">${blk.rounds} round${blk.rounds===1?'':'s'}</span>
-      <span class="stedit" style="margin-left:0">
-        <button data-action="pvRounds" data-b="${bi}" data-d="-1">−</button>
-        <button data-action="pvRounds" data-b="${bi}" data-d="1">+</button></span></div>`;
+      ${pvReorder?'':`<span class="stedit" style="margin-left:0">
+        <button data-action="pvRounds" data-b="${bi}" data-d="-1">\u2212</button>
+        <button data-action="pvRounds" data-b="${bi}" data-d="1">+</button></span>`}</div>`;
+    if(!blk.exercises.length)
+      h+=`<p class="hint" style="margin:8px 2px 2px">Empty \u2014 drop a bubble on this heading to put it here.</p>`;
     blk.exercises.forEach((e,ei)=>{
-      const ex=mkEx(e,p.name);
-      const open=previewEdit===bi+'.'+ei;
+      const ex=pvEx(bi,ei);
+      const open=!pvReorder&&previewEdit===bi+'.'+ei;
+      const timed=!!ex.secs;
       const tgt=parseInt(ex._r,10)||0;
-      const meta=(ex.secs?fmtClock(ex.secs)+(tgt?' × '+tgt:''):'× '+(ex._r||'?')+' reps')+(parseFloat(ex._w)>0?' · '+esc(ex._w)+' '+unit():(ex.secs?' · BW':''));
-      h+=`<div class="exrow" style="cursor:default"><span class="dot">○</span>
-        <span class="nm" data-action="info" data-n="${esc(ex.name)}">${esc(ex.name)}${ex.side?' <span class="hint">· each side</span>':''}</span>
-        <button class="setchip" style="margin-left:auto" data-action="pvEdit" data-b="${bi}" data-e="${ei}">${meta} ✎</button>
-        <button class="addex" style="padding:2px 4px 2px 8px;font-size:18px;margin:0" data-action="swapOpen" data-b="${bi}" data-e="${ei}">⇄</button></div>`;
+      const meta=(timed?fmtClock(ex.secs)+(tgt?' \u00d7 '+tgt+' reps':''):'\u00d7 '+(ex._r||'?')+' reps')
+        +' \u00b7 '+(parseFloat(ex._w)>0?esc(ex._w)+' '+unit():'bodyweight');
+      h+=`<div class="bub${open?' open':''}" data-b="${bi}" data-e="${ei}">
+        <div class="btop"${pvReorder?'':` data-action="pvEdit" data-b="${bi}" data-e="${ei}"`}>
+          <span class="bgrip">${pvReorder?'\u2630':'\u283f'}</span>
+          <span class="bbody"><span class="bnm">${esc(ex.name)}${ex.side?' <span class="hint">\u00b7 each side</span>':''}</span>
+            <span class="bmeta">${meta}</span></span>
+          ${pvReorder?`<span class="stedit">
+            <button data-action="pvOrd" data-b="${bi}" data-e="${ei}" data-d="-1">\u25b2</button>
+            <button data-action="pvOrd" data-b="${bi}" data-e="${ei}" data-d="1">\u25bc</button></span>`
+           :`<span class="bcue">${open?'\u25be':'\u270e'}</span>`}
+        </div>`;
       if(open){
-        const timed=!!ex.secs;
-        h+=`<div class="inrow" style="margin:2px 0 8px">
+        h+=`<div class="inrow" style="margin:10px 0 2px">
           <div class="grow"><div class="lbl">Weight (${unit()})</div>
-            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="-1">−</button>
-            <input readonly value="${parseFloat(ex._w)>0?esc(ex._w):'BW'}" style="pointer-events:none">
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="-1">\u2212</button>
+            <input data-input="pvw" data-b="${bi}" data-e="${ei}" inputmode="decimal" value="${parseFloat(ex._w)>0?esc(ex._w):''}" placeholder="BW">
             <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="w" data-d="1">+</button></div></div>
           ${timed?`<div class="grow"><div class="lbl">Interval</div>
-            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="s" data-d="-1">−</button>
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="s" data-d="-1">\u2212</button>
             <input readonly value="${fmtClock(ex.secs)}" style="pointer-events:none">
             <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="s" data-d="1">+</button></div></div>`:''}
           <div class="grow"><div class="lbl">Reps${timed?' (target)':''}</div>
-            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="r" data-d="-1">−</button>
-            <input readonly value="${timed?(tgt||'–'):(ex._r||'8')}" style="pointer-events:none">
+            <div class="group"><button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="r" data-d="-1">\u2212</button>
+            <input data-input="pvr" data-b="${bi}" data-e="${ei}" inputmode="numeric" value="${timed?(tgt||''):(ex._r||'')}" placeholder="${timed?'\u2013':'8'}">
             <button class="step" data-action="pvStep" data-b="${bi}" data-e="${ei}" data-f="r" data-d="1">+</button></div></div>
         </div>
-        <button class="addex" style="padding:0 4px 10px" data-action="pvMode" data-b="${bi}" data-e="${ei}">${timed?'⇄ make it rep-based (Done tap)':'⇄ make it a timed interval'}</button>`;
+        <div class="brow">
+          <button class="addex" data-action="pvMode" data-b="${bi}" data-e="${ei}">\u21c4 ${timed?'make it rep-based':'make it a timed interval'}</button>
+          <button class="addex" data-action="swapOpen" data-b="${bi}" data-e="${ei}">\u21c4 swap exercise</button>
+          <button class="addex" data-action="info" data-n="${esc(ex.name)}">\u2139\ufe0f what is it</button>
+        </div>`;
       }
+      h+='</div>';
     });
-    h+='</div>';
   });
-  h+=`<button class="btn btn-primary" style="padding:17px" data-action="previewStart">▶ Start Workout</button>`;
-  h+=`<button class="btn btn-ghost" data-action="pvSave">💾 Save this as my weekly ${esc(p.day)} ${esc(p.variants[previewVar].label)}</button>`;
-  h+=`<p class="hint" style="text-align:center;margin:-4px 0 10px">Otherwise every change here is just for today.</p>`;
-  h+=`<button class="btn" data-action="previewBack">← Back</button>`;
+  h+='</div>';
+  if(pvReorder){
+    h+=`<p class="hint" style="text-align:center;margin:2px 0 10px">Drag a bubble, or use the arrows. Drop one on an interval heading to move it into that interval.</p>`;
+    h+=`<button class="btn btn-primary" data-action="pvOrdDone">\u2713 Done reordering</button>`;
+  }else{
+    h+=`<p class="hint" style="text-align:center;margin:2px 0 4px">Tap a bubble to set its weight, interval and reps. Long-press one to drag it into a new order.</p>`;
+    h+=`<div style="text-align:center;margin-bottom:10px"><button class="addex" data-action="pvOrdOn">\u2630 Reorder the day</button></div>`;
+    h+=`<button class="btn btn-ghost" data-action="pvSave">\ud83d\udcbe Save this as my weekly ${esc(p.day)} ${esc(p.variants[previewVar].label)}</button>`;
+    h+=`<p class="hint" style="text-align:center;margin:-4px 0 10px">Otherwise every change here is just for today.</p>`;
+  }
+  h+=`<button class="btn" data-action="previewBack">\u2190 Back</button>`;
   $('#main').innerHTML=h;
+  wirePvReorder();
+}
+/* Long-press to pick a bubble up, then drag. Same mechanics as the routine
+   reorder: the drag moves real DOM nodes and the order is only read back on
+   release, because re-rendering mid-gesture tears out the node the touch
+   sequence is bound to and the drag dies halfway. Interval headings are drop
+   targets too, so a bubble can still be dropped into an interval that emptied. */
+function pvReadOrder(box){
+  const blocks=previewDraft.map(()=>[]);
+  let cur=0;
+  [...box.children].forEach(el=>{
+    if(el.classList.contains('pvhead')){cur=+el.dataset.h;return}
+    if(!el.classList.contains('bub'))return;
+    blocks[cur].push(previewDraft[+el.dataset.b].exercises[+el.dataset.e]);
+  });
+  blocks.forEach((list,i)=>{previewDraft[i].exercises=list});
+}
+function wirePvReorder(){
+  const box=$('#pvTiles');if(!box)return;
+  let timer=null,startY=0,drag=null;
+  const stopPress=()=>{if(timer){clearTimeout(timer);timer=null}};
+  box.addEventListener('touchstart',ev=>{
+    const tile=ev.target.closest('.bub');
+    if(!tile||ev.target.closest('button')||ev.target.closest('input'))return;
+    startY=ev.touches[0].clientY;
+    if(pvReorder){drag=tile;tile.classList.add('dragging');return}
+    stopPress();
+    timer=setTimeout(()=>{timer=null;pvReorder=true;previewEdit=null;drag=tile;
+      box.classList.add('reordering');tile.classList.add('dragging');
+      if(navigator.vibrate)navigator.vibrate(30);},450);
+  },{passive:true});
+  box.addEventListener('touchmove',ev=>{
+    if(timer&&Math.abs(ev.touches[0].clientY-startY)>8)stopPress();   // a scroll, not a press
+    if(!drag)return;
+    ev.preventDefault();
+    const t=ev.touches[0];
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    const over=el&&el.closest('.bub,.pvhead');
+    if(!over||over===drag||over.parentNode!==box)return;
+    const r=over.getBoundingClientRect();
+    box.insertBefore(drag,(t.clientY>r.top+r.height/2)?over.nextSibling:over);
+  },{passive:false});
+  const end=()=>{
+    stopPress();
+    if(!drag)return;
+    drag.classList.remove('dragging');drag=null;
+    pvReadOrder(box);previewEdit=null;render();
+  };
+  box.addEventListener('touchend',end);
+  box.addEventListener('touchcancel',end);
+}
+/* The arrows walk a bubble through the whole day, not just its own interval, so
+   they can do everything the drag can - which matters on a desktop. */
+function pvOrd(bi,ei,d){
+  const flat=[];
+  previewDraft.forEach((b,x)=>b.exercises.forEach((e,y)=>flat.push({b:x,e:y})));
+  const at=flat.findIndex(x=>x.b===bi&&x.e===ei),to=at+d;
+  if(at<0||to<0||to>=flat.length)return;
+  const tgt=flat[to];
+  const [it]=previewDraft[bi].exercises.splice(ei,1);
+  let idx;
+  if(tgt.b!==bi)idx=d>0?0:tgt.e+1;            // into the next/previous interval
+  else{let te=tgt.e;if(te>ei)te--;idx=te+(d>0?1:0)}
+  previewDraft[tgt.b].exercises.splice(idx,0,it);
+  previewEdit=null;render();
 }
 /* ---- weekly plan sheet ----
    Everything for the coming week on one page: target load, what he actually did
@@ -922,14 +1033,21 @@ function pvNorm(bi,ei){
   if(typeof e==='string')previewDraft[bi].exercises[ei]={n:e};
   return previewDraft[bi].exercises[ei];
 }
+/* mkEx's prefill deliberately lets the last logged set beat the program default.
+   An explicit edit on this screen has to beat both - otherwise stepping the
+   weight on an exercise he had already logged did nothing at all, because mkEx
+   handed the old number straight back. _pw/_pr mark "he set this by hand"; mkEx
+   honours them, and pvSave strips them so D.program keeps the normal priority. */
+function pvEx(bi,ei){return mkEx(previewDraft[bi].exercises[ei],PROG()[previewIdx].name)}
 function pvStep(bi,ei,f,d){
-  const e=pvNorm(bi,ei),cur=mkEx(e,PROG()[previewIdx].name);
-  if(f==='w')e.w=Math.max(0,(parseFloat(cur._w)||0)+d*5);
+  const e=pvNorm(bi,ei),cur=pvEx(bi,ei);
+  if(f==='w'){e.w=Math.max(0,(parseFloat(cur._w)||0)+d*(unit()==='kg'?2.5:5));e._pw=1}
   else if(f==='s')e.secs=Math.max(15,Math.min(300,(e.secs||45)+d*5));
   else if(f==='r'){
     const min=e.secs?0:1;      // a timed slot is allowed to have no rep target at all
-    const v=Math.max(min,Math.min(50,(e.r!=null?e.r:(parseInt(cur._r,10)||(e.secs?0:8)))+d));
+    const v=Math.max(min,Math.min(50,(parseInt(cur._r,10)||(e.secs?0:8))+d));
     if(v===0)delete e.r;else e.r=v;
+    e._pr=1;
   }
   render();
 }
@@ -942,7 +1060,11 @@ function pvMode(bi,ei){
 function pvSave(){
   const p=PROG()[previewIdx],lbl=p.variants[previewVar].label;
   const prog=editableProgram();
-  prog[previewIdx].variants[previewVar].blocks=JSON.parse(JSON.stringify(previewDraft));
+  const clean=JSON.parse(JSON.stringify(previewDraft));
+  // the by-hand markers are a preview-session thing; the saved program goes back
+  // to prefilling from history so progression still shows up next week
+  clean.forEach(b=>b.exercises.forEach(e=>{if(typeof e==='object'){delete e._pw;delete e._pr}}));
+  prog[previewIdx].variants[previewVar].blocks=clean;
   touchProgram();persist();
   toast('Saved — that is your '+p.day+' '+lbl+' from now on');
 }
@@ -1015,10 +1137,15 @@ function stretchSetup(){
   ST.endsAt=it.secs?Date.now()+holdSecs(ROUTINES[ST.r],it)*1000:null;
   persistST();startBeep();
 }
-function stretchReady(){          // a few seconds to get into the next position
-  const tr=D.settings.transition||0;
+/* A few seconds to get into the next position. `first` is the tap on Start: the
+   routine used to fire off the instant he hit the button, with no gap at all, so
+   the opening move always began before he was in it. It now gets the same gap as
+   every other move - and 5s even when the gap is switched off, since Start is the
+   one place he is definitely not in position yet. */
+function stretchReady(first){
+  const tr=first?(D.settings.transition||5):(D.settings.transition||0);
   const it=ROUTINES[ST.r].items[ST.i];
-  if(!tr||(!it.secs&&!ST.side)){stretchSetup();return}
+  if(!tr||(!first&&!it.secs&&!ST.side)){stretchSetup();return}
   ST.phase='ready';ST.paused=false;ST.remaining=0;ST.cd=0;
   ST.endsAt=Date.now()+tr*1000;persistST();
 }
@@ -1225,7 +1352,8 @@ function mkEx(entry,tpl){
   if(ls)w=String(ls.w);
   else if(defW!=null)w=String(defW);
   else if(fb)w=String(fb.w);
-  const rSrc=ls||fb;
+  if(typeof entry==='object'&&entry._pw)w=(defW!=null&&defW>0)?String(defW):'';
+  const rSrc=(typeof entry==='object'&&entry._pr)?null:(ls||fb);
   const cue=(typeof entry==='object'&&typeof entry.cue==='string')?entry.cue:'';
   const side=!!(typeof entry==='object'&&entry.side);
   return {name,secs,cue,side,sets:[],_w:w,_r:(rSrc&&rSrc.r!=null)?String(rSrc.r):(defR!=null?String(defR):'')};
@@ -1841,7 +1969,8 @@ function renderTimer(){
   w.innerHTML=`<div class="timer-bar${T.done?' flash':''}${T.paused?' paused':''}"${bg}>
     <div class="tb-main">
       <span style="font-size:20px">${work?'🔥':nxt?'🚀':'⏱️'}</span><span class="t">${fmtClock(left)}</span>
-      ${(work||nxt)?`<span class="tb-nm">${nxt?'Next: ':''}${esc(label)}</span>`:''}
+      ${ex&&ex.side?`<span class="tb-side${half?' on':''}">${half?'\u25b6 RIGHT':'LEFT'}</span>`
+        :((work||nxt)?`<span class="tb-nm">${nxt?'Next: ':''}${esc(label)}</span>`:'')}
       <span class="grow" style="flex:1"></span>
       ${work?'<button data-action="timerPause">'+(T.paused?'▶︎':'⏸')+'</button>':''}
       ${work?'<button data-action="workDone">✓ Done</button>':''}
@@ -1850,14 +1979,10 @@ function renderTimer(){
       ${!work&&!nxt&&A&&A.cur?'<button data-action="restGo">▶ Go</button>':''}
       <button data-action="timerStop">${work?'Cancel':'Stop'}</button>
     </div>
-    ${ex?`<div class="tb-w">
-      ${ex.side?`<span class="tb-side${half?' on':''}">${half?'▶ RIGHT':'LEFT'}</span>`:''}
-      <span class="tb-lbl">${unit()}</span>
-      <button data-action="stepW" data-d="-1">−</button>
-      <span class="tb-val" id="tbW">${parseFloat(ex._w)>0?esc(ex._w):'BW'}</span>
-      <button data-action="stepW" data-d="1">+</button></div>`:''}
     </div>`;
-  // the bar is two rows deep during an interval - tell the page how much room to leave
+  /* The weight stepper that used to sit under the clock is gone - it repeated the
+     focused card right above it and cost a whole row of a phone screen. Measure
+     whatever the bar actually is so the page leaves exactly that much room. */
   const bar=w.firstElementChild;
   document.documentElement.style.setProperty('--timer-h',(bar?bar.offsetHeight:60)+'px');
 }
@@ -2212,11 +2337,16 @@ document.addEventListener('click',e=>{
   if(a==='nav'){view=el.dataset.v;render()}
   else if(a==='start')startSession(el.dataset.i==='empty'?'empty':+el.dataset.i);
   else if(a==='preview'){previewIdx=+el.dataset.i;const pp=PROG()[previewIdx];previewVar=weekVariant(pp);
+    previewEdit=null;pvReorder=false;
     previewDraft=JSON.parse(JSON.stringify(pp.variants[previewVar].blocks));render()}
-  else if(a==='previewVar'){previewVar=+el.dataset.v;
+  else if(a==='previewVar'){previewVar=+el.dataset.v;previewEdit=null;
     previewDraft=JSON.parse(JSON.stringify(PROG()[previewIdx].variants[previewVar].blocks));render()}
-  else if(a==='previewBack'){previewIdx=null;previewDraft=null;previewEdit=null;render()}
-  else if(a==='pvEdit'){const k=el.dataset.b+'.'+el.dataset.e;previewEdit=previewEdit===k?null:k;render()}
+  else if(a==='previewBack'){previewIdx=null;previewDraft=null;previewEdit=null;pvReorder=false;render()}
+  else if(a==='pvEdit'){if(pvReorder)return;
+    const k=el.dataset.b+'.'+el.dataset.e;previewEdit=previewEdit===k?null:k;render()}
+  else if(a==='pvOrd')pvOrd(bi,ei,+el.dataset.d);
+  else if(a==='pvOrdOn'){pvReorder=true;previewEdit=null;render()}
+  else if(a==='pvOrdDone'){pvReorder=false;render()}
   else if(a==='pvStep')pvStep(bi,ei,el.dataset.f,+el.dataset.d);
   else if(a==='pvMode')pvMode(bi,ei);
   else if(a==='pvRounds'){const blk=previewDraft[bi];blk.rounds=Math.max(1,Math.min(8,blk.rounds+(+el.dataset.d)));render()}
@@ -2227,7 +2357,7 @@ document.addEventListener('click',e=>{
   else if(a==='planBack'){planOpen=false;render()}
   else if(a==='planPrint'){window.print()}
   else if(a==='previewStart'){const i=previewIdx,d=previewDraft,vl=PROG()[i].variants[previewVar].label;
-    previewIdx=null;previewDraft=null;startSession(i,d,vl)}
+    previewIdx=null;previewDraft=null;previewEdit=null;pvReorder=false;startSession(i,d,vl)}
   else if(a==='swapOpen'){swapCtx={b:+el.dataset.b,e:+el.dataset.e};showSwapPicker('')}
   else if(a==='swapPick'){swapCtx.name=el.dataset.n;showSwapScope()}
   else if(a==='swapNew'){const n=el.dataset.n.trim();if(!n)return;
@@ -2242,8 +2372,8 @@ document.addEventListener('click',e=>{
     if(ST&&ST.r===r){ST.min=false;stretchReady();acquireWake();view='workout';render();return}
     stretchPrev=r;view='workout';render()}
   else if(a==='stretchGo'){unlockAudio();reorder=false;
-    ST={r:stretchPrev,i:0,side:0,phase:'go',paused:false,remaining:0,endsAt:null,min:false};
-    stretchPrev=null;stretchSetup();acquireWake();render()}
+    ST={r:stretchPrev,i:0,side:0,phase:'ready',paused:false,remaining:0,endsAt:null,min:false};
+    stretchPrev=null;stretchReady(true);acquireWake();render()}
   else if(a==='stretchPreviewBack'){stretchPrev=null;reorder=false;render()}
   else if(a==='ordMove')moveRoutineItem(ROUTINES[stretchPrev],+el.dataset.i,+el.dataset.d);
   else if(a==='ordDone'){reorder=false;render()}
@@ -2347,16 +2477,6 @@ document.addEventListener('click',e=>{
   else if(a==='exDelete'){const n=el.dataset.n;D.customExercises=D.customExercises.filter(x=>x!==n);persist();closeModal();toast('Deleted '+n);render()}
   else if(a==='exProgress'){progressEx=el.dataset.n;view='progress';closeModal();render()}
   else if(a==='goNow'){if(T&&T.mode==='next'){const nb=T.b,ne=T.e;T=null;localStorage.removeItem(TIMER_KEY);beepN(1);startWorkFor(nb,ne)}}
-  else if(a==='stepW'){
-    if(!T||!A||!A.blocks[T.b])return;
-    const wx=A.blocks[T.b].exercises[T.e];if(!wx)return;
-    const by=unit()==='kg'?2.5:5;
-    let v=(parseFloat(wx._w)||0)+(+el.dataset.d)*by;if(v<0)v=0;
-    wx._w=String(Math.round(v*100)/100);persistA();
-    const tw=$('#tbW');if(tw)tw.textContent=parseFloat(wx._w)>0?wx._w:'BW';
-    const inp=document.querySelector('input[data-input="w"][data-b="'+T.b+'"][data-e="'+T.e+'"]');
-    if(inp)inp.value=wx._w;
-  }
   else if(a==='restGo'){
     const nx=(T&&T.next)||(A&&A.cur);
     stopTimer();
@@ -2424,6 +2544,12 @@ document.addEventListener('input',e=>{
   if(t.dataset.input==='w'||t.dataset.input==='r'){
     const ex=A.blocks[+t.dataset.b].exercises[+t.dataset.e];
     if(t.dataset.input==='w')ex._w=t.value;else ex._r=t.value;persistA()}
+  else if(t.dataset.input==='pvw'||t.dataset.input==='pvr'){
+    if(!previewDraft)return;
+    const e=pvNorm(+t.dataset.b,+t.dataset.e);
+    if(t.dataset.input==='pvw'){const v=parseFloat(t.value);e.w=isFinite(v)&&v>0?v:0;e._pw=1}
+    else{const n=parseInt(t.value,10);if(isFinite(n)&&n>0)e.r=n;else delete e.r;e._pr=1}
+  }
   else if(t.dataset.input==='meas'){if(!measDraft)measDraft={};measDraft[t.dataset.f]=t.value}
   else if(t.dataset.input==='notes'){A.notes=t.value;persistA()}
   else if(t.dataset.input==='pickerSearch'){const pl=$('#pickList');if(pl)pl.innerHTML=pickListHTML(t.value)}
