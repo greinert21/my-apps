@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TrebleMaker</title>
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TrebleMaker">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e26; --card2:#232834; --line:#2e3442;
+  --text:#eef1f6; --dim:#8b93a3; --accent:#f43f5e; --accent-dark:#be123c;
+  --good:#4ade80; --warn:#fbbf24; --danger:#f87171;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.45;-webkit-text-size-adjust:100%}
+.topbar{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 10px;border-bottom:1px solid var(--line)}
+.topbar h1{margin:0;font-size:22px;font-weight:800;letter-spacing:.2px}
+.topbar .sub{font-size:13px;color:var(--dim);margin-top:2px}
+.tb-back{position:absolute;right:14px;top:calc(env(safe-area-inset-top) + 12px);
+  border:1px solid var(--line);background:var(--card2);color:var(--text);
+  font-size:14px;font-weight:700;border-radius:999px;padding:6px 13px;cursor:pointer}
+.topbar.hasback h1,.topbar.hasback .sub{padding-right:76px}
+main{padding:14px 14px 100px;max-width:560px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 6px;font-size:18px}
+.hint{font-size:13px;color:var(--dim)}
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:15px 16px;
+  font-size:17px;font-weight:700;color:var(--text);background:var(--card2);
+  cursor:pointer;touch-action:manipulation;margin-top:10px;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--accent-dark);color:#fff}
+.btn-good{background:#166534;color:#fff}
+.btn-ghost{background:transparent;border:1px dashed var(--line);color:var(--dim);font-weight:600}
+.btn-danger{background:transparent;border:1px solid var(--line);color:var(--danger)}
+.btn-sm{display:inline-block;width:auto;padding:9px 14px;font-size:15px;margin:0}
+.row{display:flex;gap:8px;align-items:center}
+.row .grow{flex:1}
+.bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:10;display:flex;
+  background:rgba(20,23,29,.96);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.bottomnav button{flex:1;background:none;border:none;color:var(--dim);font-size:11px;
+  font-weight:600;padding:8px 0 10px;cursor:pointer}
+.bottomnav button .ico{display:block;font-size:22px;margin-bottom:1px}
+.bottomnav button.on{color:var(--accent)}
+.tile{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px;margin-bottom:10px;color:var(--text);cursor:pointer;font-size:17px}
+.tile:active{transform:scale(.99)}
+.tile b{font-size:18px;display:block}
+.tile .meta{color:var(--dim);font-size:13px;margin-top:3px}
+.tile .last{margin-left:auto;text-align:right;font-variant-numeric:tabular-nums}
+.tile .last b{font-size:22px;color:var(--accent)}
+.tile .last span{font-size:11px;color:var(--dim);display:block}
+.pill{display:inline-block;border:1px solid var(--line);background:var(--card2);
+  border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;color:var(--dim);margin-right:6px}
+.pill.on{background:var(--accent-dark);border-color:var(--accent-dark);color:#fff}
+.lbl{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+input[type=number],input[type=text]{width:100%;border:1px solid var(--line);background:var(--card2);
+  color:var(--text);font-size:19px;font-weight:700;padding:12px;border-radius:12px;outline:none;text-align:center}
+input[type=range]{width:100%;accent-color:var(--accent);height:34px}
+.anchors{display:flex;gap:6px;margin-top:4px}
+.anchors button{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--dim);
+  border-radius:10px;padding:8px 4px;font-size:12px;font-weight:700;cursor:pointer}
+.anchors button.on{background:var(--accent-dark);border-color:var(--accent-dark);color:#fff}
+/* ---- runner ---- */
+.run{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 14px);
+  max-width:560px;margin:0 auto;overflow-y:auto}
+.run .rhead{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
+.run .rhead b{font-size:19px}
+.run .rhead .hint{margin-top:2px}
+.prog{font-size:15px;color:var(--dim);font-variant-numeric:tabular-nums;margin-bottom:10px}
+.prog b{color:var(--text)}
+.prog.over b{color:var(--warn)}
+.ringwrap{position:relative;width:200px;height:200px;margin:4px auto 10px}
+.ringwrap svg{transform:rotate(-90deg)}
+.ringtxt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ringtxt .n{font-size:52px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.ringtxt .w{font-size:15px;color:var(--dim);font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.ringwrap.go .ringtxt .n{color:var(--good);font-size:40px}
+.ringwrap.go .ringtxt .w{color:var(--good)}
+.bigscore{text-align:center;margin:6px 0 12px}
+.bigscore .n{font-size:56px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.bigscore .w{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}
+.aim{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;
+  display:flex;gap:6px;text-align:center}
+.aim div{flex:1}
+.aim .d{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.aim .t{font-size:21px;font-weight:800;margin-top:2px}
+.aim .cur{color:var(--accent)}
+.pad{display:flex;gap:8px;margin-bottom:10px}
+.pad button{flex:1;border:none;border-radius:14px;padding:18px 4px;font-size:18px;font-weight:800;
+  background:var(--card2);color:var(--text);cursor:pointer}
+.pad button:active{transform:scale(.96)}
+.pad button.hit{background:var(--accent-dark);color:#fff}
+.pad button.miss{background:#3a2020;color:#fca5a5}
+.pad.off{opacity:.3;pointer-events:none}
+.dots{display:flex;gap:6px;justify-content:center;margin-bottom:8px}
+.dots i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
+.dots i.on{background:var(--accent)}
+.spacer{flex:1}
+/* ---- chart ---- */
+.chart{width:100%;height:70px;display:block;margin-top:6px}
+.chart .ln{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.chart .tg{stroke:var(--good);stroke-width:1.5;stroke-dasharray:4 4;opacity:.7}
+.chart .zr{stroke:var(--line);stroke-width:1}
+.chart circle{fill:var(--accent)}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.72);display:flex;align-items:flex-end}
+.sheet{background:var(--card);border-radius:20px 20px 0 0;padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);
+  width:100%;max-width:560px;margin:0 auto;max-height:88vh;overflow-y:auto;border-top:1px solid var(--line)}
+.sheet h3{margin:0 0 10px;font-size:20px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:50;background:var(--card2);
+  border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-size:14px;font-weight:600}
+.cnt{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:14px;padding:10px 14px;margin-bottom:8px}
+.cnt .nm{flex:1;font-weight:700}
+.cnt .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+.cnt button{border:none;background:var(--accent-dark);color:#fff;border-radius:12px;width:52px;height:46px;
+  font-size:24px;font-weight:800;cursor:pointer}
+.cnt button.m{background:var(--card2);color:var(--dim);width:42px;font-size:20px}
+</style>
+</head>
+<body>
+<div class="topbar" id="topbar"><h1 id="ttl">TrebleMaker</h1><div class="sub" id="sub"></div></div>
+<main id="main"></main>
+<div class="bottomnav" id="nav"></div>
+<div id="runwrap"></div>
+<div id="modalwrap"></div>
+<script>
+/* ============ storage ============ */
+const DATA_KEY='tm_data_v1', RUN_KEY='tm_run_v1';
+function load(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
+  catch(e){toast('Couldn’t save — storage full?');return false}}
+const DEFAULTS={volume:1.5,paceSecs:30,countIn:5,ppd:35,mpr:3.5};
+let D=load(DATA_KEY,null);
+if(!D)D={version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],freeCounters:['Bulls']};
+D.settings=Object.assign({},DEFAULTS,D.settings||{});
+if(!Array.isArray(D.drills))D.drills=[];
+if(!Array.isArray(D.sessions))D.sessions=[];
+if(!Array.isArray(D.free))D.free=[];
+if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
+function persist(){return save(DATA_KEY,D)}
+
+/* ============ drill templates ============
+   A template is the game and is never edited. An instance (D.drills[]) is a
+   configured copy: the knobs in `adj` are what the user sets when adding it. */
+const TEMPLATES=[
+{key:'ladder',name:'The 20 Ladder',icon:'\u{1F3AF}',shape:'timed',unit:'points',better:'up',
+ blurb:'All 3 darts at the 20. Three scoring tiers over identical throwing — start at L1, where every dart in the wedge counts.',
+ tiers:[{n:'L1 · On the number',d:'Any dart in the 20 wedge = 1. Miss = 0.'},
+        {n:'L2 · Quality',d:'Treble 3, double 2, single 1. Miss = 0.'},
+        {n:'L3 · The A1',d:'Treble +1, single/double 0, miss −1.'}],
+ def:{boxSecs:600,paceSecs:30,ladder:0},adj:['boxSecs','paceSecs','ladder'],targetLabel:null},
+{key:'doubles',name:'Double Rotation',icon:'\u{1F3B2}',shape:'goal',unit:'doubles',better:'down',
+ blurb:'D20 → D16 → D8 → D4 → D2 → D10 → D18 → D12, three darts each, move on whether you hit it or not. Throw until you have hit the target number of doubles. Score is the darts it took.',
+ def:{target:10,paceSecs:30},adj:['target','paceSecs'],targetLabel:'doubles to hit'},
+{key:'bulls',name:'Bullseye Lock',icon:'\u{1F3AF}',shape:'goal',unit:'marks',better:'down',
+ blurb:'Throw at the bull until you reach the target marks. Double bull counts 2. Score is the darts it took — master level is 10 to 12 for 15 marks.',
+ def:{target:15,paceSecs:30},adj:['target','paceSecs'],targetLabel:'marks to hit'},
+{key:'router',name:'Cricket Router',icon:'\u{1F501}',shape:'goal',unit:'marks',better:'down',
+ blurb:'20, 19, 18, 17, 16, 15, Bull — three marks to close each. The Twist: your 3rd dart always goes at the NEXT number, even if the current one is still open. Score is darts to close the whole loop.',
+ def:{target:7,paceSecs:30},adj:['paceSecs'],targetLabel:null},
+{key:'countup',name:'Count-Up',icon:'\u{1F522}',shape:'timed',unit:'points',better:'up',boardScored:true,visitCap:8,
+ blurb:'The board’s own mode — 8 rounds, throw at whatever you like, the board totals it. The app just holds your pace. Enter the final score at the end. Divide by 24 for a real PPD.',
+ def:{paceSecs:30},adj:['paceSecs'],targetLabel:null},
+{key:'x01',name:'501 · darts to finish',icon:'\u{1F3C1}',shape:'goal',unit:'darts',better:'down',boardScored:true,
+ blurb:'Play a solo 501 and count the darts. Best single summary of your whole game — scoring and finishing in one number. Tap Done when you check out.',
+ def:{paceSecs:30},adj:['paceSecs'],targetLabel:null},
+{key:'warmup',name:'Warm-Up',icon:'\u{1F525}',shape:'timed',scored:false,
+ blurb:'Not a drill. Throw freely until the arm wakes up. Nothing is scored and nothing is charted — this exists so the first cold darts stop polluting your numbers.',
+ def:{boxSecs:240,paceSecs:0},adj:['boxSecs'],targetLabel:null}];
+const TPL=k=>TEMPLATES.find(t=>t.key===k);
+
+const DOUBLE_SEQ=[20,16,8,4,2,10,18,12];
+const ROUTER_SEQ=[20,19,18,17,16,15,'Bull'];
+
+/* ============ helpers ============ */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const today=()=>new Date().toISOString().slice(0,10);
+function fmtClock(s){s=Math.max(0,Math.round(s));const m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0')}
+function fmtPace(s){return s>=60?(s%60?Math.floor(s/60)+'m '+(s%60)+'s':Math.floor(s/60)+' min'):s+'s'}
+let toastT=null;
+function toast(m){const e=document.createElement('div');e.className='toast';e.textContent=m;
+  document.body.appendChild(e);clearTimeout(toastT);toastT=setTimeout(()=>e.remove(),2200)}
+function drillLabel(d){const t=TPL(d.templateKey);if(!t)return '';
+  const bits=[];
+  if(t.shape==='timed'&&d.boxSecs)bits.push(fmtClock(d.boxSecs).replace(':00',' min'));
+  if(t.shape==='goal'&&t.targetLabel)bits.push(d.target+' '+t.unit);
+  if(t.key==='router')bits.push('full loop');
+  if(t.key==='ladder')bits.push('L'+((d.ladder|0)+1));
+  if(d.paceSecs)bits.push(fmtPace(d.paceSecs)+' pace');
+  return bits.join(' · ')}
+function sessionsFor(id){return D.sessions.filter(s=>s.drillId===id).sort((a,b)=>a.date<b.date?-1:1)}
+
+/* ============ audio (lifted from the Workout app) ============
+   One compressor + makeup gain, square waves at fundamental + octave. A phone
+   speaker across a room does not get louder from a bigger sine. */
+let audioCtx=null,masterOut=null,masterGain=null;
+function unlockAudio(){try{
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state!=='running')audioCtx.resume();
+  if(!unlockAudio.done){unlockAudio.done=true;
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+    o.connect(g);g.connect(audioCtx.destination);g.gain.value=.0001;
+    o.start();o.stop(audioCtx.currentTime+.05)}
+  }catch(e){}}
+function audioOut(){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(!masterOut){masterOut=audioCtx.createDynamicsCompressor();
+    masterOut.threshold.value=-20;masterOut.knee.value=10;masterOut.ratio.value=12;
+    masterOut.attack.value=.003;masterOut.release.value=.12;
+    masterGain=audioCtx.createGain();masterOut.connect(masterGain);masterGain.connect(audioCtx.destination)}
+  masterGain.gain.value=+D.settings.volume||1.5;return masterOut}
+function tone(freq,dur,vol){try{
+  const out=audioOut();
+  const go=()=>{const t=audioCtx.currentTime;
+    [[1,1],[2,.45]].forEach(p=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+      o.type='square';o.frequency.value=freq*p[0];o.connect(g);g.connect(out);
+      g.gain.setValueAtTime(.001,t);
+      g.gain.exponentialRampToValueAtTime(Math.max(.01,vol*p[1]),t+.015);
+      g.gain.exponentialRampToValueAtTime(.001,t+dur);
+      o.start(t);o.stop(t+dur+.03)})};
+  if(audioCtx.state!=='running')audioCtx.resume().then(go).catch(()=>{});else go()}catch(e){}}
+/* The pace cue fires ~30 times a drill, so it is the lightest thing in the app.
+   It lands while he is walking back from the board, never mid-throw. */
+function paceTick(){tone(760,.09,.55)}
+function startBeep(){tone(1245,.15,1);setTimeout(()=>tone(1245,.15,1),190)}
+function winChime(){tone(880,.16,.9);setTimeout(()=>tone(1108,.16,.9),150);setTimeout(()=>tone(1320,.42,1),300)}
+function countBeep(){tone(880,.11,.7)}
+let wakeLock=null;
+async function acquireWake(){try{if('wakeLock' in navigator&&R)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&R)acquireWake()});
+
+/* ============ scoring ============ */
+function ladderScore(res,tier){ // res: T S D M
+  if(tier===0)return res==='M'?0:1;
+  if(tier===1)return res==='T'?3:res==='D'?2:res==='S'?1:0;
+  return res==='T'?1:res==='M'?-1:0}
+
+/* ============ the runner ============
+   R is the live run. Pace model:
+     tier 1 (no tapping)  -> metronome: a go cue every paceSecs.
+     tier 2 (tapping)     -> floor: the next go is paceSecs after he logs.
+   Either way `visits` counts and darts = visits*3, so the dart count is derived
+   and never entered. */
+let R=load(RUN_KEY,null);
+function persistR(){if(R)save(RUN_KEY,R);else localStorage.removeItem(RUN_KEY)}
+
+function startRun(drillId){
+  const d=D.drills.find(x=>x.id===drillId);if(!d)return;
+  const t=TPL(d.templateKey);
+  unlockAudio();
+  R={drillId:d.id,templateKey:d.templateKey,tier:d.tier||1,
+     boxSecs:t.shape==='timed'?(d.boxSecs||0):0,target:d.target||0,
+     paceSecs:d.paceSecs||0,ladder:d.ladder|0,
+     startedAt:0,countInAt:Date.now()+ (D.settings.countIn||5)*1000,
+     phase:'countin',visits:0,darts:0,value:0,marks:0,
+     lastGoAt:0,nextGoAt:0,inVisit:false,visitDarts:0,lastLogAt:0,
+     gaps:[],log:[],ending:false,
+     rt:t.key==='router'?ROUTER_SEQ.map(()=>0):null,
+     dbl:t.key==='doubles'?0:null};
+  persistR();acquireWake();render()}
+
+function endRun(){ // close out, ask for the number if we do not already have it
+  const t=TPL(R.templateKey);
+  R.phase='done';persistR();winChime();
+  if(navigator.vibrate)navigator.vibrate([200,90,200]);
+  render()}
+
+function abandonRun(){R=null;persistR();releaseWake();render()}
+
+function runValue(){ // the day's number for the current run
+  const t=TPL(R.templateKey);
+  if(t.shape==='goal')return R.darts;
+  return R.value}
+function runRate(){
+  const t=TPL(R.templateKey);
+  if(!R.darts)return 0;
+  if(t.shape==='goal')return +(R.darts/Math.max(1,R.target||1)).toFixed(2);
+  return +(R.value/R.darts).toFixed(3)}
+
+function saveRun(overrideValue){
+  const t=TPL(R.templateKey);
+  if(t.scored===false){R=null;persistR();releaseWake();toast('Warm-up done');render();return}
+  let value=overrideValue!=null?overrideValue:runValue();
+  let darts=R.darts||0;
+  if(t.key==='x01'&&overrideValue!=null){darts=overrideValue}
+  const rate=darts?(t.shape==='goal'?+(darts/Math.max(1,R.target||1)).toFixed(3):+(value/darts).toFixed(3)):0;
+  D.sessions.push({id:uid(),date:today(),drillId:R.drillId,templateKey:R.templateKey,
+    boxSecs:R.boxSecs,target:R.target,paceSecs:R.paceSecs,tier:R.tier,ladder:R.ladder,
+    visits:R.visits,darts:darts,value:value,rate:rate,
+    targetMet:t.shape==='goal'?true:null,gaps:R.gaps.slice(0,200)});
+  persist();R=null;persistR();releaseWake();toast('Logged');render()}
+
+/* one tick drives the count-in, the box clock and the pace ring */
+setInterval(()=>{
+  if(!R)return;
+  const now=Date.now(),t=TPL(R.templateKey);
+  if(R.phase==='countin'){
+    const left=Math.ceil((R.countInAt-now)/1000);
+    if(left<=0){R.phase='live';R.startedAt=now;
+      R.endsAt=R.boxSecs?now+R.boxSecs*1000:0;
+      startBeep();fireGo(now);persistR();render();return}
+    const el=$('#ringN');if(el)el.textContent=left;
+    if(left<=3&&R.cd!==left){R.cd=left;countBeep()}
+    return}
+  if(R.phase!=='live')return;
+  // box clock
+  if(R.endsAt&&now>=R.endsAt&&!R.ending){R.ending=true;persistR();render()}
+  // pace
+  if(R.paceSecs>0){
+    if(R.tier===1||!R.inVisit){
+      if(now>=R.nextGoAt)fireGo(now);
+    }
+  }else if(!R.inVisit){fireGo(now)}
+  paintRing(now);
+  const p=$('#progLine');if(p)p.innerHTML=progHTML();
+},250);
+
+function fireGo(now){
+  // a visit opens. In tier 1 nothing is tapped, so the visit also closes here.
+  if(R.ending){finishBox();return}
+  if(R.lastGoAt)R.gaps.push(Math.round((now-R.lastGoAt)/1000));
+  R.lastGoAt=now;R.visits++;R.visitDarts=0;R.inVisit=true;
+  if(R.paceSecs>0)R.nextGoAt=now+R.paceSecs*1000;
+  if(R.tier===1){R.darts=R.visits*3;R.inVisit=false}
+  paceTick();
+  if(R.tier===1)checkGoal();
+  persistR();render()}
+
+function finishBox(){ // timed drill: the clock ran out and the visit is complete
+  if(R.tier===1)R.darts=R.visits*3;
+  endRun()}
+
+function checkGoal(){
+  const t=TPL(R.templateKey);
+  if(t.shape!=='goal')return false;
+  let met=false;
+  if(t.key==='bulls')met=R.marks>=R.target;
+  if(t.key==='doubles')met=R.dbl>=R.target;
+  if(t.key==='router')met=R.rt.every(m=>m>=3);
+  if(met){endRun();return true}
+  return false}
+
+/* --- per-dart logging (tier 2) --- */
+function logDart(res){
+  if(!R||R.phase!=='live'||!R.inVisit)return;
+  const t=TPL(R.templateKey);
+  R.visitDarts++;R.darts++;
+  if(t.key==='ladder'){R.value+=ladderScore(res,R.ladder);R.log.push(res)}
+  if(t.key==='bulls'){R.marks+=(res==='DB'?2:1)}
+  if(t.key==='doubles'){if(res==='H')R.dbl++}
+  if(t.key==='router'){
+    const cur=R.rt.findIndex(m=>m<3);
+    const aimIdx=R.visitDarts===3?Math.min(cur+1,ROUTER_SEQ.length-1):cur;
+    R.rt[aimIdx]+=(+res||0);R.marks+=(+res||0)}
+  if(checkGoal())return;
+  if(R.visitDarts>=3)closeVisit();
+  persistR();render()}
+
+function skipDart(){ // "no mark" for bulls/doubles where we only tap hits
+  if(!R||R.phase!=='live'||!R.inVisit)return;
+  R.visitDarts++;R.darts++;
+  if(R.visitDarts>=3)closeVisit();
+  persistR();render()}
+
+function closeVisit(){
+  R.inVisit=false;R.lastLogAt=Date.now();
+  if(R.paceSecs>0)R.nextGoAt=Date.now()+R.paceSecs*1000;
+  if(R.ending){finishBox();return}
+  if(TPL(R.templateKey).visitCap&&R.visits>=TPL(R.templateKey).visitCap){R.ending=true;finishBox()}}
+
+function paintRing(now){
+  const w=$('#ringWrap');if(!w)return;
+  const circ=2*Math.PI*88;
+  let frac=0,label='',num='';
+  if(R.paceSecs>0&&!R.inVisit){
+    const left=Math.max(0,(R.nextGoAt-now)/1000);
+    frac=Math.min(1,left/R.paceSecs);num=Math.ceil(left);label='next in';
+    w.classList.remove('go')}
+  else{frac=1;num='THROW';label=(R.tier===2?(3-R.visitDarts)+' darts left':'go');
+    w.classList.add('go')}
+  const el=$('#ringN');if(el)el.textContent=num;
+  const lb=$('#ringW');if(lb)lb.textContent=label;
+  const arc=$('#ringArc');if(arc)arc.setAttribute('stroke-dashoffset',String(circ*(1-frac)))}
+
+function progHTML(){
+  const t=TPL(R.templateKey);
+  if(t.shape==='timed'){
+    const left=R.endsAt?Math.max(0,(R.endsAt-Date.now())/1000):0;
+    const total=R.paceSecs?Math.floor(R.boxSecs/R.paceSecs):0;
+    return '<b>'+fmtClock(left)+'</b> left'+(total?' · visit <b>'+R.visits+'</b> of '+total:'')+
+      ' · <b>'+R.darts+'</b> darts'}
+  if(t.key==='bulls')return '<b>'+R.marks+'</b> of '+R.target+' marks · <b>'+R.darts+'</b> darts';
+  if(t.key==='doubles')return '<b>'+R.dbl+'</b> of '+R.target+' doubles · <b>'+R.darts+'</b> darts';
+  if(t.key==='router'){const c=R.rt.filter(m=>m>=3).length;
+    return '<b>'+c+'</b> of 7 closed · <b>'+R.darts+'</b> darts'}
+  return '<b>'+R.darts+'</b> darts'}
+
+/* ============ run screen ============ */
+function runHTML(){
+  const t=TPL(R.templateKey),d=D.drills.find(x=>x.id===R.drillId)||{name:t.name};
+  if(R.phase==='countin')
+    return '<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b>'+
+      '<div class="hint">Get ready</div></div></div>'+
+      '<div class="ringwrap" id="ringWrap"><svg width="200" height="200">'+
+      '<circle cx="100" cy="100" r="88" stroke="#2e3442" stroke-width="12" fill="none"></circle></svg>'+
+      '<div class="ringtxt"><div class="n" id="ringN">'+Math.ceil((R.countInAt-Date.now())/1000)+'</div>'+
+      '<div class="w" id="ringW">starting</div></div></div>'+
+      '<div class="spacer"></div><button class="btn btn-danger" data-a="abandon">Cancel</button></div>';
+  if(R.phase==='done')return doneHTML(t,d);
+  const circ=2*Math.PI*88;
+  let h='<div class="run"><div class="rhead"><div style="flex:1"><b>'+esc(d.name)+'</b>'+
+    '<div class="hint">'+esc(drillLabel(d))+(R.tier===2?' · tracking':'')+'</div></div>'+
+    '<button class="btn btn-sm btn-danger" data-a="abandon" style="margin:0">Stop</button></div>'+
+    '<div class="prog'+(R.ending?' over':'')+'" id="progLine">'+progHTML()+'</div>';
+  if(R.ending)h+='<div class="card" style="border-color:var(--warn);padding:10px"><span class="hint" style="color:var(--warn)">'+
+    'Time is up — finish this visit and it closes.</span></div>';
+  h+='<div class="ringwrap'+(R.inVisit||!R.paceSecs?' go':'')+'" id="ringWrap"><svg width="200" height="200">'+
+    '<circle cx="100" cy="100" r="88" stroke="#2e3442" stroke-width="12" fill="none"></circle>'+
+    '<circle id="ringArc" cx="100" cy="100" r="88" stroke="#f43f5e" stroke-width="12" fill="none" '+
+    'stroke-linecap="round" stroke-dasharray="'+circ+'" stroke-dashoffset="0"></circle></svg>'+
+    '<div class="ringtxt"><div class="n" id="ringN">—</div><div class="w" id="ringW"></div></div></div>';
+  // live number
+  if(t.key==='ladder')h+='<div class="bigscore"><div class="n">'+(R.value>0?'+':'')+R.value+'</div><div class="w">score</div></div>';
+  // aim display
+  if(t.key==='router'){const cur=R.rt.findIndex(m=>m<3);
+    const nm=i=>ROUTER_SEQ[Math.min(i,ROUTER_SEQ.length-1)];
+    // Dart 3 always goes at the NEXT number — that is the Twist, and tracking it
+    // is the one thing here a person genuinely cannot do for themselves.
+    h+='<div class="aim">'+[0,1,2].map(i=>{
+      const done=i<R.visitDarts,now=i===R.visitDarts;
+      return '<div'+(done?' style="opacity:.3"':'')+'><div class="d">'+(now?'▶ ':'')+'Dart '+(i+1)+'</div>'+
+        '<div class="t'+(now?' cur':'')+'">'+nm(i===2?cur+1:cur)+'</div></div>'}).join('')+'</div>'+
+      '<div class="hint" style="text-align:center;margin-bottom:8px">'+
+      ROUTER_SEQ.map((n,i)=>(R.rt[i]>=3?'<span style="color:var(--good)">'+n+'✓</span>':n+' '+R.rt[i]+'/3')).join(' · ')+'</div>'}
+  if(t.key==='doubles'){
+    // mid-visit that is the number in hand; in the gap it is the one he is
+    // walking back to throw at, which is the next one along.
+    const i=R.inVisit?Math.max(0,R.visits-1):R.visits;
+    const cur=DOUBLE_SEQ[i%DOUBLE_SEQ.length],nxt=DOUBLE_SEQ[(i+1)%DOUBLE_SEQ.length];
+    h+='<div class="aim"><div><div class="d">'+(R.inVisit?'Throw at':'Up next')+'</div>'+
+      '<div class="t cur">D'+cur+'</div></div>'+
+      '<div><div class="d">Then</div><div class="t">D'+nxt+'</div></div></div>'}
+  // pads
+  if(R.tier===2&&t.key!=='countup'&&t.key!=='x01'&&t.scored!==false){
+    const off=R.inVisit?'':' off';
+    h+='<div class="dots">'+[0,1,2].map(i=>'<i class="'+(i<R.visitDarts?'on':'')+'"></i>').join('')+'</div>';
+    if(t.key==='ladder')h+='<div class="pad'+off+'">'+
+      '<button class="hit" data-a="dart" data-v="T">T20</button>'+
+      '<button data-a="dart" data-v="S">S20</button>'+
+      '<button data-a="dart" data-v="D">D20</button>'+
+      '<button class="miss" data-a="dart" data-v="M">MISS</button></div>';
+    if(t.key==='bulls')h+='<div class="pad'+off+'">'+
+      '<button class="hit" data-a="dart" data-v="DB">DB +2</button>'+
+      '<button class="hit" data-a="dart" data-v="SB">SB +1</button>'+
+      '<button class="miss" data-a="skip">MISS</button></div>';
+    if(t.key==='doubles')h+='<div class="pad'+off+'">'+
+      '<button class="hit" data-a="dart" data-v="H">HIT</button>'+
+      '<button class="miss" data-a="skip">MISS</button></div>';
+    if(t.key==='router')h+='<div class="pad'+off+'">'+
+      '<button class="miss" data-a="dart" data-v="0">0</button>'+
+      '<button data-a="dart" data-v="1">1</button>'+
+      '<button data-a="dart" data-v="2">2</button>'+
+      '<button class="hit" data-a="dart" data-v="3">3</button></div>'+
+      '<div class="hint" style="text-align:center">marks scored on the number above</div>'}
+  h+='<div class="spacer"></div>';
+  if(t.shape==='goal'||t.key==='x01')h+='<button class="btn btn-good" data-a="finishnow">✓ Done</button>';
+  h+='</div>';
+  return h}
+
+function doneHTML(t,d){
+  const needNum=(t.scored!==false)&&(R.tier===1||t.boardScored);
+  let h='<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b><div class="hint">Finished</div></div></div>';
+  if(t.scored===false){
+    h+='<div class="bigscore"><div class="n">✓</div><div class="w">warm-up done</div></div>'+
+      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum" data-v="0">Close</button></div>';
+    return h}
+  if(needNum){
+    const prev=sessionsFor(R.drillId).slice(-1)[0];
+    const q=t.key==='x01'?'How many darts did it take?':
+            t.key==='countup'?'What did the board say?':
+            t.shape==='goal'?'How many darts did it take?':'What was your score?';
+    h+='<div class="card"><div class="lbl">'+esc(q)+'</div>'+
+      '<input type="number" id="numIn" inputmode="numeric" value="'+(t.shape==='goal'&&!t.boardScored?R.darts:'')+'" placeholder="–">'+
+      (prev?'<div class="hint" style="text-align:center;margin-top:8px">last time: '+prev.value+'</div>':'')+
+      '<div class="hint" style="text-align:center;margin-top:6px">'+R.visits+' visits · '+(R.visits*3)+' darts at '+fmtPace(R.paceSecs)+'</div></div>'+
+      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
+      '<button class="btn btn-ghost" data-a="abandon">Discard</button></div>';
+    return h}
+  const v=runValue();
+  h+='<div class="bigscore"><div class="n">'+(t.key==='ladder'&&v>0?'+':'')+v+'</div>'+
+    '<div class="w">'+(t.shape==='goal'?'darts':'score')+'</div></div>'+
+    '<div class="card"><div class="hint" style="text-align:center">'+R.visits+' visits · '+R.darts+' darts · '+
+    fmtPace(R.paceSecs)+' pace</div></div>'+
+    '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
+    '<button class="btn btn-ghost" data-a="abandon">Discard</button></div>';
+  return h}
+
+/* ============ free throw ============ */
+let F=null;
+function freeHTML(){
+  if(!F)return '';
+  const el=Date.now()-F.startedAt;
+  let h='<div class="run"><div class="rhead"><div style="flex:1"><b>Free Throw</b>'+
+    '<div class="hint">'+fmtPace(F.paceSecs)+' pace</div></div>'+
+    '<button class="btn btn-sm btn-danger" data-a="freestop" style="margin:0">Stop</button></div>'+
+    '<div class="prog" id="fprog"><b>'+fmtClock(el/1000)+'</b> · <b>'+F.visits+'</b> visits</div>';
+  const circ=2*Math.PI*88;
+  h+='<div class="ringwrap" id="fringWrap"><svg width="200" height="200">'+
+    '<circle cx="100" cy="100" r="88" stroke="#2e3442" stroke-width="12" fill="none"></circle>'+
+    '<circle id="fringArc" cx="100" cy="100" r="88" stroke="#f43f5e" stroke-width="12" fill="none" '+
+    'stroke-linecap="round" stroke-dasharray="'+circ+'" stroke-dashoffset="0"></circle></svg>'+
+    '<div class="ringtxt"><div class="n" id="fringN">–</div><div class="w" id="fringW"></div></div></div>';
+  h+=F.counters.map((c,i)=>'<div class="cnt"><span class="nm">'+esc(c.label)+'</span>'+
+    '<button class="m" data-a="fcnt" data-i="'+i+'" data-v="-1">−</button>'+
+    '<span class="n">'+c.n+'</span>'+
+    '<button data-a="fcnt" data-i="'+i+'" data-v="1">+</button></div>').join('');
+  h+='<button class="btn btn-ghost" data-a="faddcnt">+ Add a counter</button>';
+  h+='<div class="card" style="margin-top:12px"><div class="lbl" id="lblRunPace">Pace — '+fmtPace(F.paceSecs)+'</div>'+
+    '<input type="range" min="15" max="180" step="5" value="'+F.paceSecs+'" data-a="fpace">'+
+    '<div id="runAnchors">'+anchorsHTML(F.paceSecs,'fpaceset')+'</div></div>';
+  h+='<div class="spacer"></div><button class="btn btn-primary" data-a="freesave">Finish &amp; log</button></div>';
+  return h}
+setInterval(()=>{
+  if(!F)return;
+  const now=Date.now();
+  const p=$('#fprog');if(p)p.innerHTML='<b>'+fmtClock((now-F.startedAt)/1000)+'</b> · <b>'+F.visits+'</b> visits';
+  if(F.paceSecs>0&&now>=F.nextGoAt){F.visits++;F.nextGoAt=now+F.paceSecs*1000;paceTick();
+    const w=$('#fringWrap');if(w){w.classList.add('go');setTimeout(()=>{const q=$('#fringWrap');if(q)q.classList.remove('go')},1200)}}
+  const circ=2*Math.PI*88,left=Math.max(0,(F.nextGoAt-now)/1000);
+  const n=$('#fringN');if(n)n.textContent=Math.ceil(left);
+  const lw=$('#fringW');if(lw)lw.textContent='next in';
+  const arc=$('#fringArc');if(arc)arc.setAttribute('stroke-dashoffset',String(circ*(1-Math.min(1,left/F.paceSecs))));
+},250);
+
+/* ============ views ============ */
+let view='today',libOpen=false,addTpl=null,addCfg=null,editId=null;
+function setHead(t,s,back){
+  $('#ttl').textContent=t;$('#sub').textContent=s||'';
+  const tb=$('#topbar');
+  const old=tb.querySelector('.tb-back');if(old)old.remove();
+  if(back){tb.classList.add('hasback');
+    const b=document.createElement('button');b.className='tb-back';b.textContent='← Back';
+    b.setAttribute('data-a',back);tb.appendChild(b)}
+  else tb.classList.remove('hasback')}
+
+const NAV=[['today','Today','\u{1F3AF}'],['drills','Drills','\u{1F4CB}'],['free','Free','\u{1F504}'],
+           ['progress','Progress','\u{1F4C8}'],['more','More','⚙️']];
+function navHTML(){return NAV.map(n=>'<button data-a="view" data-v="'+n[0]+'" class="'+(view===n[0]?'on':'')+'">'+
+  '<span class="ico">'+n[2]+'</span>'+n[1]+'</button>').join('')}
+
+function render(){
+  $('#runwrap').innerHTML = R?runHTML(): (F?freeHTML():'');
+  $('#nav').style.display = (R||F)?'none':'flex';
+  document.body.style.overflow=(R||F)?'hidden':'';
+  if(R||F)return;
+  $('#nav').innerHTML=navHTML();
+  let h='';
+  if(view==='today')h=todayHTML();
+  else if(view==='drills')h=libOpen?libraryHTML():drillsHTML();
+  else if(view==='free')h=freeSetupHTML();
+  else if(view==='progress')h=progressHTML();
+  else h=moreHTML();
+  $('#main').innerHTML=h}
+
+function todayHTML(){
+  setHead('TrebleMaker','Paced practice');
+  const t=today();
+  const doneToday=D.sessions.filter(s=>s.date===t);
+  let h='';
+  if(!D.drills.length){
+    h+='<div class="card"><h3>Start here</h3><p class="hint">No drills yet. Open the library and add one — '+
+      '<b>The 20 Ladder</b> at L1 and the <b>Double Rotation</b> are the two that move a beginner fastest.</p>'+
+      '<button class="btn btn-primary" data-a="openlib">Browse the drill library</button></div>';
+    return h}
+  h+='<div class="card"><h3>'+(doneToday.length?doneToday.length+' done today':'Nothing thrown yet today')+'</h3>'+
+    (doneToday.length?'<div class="hint">'+doneToday.map(s=>{const d=D.drills.find(x=>x.id===s.drillId);
+      return esc(d?d.name:s.templateKey)+' · '+s.value}).join('<br>')+'</div>':
+      '<div class="hint">Pick a drill and go.</div>')+'</div>';
+  h+='<div class="lbl">Your drills</div>';
+  h+=D.drills.filter(d=>!d.archived).map(drillTile).join('');
+  h+='<button class="btn btn-ghost" data-a="openlib">+ Add a drill</button>';
+  return h}
+
+function drillTile(d){
+  const t=TPL(d.templateKey);if(!t)return '';
+  const ss=sessionsFor(d.id),last=ss[ss.length-1];
+  return '<button class="tile" data-a="run" data-v="'+d.id+'"><div class="row">'+
+    '<div style="flex:1;min-width:0"><b>'+t.icon+' '+esc(d.name)+'</b>'+
+    '<div class="meta">'+esc(drillLabel(d))+'</div></div>'+
+    (last?'<div class="last"><b>'+(t.key==='ladder'&&last.value>0?'+':'')+last.value+'</b>'+
+      '<span>'+(t.shape==='goal'?'darts':'last')+'</span></div>':'')+
+    '</div></button>'}
+
+function drillsHTML(){
+  setHead('Drills','Tap to throw · long-press to edit');
+  let h='';
+  const act=D.drills.filter(d=>!d.archived);
+  h+= act.length?act.map(drillTile).join(''):'<div class="card"><p class="hint">Nothing added yet.</p></div>';
+  h+='<button class="btn btn-primary" data-a="openlib">+ Add a drill from the library</button>';
+  if(act.length)h+='<button class="btn btn-ghost" data-a="editlist">Edit my drills</button>';
+  return h}
+
+function libraryHTML(){
+  setHead('Library','Pick a drill, set it up, name it','closelib');
+  return TEMPLATES.map(t=>{
+    const have=D.drills.filter(d=>d.templateKey===t.key&&!d.archived);
+    return '<button class="tile" data-a="addtpl" data-v="'+t.key+'">'+
+      '<b>'+t.icon+' '+esc(t.name)+'</b>'+
+      '<div class="meta" style="margin-top:6px">'+esc(t.blurb)+'</div>'+
+      (have.length?'<div class="meta" style="margin-top:8px;color:var(--warn)">You already have this as '+
+        have.map(d=>'<b>'+esc(d.name)+'</b>').join(', ')+' — a new one charts separately.</div>':'')+
+      '</button>'}).join('')}
+
+function anchorsHTML(v,act){
+  const A=[[15,'Fast'],[30,'Practice'],[90,'League']];
+  return '<div class="anchors">'+A.map(a=>'<button data-a="'+act+'" data-v="'+a[0]+'" class="'+
+    (v===a[0]?'on':'')+'">'+a[1]+'<br>'+fmtPace(a[0])+'</button>').join('')+'</div>'}
+
+function addHTML(){
+  const t=TPL(addTpl),c=addCfg;
+  let h='<div class="sheet"><h3>'+t.icon+' '+esc(t.name)+'</h3>'+
+    '<p class="hint">'+esc(t.blurb)+'</p>';
+  if(t.adj.includes('ladder')){
+    h+='<div class="lbl">Scoring tier</div>';
+    h+=t.tiers.map((x,i)=>'<button class="tile" data-a="cfg" data-k="ladder" data-v="'+i+'" style="padding:11px">'+
+      '<b style="font-size:16px;color:'+(c.ladder===i?'var(--accent)':'var(--text)')+'">'+esc(x.n)+'</b>'+
+      '<div class="meta">'+esc(x.d)+'</div></button>').join('')}
+  if(t.adj.includes('boxSecs')){
+    h+='<div class="lbl" id="lblboxSecs">Length — '+fmtClock(c.boxSecs).replace(':00',' min')+'</div>'+
+      '<input type="range" min="60" max="1800" step="60" value="'+c.boxSecs+'" data-a="cfgrange" data-k="boxSecs">'}
+  if(t.adj.includes('target')){
+    h+='<div class="lbl" id="lbltarget">Target — '+c.target+' '+esc(t.targetLabel||'')+'</div>'+
+      '<input type="range" min="3" max="30" step="1" value="'+c.target+'" data-a="cfgrange" data-k="target">'}
+  if(t.adj.includes('paceSecs')){
+    h+='<div class="lbl" id="lblpaceSecs">Pace — '+fmtPace(c.paceSecs)+' per visit</div>'+
+      '<input type="range" min="15" max="180" step="5" value="'+c.paceSecs+'" data-a="cfgrange" data-k="paceSecs">'+
+      '<div id="paceAnchors">'+anchorsHTML(c.paceSecs,'cfgpace')+'</div>'}
+  if(t.scored!==false&&!t.boardScored){
+    h+='<div class="lbl" style="margin-top:14px">Tracking</div>'+
+      '<div class="row"><button class="btn btn-sm '+(c.tier===1?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="1" style="flex:1">Just the number</button>'+
+      '<button class="btn btn-sm '+(c.tier===2?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="2" style="flex:1">Tap every dart</button></div>'+
+      '<div class="hint" style="margin-top:6px">'+(c.tier===1?
+        'The app runs the clock and the pace; you enter one number at the end.':
+        'The app scores for you and keeps the detail. Needs ~20s pace or more to be comfortable.')+'</div>'}
+  h+='<div class="lbl" style="margin-top:14px">Name</div>'+
+    '<input type="text" id="cfgName" value="'+esc(c.name)+'" placeholder="'+esc(t.name)+'">';
+  h+='<button class="btn btn-primary" data-a="addsave">'+(editId?'Save':'Add to my drills')+'</button>'+
+    (editId?'<button class="btn btn-danger" data-a="archive">Remove from my drills</button>':'')+
+    '<button class="btn btn-ghost" data-a="closesheet">Cancel</button></div>';
+  return h}
+
+function freeSetupHTML(){
+  setHead('Free Throw','Pace keeper · count whatever you like');
+  const p=D.settings.freePace||D.settings.paceSecs;
+  let h='<div class="card"><h3>Just throwing</h3>'+
+    '<p class="hint">No targets, no pass or fail. The pace keeper holds you to a rhythm and you count whatever you feel like counting. Kept in its own history — it never touches the drill charts.</p>'+
+    '<div class="lbl" style="margin-top:12px" id="lblFreePace">Pace — '+fmtPace(p)+' per visit</div>'+
+    '<input type="range" min="15" max="180" step="5" value="'+p+'" data-a="setfreepace">'+
+    '<div id="freeAnchors">'+anchorsHTML(p,'setfreepaceb')+'</div>'+
+    '<button class="btn btn-primary" data-a="freego">▶ Start</button></div>';
+  const rec=D.free.slice(-8).reverse();
+  if(rec.length){h+='<div class="lbl">Recent</div>';
+    h+=rec.map(f=>'<div class="card" style="padding:11px"><div class="row"><div style="flex:1">'+
+      '<b>'+f.date+'</b><div class="hint">'+fmtClock(f.secs)+' · '+fmtPace(f.paceSecs)+'</div></div>'+
+      '<div class="hint" style="text-align:right">'+f.counters.map(c=>esc(c.label)+' <b style="color:var(--text)">'+c.n+'</b>').join('<br>')+'</div>'+
+      '</div></div>').join('')}
+  return h}
+
+function progressHTML(){
+  setHead('Progress','One line per drill');
+  if(!D.sessions.length)return '<div class="card"><p class="hint">Nothing logged yet.</p></div>';
+  let h='';
+  D.drills.filter(d=>!d.archived).forEach(d=>{
+    const ss=sessionsFor(d.id);if(!ss.length)return;
+    const t=TPL(d.templateKey);
+    const vals=ss.map(s=>s.value);
+    const last=vals[vals.length-1],best=t.better==='up'?Math.max(...vals):Math.min(...vals);
+    h+='<div class="card"><div class="row"><div style="flex:1"><h3 style="margin:0">'+esc(d.name)+'</h3>'+
+      '<div class="hint">'+esc(drillLabel(d))+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:26px;font-weight:800">'+
+      (t.key==='ladder'&&last>0?'+':'')+last+'</div><div class="hint">best '+
+      (t.key==='ladder'&&best>0?'+':'')+best+'</div></div></div>'+
+      spark(vals,t)+
+      '<div class="hint" style="margin-top:4px">'+ss.length+' session'+(ss.length>1?'s':'')+
+      ' · '+(t.better==='up'?'higher is better':'lower is better')+'</div></div>'});
+  // rolled-up rate per template, across instances
+  const byT={};
+  D.sessions.forEach(s=>{(byT[s.templateKey]=byT[s.templateKey]||[]).push(s)});
+  const multi=Object.keys(byT).filter(k=>{
+    const ids=new Set(byT[k].map(s=>s.drillId));return ids.size>1});
+  if(multi.length){
+    h+='<div class="lbl" style="margin-top:14px">Across your variants</div>';
+    multi.forEach(k=>{const t=TPL(k),ss=byT[k].slice().sort((a,b)=>a.date<b.date?-1:1);
+      h+='<div class="card"><h3>'+esc(t.name)+'</h3>'+
+        '<div class="hint">'+(t.shape==='goal'?'darts per '+t.unit.replace(/s$/,''):'points per dart')+
+        ' — comparable across different paces and targets</div>'+
+        spark(ss.map(s=>s.rate),{better:t.shape==='goal'?'down':'up'})+'</div>'})}
+  return h}
+
+function spark(vals,t){
+  if(vals.length<2)return '<div class="hint" style="margin-top:8px">One session so far — the line starts at two.</div>';
+  const w=320,hh=70,pad=6;
+  let mn=Math.min(...vals),mx=Math.max(...vals);
+  if(mn===mx){mn-=1;mx+=1}
+  const sx=i=>pad+i*(w-2*pad)/(vals.length-1);
+  const sy=v=>hh-pad-((v-mn)/(mx-mn))*(hh-2*pad);
+  const pts=vals.map((v,i)=>sx(i)+','+sy(v)).join(' ');
+  let extra='';
+  if(mn<0&&mx>0)extra='<line class="zr" x1="0" y1="'+sy(0)+'" x2="'+w+'" y2="'+sy(0)+'"></line>';
+  return '<svg class="chart" viewBox="0 0 '+w+' '+hh+'" preserveAspectRatio="none">'+extra+
+    '<polyline class="ln" points="'+pts+'"></polyline>'+
+    '<circle cx="'+sx(vals.length-1)+'" cy="'+sy(vals[vals.length-1])+'" r="4"></circle></svg>'}
+
+function moreHTML(){
+  setHead('More','Settings');
+  const v=+D.settings.volume;
+  return '<div class="card"><h3>Sound</h3><div class="hint">Nothing fires while darts are in the air. '+
+    'The pace cue lands while you are walking back.</div><div class="row" style="margin-top:10px">'+
+    [[1,'Normal'],[1.5,'Loud'],[2.4,'Max']].map(o=>'<button class="btn btn-sm '+(v===o[0]?'btn-primary':'')+
+      '" data-a="vol" data-v="'+o[0]+'" style="flex:1">'+o[1]+'</button>').join('')+'</div></div>'+
+    '<div class="card"><h3>Count-in</h3><div class="hint">Seconds before a drill starts, so you are in your stance.</div>'+
+    '<div class="row" style="margin-top:10px">'+[3,5,8,12].map(n=>'<button class="btn btn-sm '+
+      (D.settings.countIn===n?'btn-primary':'')+'" data-a="countin" data-v="'+n+'" style="flex:1">'+n+'s</button>').join('')+'</div></div>'+
+    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+
+    D.drills.length+' drills</div>'+
+    '<button class="btn" data-a="backup">Download backup</button>'+
+    '<button class="btn btn-ghost" data-a="restore">Restore from file</button></div>'+
+    '<div class="card"><h3>About</h3><div class="hint">Everything lives on this device. Nothing is sent anywhere. '+
+    'Add to your Home Screen for the app-like version.</div></div>'}
+
+/* The sheet always goes up inside its .modal backdrop — without that wrapper it
+   is a plain block and falls into the page behind whatever view is showing. */
+function showSheet(){$('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+addHTML()+'</div>'}
+function closeSheet(){$('#modalwrap').innerHTML='';editId=null}
+
+/* ============ events ============ */
+/* A range input must NEVER trigger a re-render: rebuilding the markup mid-drag
+   tears out the element the touch sequence is bound to and the drag dies. Only
+   the label (and the anchor highlight) are updated live. */
+function cfgLabel(k,v){
+  const el=$('#lbl'+k);if(!el)return;
+  if(k==='boxSecs')el.textContent='Length — '+fmtClock(v).replace(':00',' min');
+  if(k==='target')el.textContent='Target — '+v+' '+(TPL(addTpl).targetLabel||'');
+  if(k==='paceSecs'){el.textContent='Pace — '+fmtPace(v)+' per visit';
+    const a=$('#paceAnchors');if(a)a.innerHTML=anchorsHTML(v,'cfgpace')}}
+document.addEventListener('input',e=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  const a=el.getAttribute('data-a');
+  if(a==='cfgrange'){const k=el.getAttribute('data-k');addCfg[k]=+el.value;cfgLabel(k,+el.value);return}
+  if(a==='setfreepace'){const v=+el.value;D.settings.freePace=v;persist();
+    const l=$('#lblFreePace');if(l)l.textContent='Pace — '+fmtPace(v)+' per visit';
+    const an=$('#freeAnchors');if(an)an.innerHTML=anchorsHTML(v,'setfreepaceb');return}
+  if(a==='fpace'){const v=+el.value;F.paceSecs=v;
+    F.nextGoAt=Math.min(F.nextGoAt,Date.now()+v*1000);
+    const l=$('#lblRunPace');if(l)l.textContent='Pace — '+fmtPace(v);
+    const an=$('#runAnchors');if(an)an.innerHTML=anchorsHTML(v,'fpaceset');return}
+});
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a]');if(!el)return;
+  const a=el.getAttribute('data-a'),v=el.getAttribute('data-v');
+  unlockAudio();
+  switch(a){
+  case 'backdrop': if(e.target===el){closeSheet();render()}break;
+  case 'view': closeSheet();view=v;libOpen=false;render();break;
+  case 'openlib': view='drills';libOpen=true;render();break;
+  case 'closelib': libOpen=false;render();break;
+  case 'addtpl': {addTpl=v;editId=null;const t=TPL(v);
+    addCfg=Object.assign({tier:1,name:t.name},t.def);
+    if(D.drills.some(d=>d.templateKey===v&&!d.archived))addCfg.name=t.name+' · '+fmtPace(t.def.paceSecs||30);
+    showSheet();break}
+  case 'cfg': addCfg[el.getAttribute('data-k')]=+v;showSheet();break;
+  case 'cfgpace': addCfg.paceSecs=+v;showSheet();break;
+  case 'addsave': {
+    const nm=($('#cfgName')&&$('#cfgName').value.trim())||TPL(addTpl).name;
+    if(editId){const d=D.drills.find(x=>x.id===editId);
+      Object.assign(d,{name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,paceSecs:addCfg.paceSecs,
+        tier:addCfg.tier,ladder:addCfg.ladder});toast('Saved')}
+    else{D.drills.push({id:uid(),templateKey:addTpl,name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,
+      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,createdAt:new Date().toISOString(),archived:false});
+      toast('Added')}
+    persist();closeSheet();libOpen=false;view='today';render();break}
+  case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;persist()}
+    closeSheet();render();toast('Removed');break}
+  case 'closesheet': closeSheet();render();break;
+  case 'editlist': {
+    $('#modalwrap').innerHTML='<div class="modal"><div class="sheet"><h3>Edit my drills</h3>'+
+      D.drills.filter(d=>!d.archived).map(d=>'<button class="tile" data-a="edit" data-v="'+d.id+'">'+
+      '<b>'+esc(d.name)+'</b><div class="meta">'+esc(drillLabel(d))+'</div></button>').join('')+
+      '<button class="btn btn-ghost" data-a="closesheet">Done</button></div></div>';break}
+  case 'edit': {const d=D.drills.find(x=>x.id===v);editId=d.id;addTpl=d.templateKey;
+    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
+    showSheet();break}
+  case 'run': startRun(v);break;
+  case 'abandon': if(R){R=null;persistR()}releaseWake();render();break;
+  case 'dart': logDart(v);break;
+  case 'skip': skipDart();break;
+  case 'finishnow': if(R){if(R.tier===1)R.darts=R.visits*3;endRun()}break;
+  case 'savenum': {
+    const inp=$('#numIn');
+    const num=inp?parseInt(inp.value,10):null;
+    if(inp&&(isNaN(num))){toast('Enter a number');break}
+    saveRun(inp?num:null);break}
+  case 'vol': D.settings.volume=+v;persist();tone(1245,.4,1);render();break;
+  case 'countin': D.settings.countIn=+v;persist();render();break;
+  case 'setfreepaceb': D.settings.freePace=+v;persist();render();break;
+  case 'fpaceset': F.paceSecs=+v;render();break;
+  case 'freego': {unlockAudio();
+    F={startedAt:Date.now(),paceSecs:D.settings.freePace||D.settings.paceSecs,nextGoAt:Date.now()+1000,
+       visits:0,counters:D.freeCounters.map(l=>({label:l,n:0}))};
+    acquireWake();render();break}
+  case 'fcnt': {const i=+el.getAttribute('data-i');F.counters[i].n=Math.max(0,F.counters[i].n+ +v);render();break}
+  case 'faddcnt': {const l=prompt('Count what?');if(l&&l.trim()){F.counters.push({label:l.trim(),n:0});
+    if(!D.freeCounters.includes(l.trim())){D.freeCounters.push(l.trim());persist()}render()}break}
+  case 'freestop': F=null;releaseWake();render();break;
+  case 'freesave': {
+    D.free.push({id:uid(),date:today(),secs:Math.round((Date.now()-F.startedAt)/1000),
+      paceSecs:F.paceSecs,counters:F.counters.filter(c=>c.n>0)});
+    persist();F=null;releaseWake();toast('Logged');render();break}
+  case 'backup': {
+    const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
+    const u=URL.createObjectURL(blob),a2=document.createElement('a');
+    a2.href=u;a2.download='treblemaker-backup-'+today()+'.json';a2.click();
+    setTimeout(()=>URL.revokeObjectURL(u),1000);break}
+  case 'restore': {
+    const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+    inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
+      r.onload=()=>{try{const o=JSON.parse(r.result);
+        if(!o||!Array.isArray(o.sessions))throw 0;
+        D=Object.assign({version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],freeCounters:['Bulls']},o);
+        D.settings=Object.assign({},DEFAULTS,D.settings||{});persist();render();toast('Restored')}
+        catch(x){toast('That file did not look right')}};
+      r.readAsText(f)};
+    inp.click();break}
+  }
+});
+/* long-press a drill tile to edit it */
+let lpT=null;
+document.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('[data-a="run"]');if(!el)return;
+  lpT=setTimeout(()=>{lpT=null;const d=D.drills.find(x=>x.id===el.getAttribute('data-v'));if(!d)return;
+    editId=d.id;addTpl=d.templateKey;
+    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
+    if(navigator.vibrate)navigator.vibrate(30);
+    showSheet()},550)});
+document.addEventListener('pointerup',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
+document.addEventListener('pointercancel',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
+document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
+
+/* ============ boot ============ */
+if(R&&R.phase!=='done'&&R.phase!=='countin'){/* a run survived a reload */}
+render();
+if(R)acquireWake();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol==='https:')
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

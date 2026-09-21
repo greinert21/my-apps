@@ -10,6 +10,7 @@ Matt's personal apps — plain HTML, no build step, hosted on GitHub Pages.
 | 🐟 Fillet & Fire | [/fillet-fire/](https://greinert21.github.io/my-apps/fillet-fire/) | Live |
 | 🎣 StrikeZone | [/strikezone/](https://greinert21.github.io/my-apps/strikezone/) | Live |
 | 🌱 GardenMap | [/garden/](https://greinert21.github.io/my-apps/garden/) | Live |
+| 🎯 TrebleMaker | [/treblemaker/](https://greinert21.github.io/my-apps/treblemaker/) | Live |
 
 ## Workout Tracker
 
@@ -39,3 +40,18 @@ state in `localStorage`.
 ## Updating
 
 Everything is static — edit a file, commit, push (or edit directly on github.com), and Pages redeploys automatically in ~1 minute.
+
+## TrebleMaker
+
+Darts practice coach — not a game scorer, the board already does that.
+
+- **Drill library → configured instances.** Pick a template (20 Ladder, Double
+  Rotation, Bullseye Lock, Cricket Router, Count-Up, 501, Warm-Up), set its clock
+  or target and its pace, name it. The same template twice with different settings
+  is normal: "20s — Morning" at 15s and "20s — Deliberate" at 30s chart separately.
+- **Pace keeper**, 15s to 3 min. It is what makes a time-boxed score comparable
+  day to day — without it, throwing faster just buys a bigger number.
+- **Two input tiers.** Enter one number at the end, or tap every dart and let the
+  app score it. The Cricket Router referees the Twist either way.
+- **Free Throw** — pace keeper plus named tally counters, its own history.
+- Single static file, `localStorage`, offline via a service worker.
