@@ -144,13 +144,18 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
   catch(e){toast('Couldn’t save — storage full?');return false}}
 const DEFAULTS={volume:1.5,paceSecs:30,countIn:5,ppd:35,mpr:3.5};
 let D=load(DATA_KEY,null);
-if(!D)D={version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],freeCounters:['Bulls']};
-D.settings=Object.assign({},DEFAULTS,D.settings||{});
-if(!Array.isArray(D.drills))D.drills=[];
-if(!Array.isArray(D.sessions))D.sessions=[];
-if(!Array.isArray(D.free))D.free=[];
-if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
-function persist(){return save(DATA_KEY,D)}
+function blankD(){return {version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],
+  freeCounters:['Bulls'],plans:{}}}
+function normD(){
+  D.settings=Object.assign({},DEFAULTS,D.settings||{});
+  if(!Array.isArray(D.drills))D.drills=[];
+  if(!Array.isArray(D.sessions))D.sessions=[];
+  if(!Array.isArray(D.free))D.free=[];
+  if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
+  if(!D.plans||typeof D.plans!=='object'||Array.isArray(D.plans))D.plans={}}
+if(!D)D=blankD();
+normD();
+function persist(){const ok=save(DATA_KEY,D);scheduleSync();return ok}
 
 /* ============ drill templates ============
    A template is the game and is never edited. An instance (D.drills[]) is a
@@ -189,7 +194,11 @@ const ROUTER_SEQ=[20,19,18,17,16,15,'Bull'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const today=()=>new Date().toISOString().slice(0,10);
+/* The LOCAL date. toISOString() is UTC, which in the US flips "today" around
+   7 pm — the day's routine would vanish mid-evening. */
+const today=()=>{const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const stamp=()=>new Date().toISOString();
 function fmtClock(s){s=Math.max(0,Math.round(s));const m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0')}
 function fmtPace(s){return s>=60?(s%60?Math.floor(s/60)+'m '+(s%60)+'s':Math.floor(s/60)+' min'):s+'s'}
 let toastT=null;
@@ -241,9 +250,9 @@ function startBeep(){tone(1245,.15,1);setTimeout(()=>tone(1245,.15,1),190)}
 function winChime(){tone(880,.16,.9);setTimeout(()=>tone(1108,.16,.9),150);setTimeout(()=>tone(1320,.42,1),300)}
 function countBeep(){tone(880,.11,.7)}
 let wakeLock=null;
-async function acquireWake(){try{if('wakeLock' in navigator&&R)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+async function acquireWake(){try{if('wakeLock' in navigator&&R&&!R.parked)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
 function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&R)acquireWake()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&R&&!R.parked)acquireWake()});
 
 /* ============ scoring ============ */
 function ladderScore(res,tier){ // res: T S D M
@@ -260,20 +269,55 @@ function ladderScore(res,tier){ // res: T S D M
 let R=load(RUN_KEY,null);
 function persistR(){if(R)save(RUN_KEY,R);else localStorage.removeItem(RUN_KEY)}
 
-function startRun(drillId){
+/* Tapping a drill opens it in 'ready' — nothing runs until he hits Start, so he
+   can open it at the sofa and walk to the oche. */
+function openRun(drillId){
+  if(R&&R.drillId===drillId){R.parked=false;persistR();acquireWake();render();return}
+  if(R&&R.phase!=='ready'){
+    const cur=D.drills.find(x=>x.id===R.drillId);
+    if(!confirm('Discard the paused '+(cur?cur.name:'drill')+' and start this one?'))return}
   const d=D.drills.find(x=>x.id===drillId);if(!d)return;
   const t=TPL(d.templateKey);
-  unlockAudio();
   R={drillId:d.id,templateKey:d.templateKey,tier:d.tier||1,
      boxSecs:t.shape==='timed'?(d.boxSecs||0):0,target:d.target||0,
      paceSecs:d.paceSecs||0,ladder:d.ladder|0,
-     startedAt:0,countInAt:Date.now()+ (D.settings.countIn||5)*1000,
-     phase:'countin',visits:0,darts:0,value:0,marks:0,
+     startedAt:0,countInAt:0,
+     phase:'ready',visits:0,darts:0,value:0,marks:0,
      lastGoAt:0,nextGoAt:0,inVisit:false,visitDarts:0,lastLogAt:0,
-     gaps:[],log:[],ending:false,
+     gaps:[],log:[],ending:false,pausedAt:0,pausedMs:0,parked:false,
      rt:t.key==='router'?ROUTER_SEQ.map(()=>0):null,
      dbl:t.key==='doubles'?0:null};
+  persistR();render()}
+
+function beginCountIn(){
+  unlockAudio();
+  R.phase='countin';R.cd=0;R.countInAt=Date.now()+(D.settings.countIn||5)*1000;
   persistR();acquireWake();render()}
+
+/* Pause freezes the run; resume slides every clock forward by the time spent
+   paused, so the box clock, the pace gap and the gap stats all ignore it. */
+function pauseRun(){
+  if(!R||R.pausedAt)return;
+  if(R.phase==='countin'){R.phase='ready';persistR();render();return}
+  if(R.phase!=='live')return;
+  R.pausedAt=Date.now();persistR();render()}
+function resumeRun(){
+  if(!R||!R.pausedAt)return;
+  unlockAudio();
+  const now=Date.now(),sh=now-R.pausedAt;
+  ['startedAt','endsAt','nextGoAt','lastGoAt','lastLogAt'].forEach(k=>{if(R[k])R[k]+=sh});
+  R.pausedMs=(R.pausedMs||0)+sh;R.pausedAt=0;
+  // he tapped Resume at the phone, so give him a moment to get back on the oche
+  if(R.paceSecs>0&&!R.inVisit&&R.nextGoAt-now<4000)R.nextGoAt=now+4000;
+  persistR();acquireWake();render()}
+/* Back out of a drill without losing it: it pauses and waits on the Today screen. */
+function parkRun(){
+  if(!R)return;
+  if(R.phase==='ready'){R=null;persistR();render();return}
+  if(R.phase==='countin')R.phase='ready';
+  else if(R.phase==='live'&&!R.pausedAt)R.pausedAt=Date.now();
+  R.parked=true;persistR();releaseWake();render()}
+const rNow=()=>R&&R.pausedAt?R.pausedAt:Date.now();
 
 function endRun(){ // close out, ask for the number if we do not already have it
   const t=TPL(R.templateKey);
@@ -295,7 +339,8 @@ function runRate(){
 
 function saveRun(overrideValue){
   const t=TPL(R.templateKey);
-  if(t.scored===false){R=null;persistR();releaseWake();toast('Warm-up done');render();return}
+  markPlanDone(R.drillId);
+  if(t.scored===false){R=null;persistR();persist();releaseWake();toast('Warm-up done');render();return}
   let value=overrideValue!=null?overrideValue:runValue();
   let darts=R.darts||0;
   if(t.key==='x01'&&overrideValue!=null){darts=overrideValue}
@@ -308,7 +353,7 @@ function saveRun(overrideValue){
 
 /* one tick drives the count-in, the box clock and the pace ring */
 setInterval(()=>{
-  if(!R)return;
+  if(!R||R.parked||R.pausedAt||R.phase==='ready')return;
   const now=Date.now(),t=TPL(R.templateKey);
   if(R.phase==='countin'){
     const left=Math.ceil((R.countInAt-now)/1000);
@@ -326,6 +371,10 @@ setInterval(()=>{
     if(R.tier===1||!R.inVisit){
       if(now>=R.nextGoAt)fireGo(now);
     }
+  }else if(R.tier===1){
+    // no pace and nothing tapped (the Warm-Up): just the clock. Firing a go here
+    // would beep four times a second.
+    if(R.ending){finishBox();return}
   }else if(!R.inVisit){fireGo(now)}
   paintRing(now);
   const p=$('#progLine');if(p)p.innerHTML=progHTML();
@@ -401,7 +450,7 @@ function paintRing(now){
 function progHTML(){
   const t=TPL(R.templateKey);
   if(t.shape==='timed'){
-    const left=R.endsAt?Math.max(0,(R.endsAt-Date.now())/1000):0;
+    const left=R.endsAt?Math.max(0,(R.endsAt-rNow())/1000):0;
     const total=R.paceSecs?Math.floor(R.boxSecs/R.paceSecs):0;
     return '<b>'+fmtClock(left)+'</b> left'+(total?' · visit <b>'+R.visits+'</b> of '+total:'')+
       ' · <b>'+R.darts+'</b> darts'}
@@ -414,6 +463,17 @@ function progHTML(){
 /* ============ run screen ============ */
 function runHTML(){
   const t=TPL(R.templateKey),d=D.drills.find(x=>x.id===R.drillId)||{name:t.name};
+  if(R.phase==='ready'){
+    const last=sessionsFor(R.drillId).slice(-1)[0];
+    return '<div class="run"><div class="rhead"><div style="flex:1"><b>'+t.icon+' '+esc(d.name)+'</b>'+
+      '<div class="hint">'+esc(drillLabel(d))+(R.tier===2?' · tap every dart':'')+'</div></div>'+
+      '<button class="btn btn-sm" data-a="park" style="margin:0">← Back</button></div>'+
+      '<div class="card" style="margin-top:8px"><div class="hint">'+esc(t.blurb)+'</div>'+
+      (last?'<div class="hint" style="margin-top:8px">Last time: <b style="color:var(--text)">'+
+        (t.key==='ladder'&&last.value>0?'+':'')+last.value+'</b> · '+last.date+'</div>':'')+'</div>'+
+      '<div class="spacer"></div>'+
+      '<div class="hint" style="text-align:center;margin-bottom:4px">'+(D.settings.countIn||5)+'s count-in when you tap Start</div>'+
+      '<button class="btn btn-primary" data-a="begin" style="padding:22px;font-size:22px">▶ Start</button></div>'}
   if(R.phase==='countin')
     return '<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b>'+
       '<div class="hint">Get ready</div></div></div>'+
@@ -421,13 +481,21 @@ function runHTML(){
       '<circle cx="100" cy="100" r="88" stroke="#2e3442" stroke-width="12" fill="none"></circle></svg>'+
       '<div class="ringtxt"><div class="n" id="ringN">'+Math.ceil((R.countInAt-Date.now())/1000)+'</div>'+
       '<div class="w" id="ringW">starting</div></div></div>'+
-      '<div class="spacer"></div><button class="btn btn-danger" data-a="abandon">Cancel</button></div>';
+      '<div class="spacer"></div><button class="btn btn-danger" data-a="pause">Cancel</button></div>';
   if(R.phase==='done')return doneHTML(t,d);
   const circ=2*Math.PI*88;
-  let h='<div class="run"><div class="rhead"><div style="flex:1"><b>'+esc(d.name)+'</b>'+
+  let h='<div class="run"><div class="rhead"><div style="flex:1;min-width:0"><b>'+esc(d.name)+'</b>'+
     '<div class="hint">'+esc(drillLabel(d))+(R.tier===2?' · tracking':'')+'</div></div>'+
-    '<button class="btn btn-sm btn-danger" data-a="abandon" style="margin:0">Stop</button></div>'+
+    '<button class="btn btn-sm" data-a="park" style="margin:0">← Back</button></div>'+
     '<div class="prog'+(R.ending?' over':'')+'" id="progLine">'+progHTML()+'</div>';
+  if(R.pausedAt){
+    h+='<div class="bigscore" style="margin:30px 0 18px"><div class="n" style="font-size:44px">⏸</div>'+
+      '<div class="w">paused</div></div>'+
+      (t.key==='ladder'?'<div class="bigscore"><div class="n">'+(R.value>0?'+':'')+R.value+'</div><div class="w">score</div></div>':'')+
+      '<div class="spacer"></div>'+
+      '<button class="btn btn-primary" data-a="resume" style="padding:22px;font-size:22px">▶ Resume</button>'+
+      '<button class="btn btn-danger" data-a="abandon">Discard this drill</button></div>';
+    return h}
   if(R.ending)h+='<div class="card" style="border-color:var(--warn);padding:10px"><span class="hint" style="color:var(--warn)">'+
     'Time is up — finish this visit and it closes.</span></div>';
   h+='<div class="ringwrap'+(R.inVisit||!R.paceSecs?' go':'')+'" id="ringWrap"><svg width="200" height="200">'+
@@ -479,7 +547,9 @@ function runHTML(){
       '<button class="hit" data-a="dart" data-v="3">3</button></div>'+
       '<div class="hint" style="text-align:center">marks scored on the number above</div>'}
   h+='<div class="spacer"></div>';
-  if(t.shape==='goal'||t.key==='x01')h+='<button class="btn btn-good" data-a="finishnow">✓ Done</button>';
+  h+='<div class="row">'+
+    (t.shape==='goal'||t.key==='x01'?'<button class="btn btn-good grow" data-a="finishnow">✓ Done</button>':'')+
+    '<button class="btn grow" data-a="pause">⏸ Pause</button></div>';
   h+='</div>';
   return h}
 
@@ -515,9 +585,10 @@ function doneHTML(t,d){
 let F=null;
 function freeHTML(){
   if(!F)return '';
-  const el=Date.now()-F.startedAt;
+  const el=(F.pausedAt||Date.now())-F.startedAt;
   let h='<div class="run"><div class="rhead"><div style="flex:1"><b>Free Throw</b>'+
-    '<div class="hint">'+fmtPace(F.paceSecs)+' pace</div></div>'+
+    '<div class="hint">'+fmtPace(F.paceSecs)+' pace'+(F.pausedAt?' · paused':'')+'</div></div>'+
+    '<button class="btn btn-sm" data-a="fpause" style="margin:0">'+(F.pausedAt?'▶ Resume':'⏸ Pause')+'</button>'+
     '<button class="btn btn-sm btn-danger" data-a="freestop" style="margin:0">Stop</button></div>'+
     '<div class="prog" id="fprog"><b>'+fmtClock(el/1000)+'</b> · <b>'+F.visits+'</b> visits</div>';
   const circ=2*Math.PI*88;
@@ -537,7 +608,7 @@ function freeHTML(){
   h+='<div class="spacer"></div><button class="btn btn-primary" data-a="freesave">Finish &amp; log</button></div>';
   return h}
 setInterval(()=>{
-  if(!F)return;
+  if(!F||F.pausedAt)return;
   const now=Date.now();
   const p=$('#fprog');if(p)p.innerHTML='<b>'+fmtClock((now-F.startedAt)/1000)+'</b> · <b>'+F.visits+'</b> visits';
   if(F.paceSecs>0&&now>=F.nextGoAt){F.visits++;F.nextGoAt=now+F.paceSecs*1000;paceTick();
@@ -565,10 +636,11 @@ function navHTML(){return NAV.map(n=>'<button data-a="view" data-v="'+n[0]+'" cl
   '<span class="ico">'+n[2]+'</span>'+n[1]+'</button>').join('')}
 
 function render(){
-  $('#runwrap').innerHTML = R?runHTML(): (F?freeHTML():'');
-  $('#nav').style.display = (R||F)?'none':'flex';
-  document.body.style.overflow=(R||F)?'hidden':'';
-  if(R||F)return;
+  const RS=R&&!R.parked;
+  $('#runwrap').innerHTML = RS?runHTML(): (F?freeHTML():'');
+  $('#nav').style.display = (RS||F)?'none':'flex';
+  document.body.style.overflow=(RS||F)?'hidden':'';
+  if(RS||F)return;
   $('#nav').innerHTML=navHTML();
   let h='';
   if(view==='today')h=todayHTML();
@@ -582,12 +654,13 @@ function todayHTML(){
   setHead('TrebleMaker','Paced practice');
   const t=today();
   const doneToday=D.sessions.filter(s=>s.date===t);
-  let h='';
+  let h=parkedHTML();
   if(!D.drills.length){
     h+='<div class="card"><h3>Start here</h3><p class="hint">No drills yet. Open the library and add one — '+
       '<b>The 20 Ladder</b> at L1 and the <b>Double Rotation</b> are the two that move a beginner fastest.</p>'+
       '<button class="btn btn-primary" data-a="openlib">Browse the drill library</button></div>';
     return h}
+  h+=planCardHTML();
   h+='<div class="card"><h3>'+(doneToday.length?doneToday.length+' done today':'Nothing thrown yet today')+'</h3>'+
     (doneToday.length?'<div class="hint">'+doneToday.map(s=>{const d=D.drills.find(x=>x.id===s.drillId);
       return esc(d?d.name:s.templateKey)+' · '+s.value}).join('<br>')+'</div>':
@@ -596,6 +669,74 @@ function todayHTML(){
   h+=D.drills.filter(d=>!d.archived).map(drillTile).join('');
   h+='<button class="btn btn-ghost" data-a="openlib">+ Add a drill</button>';
   return h}
+
+/* A drill he backed out of waits here, paused, until he goes back in. */
+function parkedHTML(){
+  if(!R||!R.parked)return '';
+  const d=D.drills.find(x=>x.id===R.drillId),t=TPL(R.templateKey);
+  const bits=R.phase==='done'?'finished — log it':R.phase==='ready'?'not started':
+    'paused'+(R.visits?' · visit '+R.visits+' · '+R.darts+' darts':'');
+  return '<button class="tile" data-a="unpark" style="border-color:var(--warn)"><div class="row">'+
+    '<div style="flex:1;min-width:0"><b>⏸ '+esc(d?d.name:t.name)+'</b><div class="meta">'+esc(bits)+'</div></div>'+
+    '<span class="pill on">Go back in</span></div></button>'}
+
+/* ============ the day's routine ============
+   D.plans[date] = {at, items:[{id, drillId, done}]}. Keyed by the local date, so
+   it sticks for the whole day and a new day starts empty. The same drill twice
+   in one routine is fine — each item ticks off on its own. */
+function planFor(date){return D.plans[date]||null}
+function livePlanItems(p){return p?p.items.filter(i=>D.drills.some(d=>d.id===i.drillId&&!d.archived)):[]}
+function touchPlan(date){D.plans[date].at=stamp()}
+function ensurePlan(){const t=today();if(!D.plans[t])D.plans[t]={at:stamp(),items:[]};return D.plans[t]}
+function markPlanDone(drillId){
+  const p=planFor(today());if(!p)return;
+  const it=p.items.find(i=>i.drillId===drillId&&!i.done);
+  if(it){it.done=true;touchPlan(today())}}
+function lastPlanDate(){
+  const t=today();
+  return Object.keys(D.plans).filter(k=>k<t&&livePlanItems(D.plans[k]).length).sort().pop()||null}
+
+function planCardHTML(){
+  const p=planFor(today()),items=livePlanItems(p);
+  let h='<div class="card"><div class="row"><h3 class="grow" style="margin:0">Today’s routine</h3>'+
+    (items.length?'<button class="btn btn-sm" data-a="planedit">Edit</button>':'')+'</div>';
+  if(!items.length){
+    const lp=lastPlanDate();
+    h+='<div class="hint" style="margin-top:4px">Line up what you want to throw today. It stays put until tomorrow.</div>'+
+      '<button class="btn btn-primary" data-a="planedit">Build today’s routine</button>';
+    if(lp)h+='<button class="btn btn-ghost" data-a="plancopy" data-v="'+lp+'">Repeat '+lp+' ('+
+      livePlanItems(D.plans[lp]).length+' drills)</button>';
+    return h+'</div>'}
+  const next=items.find(i=>!i.done);
+  h+='<div style="margin-top:8px">'+items.map(i=>{
+    const d=D.drills.find(x=>x.id===i.drillId),t=TPL(d.templateKey);
+    return '<div class="row" style="padding:7px 0;border-top:1px solid var(--line)'+(i.done?';opacity:.45':'')+'">'+
+      '<button class="pill'+(i.done?' on':'')+'" data-a="plantick" data-v="'+i.id+'" style="margin:0;min-width:34px;cursor:pointer">'+
+        (i.done?'✓':'○')+'</button>'+
+      '<div class="grow" style="min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(d.name)+'</b>'+
+        '<div class="hint">'+esc(drillLabel(d))+'</div></div>'+
+      (i.done?'':'<button class="btn btn-sm" data-a="run" data-v="'+d.id+'">▶</button>')+'</div>'}).join('')+'</div>';
+  if(next){const d=D.drills.find(x=>x.id===next.drillId);
+    h+='<button class="btn btn-primary" data-a="run" data-v="'+d.id+'">▶ Next: '+esc(d.name)+'</button>'}
+  else h+='<div class="hint" style="text-align:center;margin-top:10px;color:var(--good)">Routine done — nice work 🎯</div>';
+  return h+'</div>'}
+
+function planSheetHTML(){
+  const p=ensurePlan(),items=livePlanItems(p);
+  let h='<div class="sheet"><h3>Today’s routine</h3>';
+  h+=items.length?items.map((i,n)=>{const d=D.drills.find(x=>x.id===i.drillId);
+    return '<div class="cnt"><span class="nm">'+(n+1)+'. '+esc(d.name)+(i.done?' ✓':'')+'</span>'+
+      '<button class="m" data-a="planmv" data-v="'+i.id+'" data-d="-1"'+(n?'':' style="visibility:hidden"')+'>↑</button>'+
+      '<button class="m" data-a="planmv" data-v="'+i.id+'" data-d="1"'+(n<items.length-1?'':' style="visibility:hidden"')+'>↓</button>'+
+      '<button class="m" data-a="planrm" data-v="'+i.id+'">✕</button></div>'}).join(''):
+    '<p class="hint">Nothing in it yet — tap drills below to add them in order.</p>';
+  h+='<div class="lbl" style="margin-top:14px">Add a drill</div>';
+  h+=D.drills.filter(d=>!d.archived).map(d=>'<button class="tile" data-a="planadd" data-v="'+d.id+'" style="padding:10px 14px">'+
+    '<div class="row"><div class="grow" style="min-width:0"><b style="font-size:16px">'+TPL(d.templateKey).icon+' '+esc(d.name)+'</b>'+
+    '<div class="meta">'+esc(drillLabel(d))+'</div></div><span style="font-size:22px;color:var(--accent)">+</span></div></button>').join('');
+  h+='<button class="btn btn-primary" data-a="plandone">Done</button></div>';
+  return h}
+function showPlanSheet(){$('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+planSheetHTML()+'</div>'}
 
 function drillTile(d){
   const t=TPL(d.templateKey);if(!t)return '';
@@ -741,7 +882,8 @@ function moreHTML(){
     D.drills.length+' drills</div>'+
     '<button class="btn" data-a="backup">Download backup</button>'+
     '<button class="btn btn-ghost" data-a="restore">Restore from file</button></div>'+
-    '<div class="card"><h3>About</h3><div class="hint">Everything lives on this device. Nothing is sent anywhere. '+
+    syncCardHTML()+
+    '<div class="card"><h3>About</h3><div class="hint">Everything lives on this device. Nothing leaves it unless you sign in to sync. '+
     'Add to your Home Screen for the app-like version.</div></div>'}
 
 /* The sheet always goes up inside its .modal backdrop — without that wrapper it
@@ -763,7 +905,7 @@ document.addEventListener('input',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.getAttribute('data-a');
   if(a==='cfgrange'){const k=el.getAttribute('data-k');addCfg[k]=+el.value;cfgLabel(k,+el.value);return}
-  if(a==='setfreepace'){const v=+el.value;D.settings.freePace=v;persist();
+  if(a==='setfreepace'){const v=+el.value;D.settings.freePace=v;D.settingsAt=stamp();persist();
     const l=$('#lblFreePace');if(l)l.textContent='Pace — '+fmtPace(v)+' per visit';
     const an=$('#freeAnchors');if(an)an.innerHTML=anchorsHTML(v,'setfreepaceb');return}
   if(a==='fpace'){const v=+el.value;F.paceSecs=v;
@@ -774,9 +916,14 @@ document.addEventListener('input',e=>{
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.getAttribute('data-a'),v=el.getAttribute('data-v');
+  if(lpFired){lpFired=false;return}   // the click that ends a long-press would open the drill behind the sheet
   unlockAudio();
   switch(a){
   case 'backdrop': if(e.target===el){closeSheet();render()}break;
+  case 'signin': showSignIn();break;
+  case 'signingo': doSignIn();break;
+  case 'syncnow': syncNow(false);break;
+  case 'signout': if(confirm('Sign out? Your data stays on this device.')){signOutLocal();render()}break;
   case 'view': closeSheet();view=v;libOpen=false;render();break;
   case 'openlib': view='drills';libOpen=true;render();break;
   case 'closelib': libOpen=false;render();break;
@@ -790,12 +937,12 @@ document.addEventListener('click',e=>{
     const nm=($('#cfgName')&&$('#cfgName').value.trim())||TPL(addTpl).name;
     if(editId){const d=D.drills.find(x=>x.id===editId);
       Object.assign(d,{name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,paceSecs:addCfg.paceSecs,
-        tier:addCfg.tier,ladder:addCfg.ladder});toast('Saved')}
+        tier:addCfg.tier,ladder:addCfg.ladder,at:stamp()});toast('Saved')}
     else{D.drills.push({id:uid(),templateKey:addTpl,name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,
-      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,createdAt:new Date().toISOString(),archived:false});
+      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,createdAt:stamp(),at:stamp(),archived:false});
       toast('Added')}
     persist();closeSheet();libOpen=false;view='today';render();break}
-  case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;persist()}
+  case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;d.at=stamp();persist()}
     closeSheet();render();toast('Removed');break}
   case 'closesheet': closeSheet();render();break;
   case 'editlist': {
@@ -806,8 +953,29 @@ document.addEventListener('click',e=>{
   case 'edit': {const d=D.drills.find(x=>x.id===v);editId=d.id;addTpl=d.templateKey;
     addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
     showSheet();break}
-  case 'run': startRun(v);break;
-  case 'abandon': if(R){R=null;persistR()}releaseWake();render();break;
+  case 'run': openRun(v);break;
+  case 'begin': if(R&&R.phase==='ready')beginCountIn();break;
+  case 'pause': pauseRun();break;
+  case 'resume': resumeRun();break;
+  case 'park': parkRun();break;
+  case 'unpark': if(R){R.parked=false;persistR();if(R.phase==='done')releaseWake();render()}break;
+  case 'abandon': if(R&&R.phase==='live'&&R.visits>1&&!confirm('Throw this drill away? Nothing will be logged.'))break;
+    if(R){R=null;persistR()}releaseWake();render();break;
+  case 'planedit': showPlanSheet();break;
+  case 'planadd': ensurePlan().items.push({id:uid(),drillId:v,done:false});touchPlan(today());persist();showPlanSheet();break;
+  case 'planrm': {const p=ensurePlan();p.items=p.items.filter(i=>i.id!==v);touchPlan(today());persist();showPlanSheet();break}
+  case 'planmv': {const p=ensurePlan(),live=livePlanItems(p),i=live.findIndex(x=>x.id===v),j=i+ +el.getAttribute('data-d');
+    if(i<0||j<0||j>=live.length)break;
+    // swap within the full list, so an item for a removed drill never shifts
+    const a1=p.items.indexOf(live[i]),a2=p.items.indexOf(live[j]);
+    [p.items[a1],p.items[a2]]=[p.items[a2],p.items[a1]];
+    touchPlan(today());persist();showPlanSheet();break}
+  case 'plandone': closeSheet();render();break;
+  case 'plantick': {const p=planFor(today());const it=p&&p.items.find(i=>i.id===v);
+    if(it){it.done=!it.done;touchPlan(today());persist();render()}break}
+  case 'plancopy': {const src=D.plans[v];if(!src)break;
+    D.plans[today()]={at:stamp(),items:livePlanItems(src).map(i=>({id:uid(),drillId:i.drillId,done:false}))};
+    persist();render();toast('Routine copied');break}
   case 'dart': logDart(v);break;
   case 'skip': skipDart();break;
   case 'finishnow': if(R){if(R.tier===1)R.darts=R.visits*3;endRun()}break;
@@ -817,8 +985,8 @@ document.addEventListener('click',e=>{
     if(inp&&(isNaN(num))){toast('Enter a number');break}
     saveRun(inp?num:null);break}
   case 'vol': D.settings.volume=+v;persist();tone(1245,.4,1);render();break;
-  case 'countin': D.settings.countIn=+v;persist();render();break;
-  case 'setfreepaceb': D.settings.freePace=+v;persist();render();break;
+  case 'countin': D.settings.countIn=+v;D.settingsAt=stamp();persist();render();break;
+  case 'setfreepaceb': D.settings.freePace=+v;D.settingsAt=stamp();persist();render();break;
   case 'fpaceset': F.paceSecs=+v;render();break;
   case 'freego': {unlockAudio();
     F={startedAt:Date.now(),paceSecs:D.settings.freePace||D.settings.paceSecs,nextGoAt:Date.now()+1000,
@@ -826,10 +994,16 @@ document.addEventListener('click',e=>{
     acquireWake();render();break}
   case 'fcnt': {const i=+el.getAttribute('data-i');F.counters[i].n=Math.max(0,F.counters[i].n+ +v);render();break}
   case 'faddcnt': {const l=prompt('Count what?');if(l&&l.trim()){F.counters.push({label:l.trim(),n:0});
-    if(!D.freeCounters.includes(l.trim())){D.freeCounters.push(l.trim());persist()}render()}break}
-  case 'freestop': F=null;releaseWake();render();break;
+    if(!D.freeCounters.includes(l.trim())){D.freeCounters.push(l.trim());D.settingsAt=stamp();persist()}render()}break}
+  case 'fpause': {const now=Date.now();
+    if(F.pausedAt){const sh=now-F.pausedAt;F.startedAt+=sh;
+      F.nextGoAt=Math.max(F.nextGoAt+sh,now+4000);F.pausedAt=0;acquireWake()}
+    else F.pausedAt=now;
+    render();break}
+  case 'freestop': if(F.visits>2&&!confirm('Stop without logging?'))break;
+    F=null;releaseWake();render();break;
   case 'freesave': {
-    D.free.push({id:uid(),date:today(),secs:Math.round((Date.now()-F.startedAt)/1000),
+    D.free.push({id:uid(),date:today(),secs:Math.round(((F.pausedAt||Date.now())-F.startedAt)/1000),
       paceSecs:F.paceSecs,counters:F.counters.filter(c=>c.n>0)});
     persist();F=null;releaseWake();toast('Logged');render();break}
   case 'backup': {
@@ -842,18 +1016,21 @@ document.addEventListener('click',e=>{
     inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
       r.onload=()=>{try{const o=JSON.parse(r.result);
         if(!o||!Array.isArray(o.sessions))throw 0;
-        D=Object.assign({version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],freeCounters:['Bulls']},o);
-        D.settings=Object.assign({},DEFAULTS,D.settings||{});persist();render();toast('Restored')}
+        D=Object.assign(blankD(),o);normD();
+        // forget what the cloud was told, so a restore merges with it rather than
+        // reading every record missing from the file as a deletion
+        SY.ledger={};SY.cursor=EPOCH;persistSY();
+        persist();render();toast('Restored')}
         catch(x){toast('That file did not look right')}};
       r.readAsText(f)};
     inp.click();break}
   }
 });
 /* long-press a drill tile to edit it */
-let lpT=null;
+let lpT=null,lpFired=false;
 document.addEventListener('pointerdown',e=>{
   const el=e.target.closest('[data-a="run"]');if(!el)return;
-  lpT=setTimeout(()=>{lpT=null;const d=D.drills.find(x=>x.id===el.getAttribute('data-v'));if(!d)return;
+  lpT=setTimeout(()=>{lpT=null;lpFired=true;setTimeout(()=>lpFired=false,700);const d=D.drills.find(x=>x.id===el.getAttribute('data-v'));if(!d)return;
     editId=d.id;addTpl=d.templateKey;
     addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
     if(navigator.vibrate)navigator.vibrate(30);
@@ -862,10 +1039,209 @@ document.addEventListener('pointerup',()=>{if(lpT){clearTimeout(lpT);lpT=null}})
 document.addEventListener('pointercancel',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
 document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
 
+/* ============ cloud sync (Supabase) ============
+   Same project and same `sync_records` table as StrikeZone and Workout, all on
+   one origin — so the isolation is deliberate, exactly as in the Workout app:
+     - our own auth key (tm_auth_v1), never the supabase-js default, which all
+       three apps would share — signing out here would sign the others out.
+     - every table_name carries a tm_ prefix, and the pull filters on it.
+     - never localStorage.clear().
+   Optional: signed out or offline, the app is the same local-only app.
+   Sessions and free throws never change once logged, so they union by id.
+   Drills, day plans and settings DO change, so each carries an `at` stamp and
+   the newest wins. The ledger remembers what was last pushed (id -> stamp), so
+   an edit re-pushes and a record that disappears locally goes up as a tombstone.
+   Volume is left per-device on purpose: a phone and a tablet are different speakers. */
+const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
+const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
+const AUTH_KEY='tm_auth_v1', SYNC_KEY='tm_sync_v1';
+const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings';
+const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET];
+const EPOCH='1970-01-01T00:00:00Z';
+let AU=load(AUTH_KEY,null);
+let SY=load(SYNC_KEY,null);
+if(!SY||typeof SY!=='object')SY={cursor:EPOCH,ledger:{},device:uid(),lastSync:''};
+if(!SY.device)SY.device=uid();
+if(!SY.ledger||typeof SY.ledger!=='object')SY.ledger={};
+if(!SY.cursor)SY.cursor=EPOCH;
+let syncing=false,syncT=null;
+function persistSY(){save(SYNC_KEY,SY)}
+function signedIn(){return !!(AU&&AU.refresh&&AU.uid)}
+function setAuth(a){AU=a;if(a)save(AUTH_KEY,a);else localStorage.removeItem(AUTH_KEY)}
+function signOutLocal(){setAuth(null);SY.cursor=EPOCH;SY.ledger={};SY.lastSync='';persistSY()}
+function scheduleSync(){if(!signedIn())return;clearTimeout(syncT);syncT=setTimeout(()=>syncNow(true),2500)}
+
+async function authPost(grant,body){
+  const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type='+grant,{method:'POST',
+    headers:{'apikey':SUPA_ANON,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error_description||j.msg||j.error||('HTTP '+r.status));
+  return j}
+function storeToken(j,fb){
+  setAuth({access:j.access_token,refresh:j.refresh_token||(fb&&fb.refresh),
+    exp:Date.now()+((j.expires_in||3600)*1000),
+    uid:(j.user&&j.user.id)||(fb&&fb.uid),
+    email:(j.user&&j.user.email)||(fb&&fb.email)||''})}
+async function signIn(email,password){storeToken(await authPost('password',{email:email,password:password}),null)}
+async function refreshAuth(){
+  if(!AU||!AU.refresh)throw new Error('Not signed in');
+  storeToken(await authPost('refresh_token',{refresh_token:AU.refresh}),AU)}
+async function rest(path,opts,retried){
+  if(!retried&&AU&&AU.exp&&AU.exp-Date.now()<60000)await refreshAuth();
+  const o=Object.assign({},opts||{});
+  o.headers=Object.assign({'apikey':SUPA_ANON,'Authorization':'Bearer '+(AU?AU.access:''),
+    'Content-Type':'application/json'},(opts&&opts.headers)||{});
+  const r=await fetch(SUPA_URL+'/rest/v1/'+path,o);
+  if((r.status===401||r.status===403)&&!retried){await refreshAuth();return rest(path,opts,true)}
+  if(!r.ok)throw new Error('HTTP '+r.status+' '+(await r.text().catch(()=>'')).slice(0,140));
+  return r}
+
+const SETTINGS_SYNCED=['countIn','freePace','paceSecs'];
+function localRows(){
+  const m={};
+  m[T_SESS]=D.sessions.map(x=>({id:x.id,sig:1,data:x}));
+  m[T_FREE]=D.free.map(x=>({id:x.id,sig:1,data:x}));
+  m[T_DRILL]=D.drills.map(x=>({id:x.id,sig:x.at||'-',data:x}));
+  m[T_PLAN]=Object.keys(D.plans).filter(k=>D.plans[k].items.length).map(k=>({id:k,sig:D.plans[k].at||'-',data:D.plans[k]}));
+  const v={freeCounters:D.freeCounters};SETTINGS_SYNCED.forEach(k=>{if(D.settings[k]!=null)v[k]=D.settings[k]});
+  m[T_SET]=[{id:'settings',sig:D.settingsAt||'-',data:{at:D.settingsAt||'',v:v}}];
+  return m}
+function ledgerOf(t){const L=SY.ledger[t];return (L&&typeof L==='object'&&!Array.isArray(L))?L:(SY.ledger[t]={})}
+async function pushLocal(){
+  const lr=localRows(),rows=[];
+  SYNC_TABLES.forEach(t=>{
+    const L=ledgerOf(t),here={};
+    (lr[t]||[]).forEach(r=>{here[r.id]=1;
+      if(L[r.id]!==r.sig)rows.push({user_id:AU.uid,device_id:SY.device,table_name:t,record_id:r.id,data:r.data,deleted:false})});
+    Object.keys(L).forEach(id=>{if(!here[id])
+      rows.push({user_id:AU.uid,device_id:SY.device,table_name:t,record_id:id,data:null,deleted:true})})});
+  for(let i=0;i<rows.length;i+=200)
+    await rest('sync_records?on_conflict=user_id,table_name,record_id',
+      {method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(rows.slice(i,i+200))});
+  // only now that the server has them does the ledger move
+  const next={};SYNC_TABLES.forEach(t=>{next[t]={};(lr[t]||[]).forEach(r=>next[t][r.id]=r.sig)});
+  SY.ledger=next;persistSY();
+  return rows.length}
+
+/* network data gets the same suspicion as a backup file */
+const isDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s);
+const num=(x,fb)=>Number.isFinite(+x)?+x:fb;
+function cleanSession(s){
+  if(!s||typeof s.id!=='string'||!isDate(s.date)||!TPL(s.templateKey)||typeof s.drillId!=='string')return null;
+  const o={id:s.id,date:s.date,drillId:s.drillId,templateKey:s.templateKey};
+  ['boxSecs','target','paceSecs','tier','ladder','visits','darts','value','rate'].forEach(k=>o[k]=num(s[k],0));
+  o.targetMet=s.targetMet===true?true:null;
+  o.gaps=Array.isArray(s.gaps)?s.gaps.filter(Number.isFinite).slice(0,200):[];
+  return o}
+function cleanFree(f){
+  if(!f||typeof f.id!=='string'||!isDate(f.date))return null;
+  return {id:f.id,date:f.date,secs:num(f.secs,0),paceSecs:num(f.paceSecs,0),
+    counters:Array.isArray(f.counters)?f.counters.filter(c=>c&&typeof c.label==='string').map(c=>({label:c.label,n:num(c.n,0)})):[]}}
+function cleanDrill(d){
+  if(!d||typeof d.id!=='string'||!TPL(d.templateKey))return null;
+  return {id:d.id,templateKey:d.templateKey,name:typeof d.name==='string'&&d.name?d.name:TPL(d.templateKey).name,
+    boxSecs:num(d.boxSecs,undefined),target:num(d.target,undefined),paceSecs:num(d.paceSecs,0),
+    tier:d.tier===2?2:1,ladder:num(d.ladder,0)|0,createdAt:typeof d.createdAt==='string'?d.createdAt:'',
+    at:typeof d.at==='string'?d.at:'',archived:!!d.archived}}
+function cleanPlan(p){
+  if(!p||!Array.isArray(p.items))return null;
+  return {at:typeof p.at==='string'?p.at:'',items:p.items.filter(i=>i&&typeof i.id==='string'&&typeof i.drillId==='string')
+    .map(i=>({id:i.id,drillId:i.drillId,done:!!i.done}))}}
+
+/* Merge one remote row. Returns true only if local data actually changed. */
+function applyRemote(row){
+  const t=row.table_name,id=row.record_id,d=row.data,L=ledgerOf(t);
+  if(t===T_SESS||t===T_FREE){
+    const arr=t===T_SESS?'sessions':'free';
+    if(row.deleted){const n=D[arr].length;D[arr]=D[arr].filter(x=>x.id!==id);delete L[id];return D[arr].length!==n}
+    if(D[arr].some(x=>x.id===id))return false;          // a logged record never changes
+    const x=t===T_SESS?cleanSession(d):cleanFree(d);if(!x)return false;
+    D[arr].push(x);L[id]=1;return true}
+  if(t===T_DRILL){
+    if(row.deleted)return false;                          // drills are archived, never deleted
+    const x=cleanDrill(d);if(!x)return false;
+    const i=D.drills.findIndex(y=>y.id===id);
+    if(i>=0&&(D.drills[i].at||'')>=(x.at||''))return false;
+    if(i>=0)D.drills[i]=x;else D.drills.push(x);
+    L[id]=x.at||'-';return true}
+  if(t===T_PLAN){
+    if(!isDate(id))return false;
+    if(row.deleted){if(!D.plans[id])return false;delete D.plans[id];delete L[id];return true}
+    const x=cleanPlan(d);if(!x)return false;
+    if(D.plans[id]&&(D.plans[id].at||'')>=(x.at||''))return false;
+    D.plans[id]=x;L[id]=x.at||'-';return true}
+  if(t===T_SET){
+    if(row.deleted||!d||!d.v||typeof d.v!=='object')return false;
+    if((d.at||'')<=(D.settingsAt||''))return false;
+    const v=d.v;
+    if([3,5,8,12].includes(+v.countIn))D.settings.countIn=+v.countIn;
+    if(+v.freePace>=15&&+v.freePace<=180)D.settings.freePace=+v.freePace;
+    if(+v.paceSecs>=15&&+v.paceSecs<=180)D.settings.paceSecs=+v.paceSecs;
+    if(Array.isArray(v.freeCounters)){const fc=v.freeCounters.filter(x=>typeof x==='string'&&x);if(fc.length)D.freeCounters=fc}
+    D.settingsAt=d.at;L.settings=d.at;return true}
+  return false}
+async function pullRemote(){
+  const cursor=SY.cursor||EPOCH;
+  let maxSeen=cursor,changed=0;
+  for(let off=0;;off+=500){
+    const q='sync_records?select=table_name,record_id,data,updated_at,deleted'
+      +'&table_name=in.('+SYNC_TABLES.join(',')+')'
+      +'&updated_at=gt.'+encodeURIComponent(cursor)
+      +'&or=(device_id.is.null,device_id.neq.'+encodeURIComponent(SY.device)+')'
+      +'&order=updated_at.asc&limit=500&offset='+off;
+    const batch=await (await rest(q,{method:'GET'})).json();
+    if(!Array.isArray(batch))break;
+    batch.forEach(row=>{
+      if(row.updated_at>maxSeen)maxSeen=row.updated_at;
+      if(!SYNC_TABLES.includes(row.table_name))return;   // belt and braces; the server already filtered
+      if(applyRemote(row))changed++});
+    if(batch.length<500)break}
+  if(maxSeen>cursor){SY.cursor=maxSeen;persistSY()}
+  return changed}
+async function syncNow(silent){
+  if(!signedIn()){if(!silent)showSignIn();return}
+  if(syncing)return;
+  if(!navigator.onLine){if(!silent)toast('Offline — sync when you have signal');return}
+  syncing=true;
+  try{
+    const up=await pushLocal();
+    const down=await pullRemote();
+    SY.lastSync=stamp();persistSY();save(DATA_KEY,D);   // not persist(): that would schedule another sync
+    if(!silent)toast('✓ Synced'+(up?' ↑'+up:'')+(down?' ↓'+down:''));
+    // never rebuild a live runner or Free Throw screen just because data arrived
+    if((down||!silent)&&!(R&&!R.parked)&&!F)render();
+  }catch(e){
+    if(!silent)toast('Sync failed — your data is safe on this device');
+  }finally{syncing=false}}
+function showSignIn(){
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet"><h3>☁️ Sign in to sync</h3>'+
+    '<p class="hint">Same account as StrikeZone and Workout. Sign in on the phone and the tablet and your drills, routines and history follow you. Everything still works offline.</p>'+
+    '<input type="text" id="siEmail" inputmode="email" autocomplete="username" autocapitalize="off" placeholder="Email" style="text-align:left;margin-bottom:8px">'+
+    '<input type="password" id="siPass" autocomplete="current-password" placeholder="Password" '+
+      'style="width:100%;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:19px;padding:12px;border-radius:12px;outline:none">'+
+    '<button class="btn btn-primary" data-a="signingo">Sign in</button>'+
+    '<button class="btn btn-ghost" data-a="closesheet">Cancel</button></div></div>'}
+async function doSignIn(){
+  const e=($('#siEmail')||{}).value,p=($('#siPass')||{}).value;
+  if(!e||!p){toast('Email and password');return}
+  try{await signIn(e.trim(),p);closeSheet();toast('Signed in — syncing…');
+    SY.cursor=EPOCH;SY.ledger={};persistSY();await syncNow(false)}
+  catch(x){toast('Sign-in failed: '+String(x.message||x).slice(0,60))}}
+function syncCardHTML(){
+  if(!signedIn())return '<div class="card"><h3>Sync</h3><div class="hint">Keep the phone and the tablet in step. Optional — '+
+    'without it everything stays on this device.</div><button class="btn" data-a="signin">☁️ Sign in to sync</button></div>';
+  return '<div class="card"><h3>Sync</h3><div class="hint">Signed in as <b style="color:var(--text)">'+esc(AU.email)+'</b><br>'+
+    (SY.lastSync?'Last synced '+new Date(SY.lastSync).toLocaleString():'Not synced yet')+'</div>'+
+    '<button class="btn" data-a="syncnow">Sync now</button>'+
+    '<button class="btn btn-ghost" data-a="signout">Sign out</button></div>'}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&signedIn())syncNow(true)});
+window.addEventListener('online',()=>{if(signedIn())syncNow(true)});
+
 /* ============ boot ============ */
-if(R&&R.phase!=='done'&&R.phase!=='countin'){/* a run survived a reload */}
+if(R&&R.phase==='countin')R.phase='ready';   // a count-in that survived a reload starts over
 render();
 if(R)acquireWake();
+if(signedIn())setTimeout(()=>syncNow(true),1500);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 if('serviceWorker' in navigator&&location.protocol==='https:')
   navigator.serviceWorker.register('sw.js').catch(()=>{});
