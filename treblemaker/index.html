@@ -145,12 +145,13 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
 const DEFAULTS={volume:1.5,paceSecs:30,countIn:5,ppd:35,mpr:3.5};
 let D=load(DATA_KEY,null);
 function blankD(){return {version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],
-  freeCounters:['Bulls'],plans:{}}}
+  freeCounters:['Bulls'],plans:{},games:[]}}
 function normD(){
   D.settings=Object.assign({},DEFAULTS,D.settings||{});
   if(!Array.isArray(D.drills))D.drills=[];
   if(!Array.isArray(D.sessions))D.sessions=[];
   if(!Array.isArray(D.free))D.free=[];
+  if(!Array.isArray(D.games))D.games=[];
   if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
   if(!D.plans||typeof D.plans!=='object'||Array.isArray(D.plans))D.plans={}}
 if(!D)D=blankD();
@@ -182,6 +183,25 @@ const TEMPLATES=[
 {key:'x01',name:'501 · darts to finish',icon:'\u{1F3C1}',shape:'goal',unit:'darts',better:'down',boardScored:true,
  blurb:'Play a solo 501 and count the darts. Best single summary of your whole game — scoring and finishing in one number. Tap Done when you check out.',
  def:{paceSecs:30},adj:['paceSecs'],targetLabel:null},
+/* dpv = darts per visit (default 3). A 1-Dart visit is one dart and a walk; a
+   9-dart visit is all three sets before he pulls. */
+{key:'onedart',name:'1-Dart',icon:'☝️',shape:'goal',unit:'hits',better:'down',dpv:1,
+ paceMin:8,anchors:[[10,'Quick'],[15,'Steady'],[25,'Slow']],
+ blurb:'One dart, walk up, pull it, full reset, throw again. Every dart is a first dart — stance, grip, breath, every time. Throw until you have hit the target number. Score is the darts it took.',
+ cue:'Full reset every dart — stance, grip, breath.',
+ def:{target:10,paceSecs:15,aim:0},adj:['aim','target','paceSecs'],targetLabel:'hits'},
+{key:'pile',name:'9-Dart Pile',icon:'\u{1F9F1}',shape:'rounds',unit:'hits',better:'up',dpv:9,
+ paceMin:30,anchors:[[45,'Quick'],[60,'Steady'],[90,'Slow']],
+ blurb:'All three sets, one setup, nine darts at the same target before you pull. Grouping and repetition. Hard on flights and barrels — which is why the Clock exists. Score is hits over a fixed number of rounds.',
+ def:{rounds:5,paceSecs:60,aim:0},adj:['aim','rounds','paceSecs'],targetLabel:null},
+{key:'clock9',name:'9-Dart Clock',icon:'\u{1F570}️',shape:'rounds',unit:'hits',better:'up',dpv:9,
+ paceMin:30,anchors:[[45,'Quick'],[60,'Steady'],[90,'Slow']],
+ blurb:'Nine darts in a row, one per number, spinning around the board: 20, 1, 18, 4, 13… and the next round picks up where the last one stopped. Same setup as the Pile without shredding the darts. Score is hits over a fixed number of rounds.',
+ def:{rounds:5,paceSecs:60,ring:0},adj:['ring','rounds','paceSecs'],targetLabel:null},
+{key:'followthru',name:'Follow-Through',icon:'\u{1F9D8}',shape:'timed',scored:false,
+ blurb:'Not scored, and it does not matter where you aim. Throw, then freeze: arm extended, hand pointing where the dart went, and hold it until the dart has landed and a beat after. The hold is the whole drill.',
+ cue:'Throw · freeze · hold it past the landing.',
+ def:{boxSecs:300,paceSecs:0},adj:['boxSecs'],targetLabel:null},
 {key:'warmup',name:'Warm-Up',icon:'\u{1F525}',shape:'timed',scored:false,
  blurb:'Not a drill. Throw freely until the arm wakes up. Nothing is scored and nothing is charted — this exists so the first cold darts stop polluting your numbers.',
  def:{boxSecs:240,paceSecs:0},adj:['boxSecs'],targetLabel:null}];
@@ -189,6 +209,13 @@ const TPL=k=>TEMPLATES.find(t=>t.key===k);
 
 const DOUBLE_SEQ=[20,16,8,4,2,10,18,12];
 const ROUTER_SEQ=[20,19,18,17,16,15,'Bull'];
+const CLOCK_SEQ=[20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];  // clockwise from the top
+/* Instances and sessions store these as indexes — append only, never reorder. */
+const AIMS=['T20','T19','Bull','20 wedge','D20'];
+const RINGS=[{n:'Trebles',p:'T',d:'Only the treble counts.'},{n:'Anywhere in the number',p:'',d:'Any dart in the wedge counts.'}];
+const DPV=t=>t.dpv||3;
+function clockAims(visitIdx,ring){const p=RINGS[ring|0].p;
+  return Array.from({length:9},(_,j)=>p+CLOCK_SEQ[(visitIdx*9+j)%CLOCK_SEQ.length])}
 
 /* ============ helpers ============ */
 const $=s=>document.querySelector(s);
@@ -207,7 +234,10 @@ function toast(m){const e=document.createElement('div');e.className='toast';e.te
 function drillLabel(d){const t=TPL(d.templateKey);if(!t)return '';
   const bits=[];
   if(t.shape==='timed'&&d.boxSecs)bits.push(fmtClock(d.boxSecs).replace(':00',' min'));
+  if(t.adj.includes('aim'))bits.push(AIMS[d.aim|0]);
+  if(t.adj.includes('ring'))bits.push(RINGS[d.ring|0].p?'trebles':'any in the number');
   if(t.shape==='goal'&&t.targetLabel)bits.push(d.target+' '+t.unit);
+  if(t.shape==='rounds')bits.push((d.rounds||5)+' × '+DPV(t)+' darts');
   if(t.key==='router')bits.push('full loop');
   if(t.key==='ladder')bits.push('L'+((d.ladder|0)+1));
   if(d.paceSecs)bits.push(fmtPace(d.paceSecs)+' pace');
@@ -280,7 +310,8 @@ function openRun(drillId){
   const t=TPL(d.templateKey);
   R={drillId:d.id,templateKey:d.templateKey,tier:d.tier||1,
      boxSecs:t.shape==='timed'?(d.boxSecs||0):0,target:d.target||0,
-     paceSecs:d.paceSecs||0,ladder:d.ladder|0,
+     paceSecs:d.paceSecs||0,ladder:d.ladder|0,aim:d.aim|0,ring:d.ring|0,
+     rounds:t.shape==='rounds'?(d.rounds||5):0,
      startedAt:0,countInAt:0,
      phase:'ready',visits:0,darts:0,value:0,marks:0,
      lastGoAt:0,nextGoAt:0,inVisit:false,visitDarts:0,lastLogAt:0,
@@ -340,13 +371,14 @@ function runRate(){
 function saveRun(overrideValue){
   const t=TPL(R.templateKey);
   markPlanDone(R.drillId);
-  if(t.scored===false){R=null;persistR();persist();releaseWake();toast('Warm-up done');render();return}
+  if(t.scored===false){R=null;persistR();persist();releaseWake();toast(t.name+' done');render();return}
   let value=overrideValue!=null?overrideValue:runValue();
   let darts=R.darts||0;
   if(t.key==='x01'&&overrideValue!=null){darts=overrideValue}
   const rate=darts?(t.shape==='goal'?+(darts/Math.max(1,R.target||1)).toFixed(3):+(value/darts).toFixed(3)):0;
   D.sessions.push({id:uid(),date:today(),drillId:R.drillId,templateKey:R.templateKey,
     boxSecs:R.boxSecs,target:R.target,paceSecs:R.paceSecs,tier:R.tier,ladder:R.ladder,
+    aim:R.aim,ring:R.ring,rounds:R.rounds,
     visits:R.visits,darts:darts,value:value,rate:rate,
     targetMet:t.shape==='goal'?true:null,gaps:R.gaps.slice(0,200)});
   persist();R=null;persistR();releaseWake();toast('Logged');render()}
@@ -383,23 +415,27 @@ setInterval(()=>{
 function fireGo(now){
   // a visit opens. In tier 1 nothing is tapped, so the visit also closes here.
   if(R.ending){finishBox();return}
+  // a capped drill: the last visit gets its full pace gap, then it closes.
+  // (Count-Up in tier 1 had no way to end at all before this.)
+  const cap=R.rounds||TPL(R.templateKey).visitCap;
+  if(cap&&R.visits>=cap){finishBox();return}
   if(R.lastGoAt)R.gaps.push(Math.round((now-R.lastGoAt)/1000));
   R.lastGoAt=now;R.visits++;R.visitDarts=0;R.inVisit=true;
   if(R.paceSecs>0)R.nextGoAt=now+R.paceSecs*1000;
-  if(R.tier===1){R.darts=R.visits*3;R.inVisit=false}
+  if(R.tier===1){R.darts=R.visits*DPV(TPL(R.templateKey));R.inVisit=false}
   paceTick();
   if(R.tier===1)checkGoal();
   persistR();render()}
 
 function finishBox(){ // timed drill: the clock ran out and the visit is complete
-  if(R.tier===1)R.darts=R.visits*3;
+  if(R.tier===1)R.darts=R.visits*DPV(TPL(R.templateKey));
   endRun()}
 
 function checkGoal(){
   const t=TPL(R.templateKey);
   if(t.shape!=='goal')return false;
   let met=false;
-  if(t.key==='bulls')met=R.marks>=R.target;
+  if(t.key==='bulls'||t.key==='onedart')met=R.marks>=R.target;
   if(t.key==='doubles')met=R.dbl>=R.target;
   if(t.key==='router')met=R.rt.every(m=>m>=3);
   if(met){endRun();return true}
@@ -413,25 +449,38 @@ function logDart(res){
   if(t.key==='ladder'){R.value+=ladderScore(res,R.ladder);R.log.push(res)}
   if(t.key==='bulls'){R.marks+=(res==='DB'?2:1)}
   if(t.key==='doubles'){if(res==='H')R.dbl++}
+  if(t.key==='onedart'){if(res==='H')R.marks++}
   if(t.key==='router'){
     const cur=R.rt.findIndex(m=>m<3);
     const aimIdx=R.visitDarts===3?Math.min(cur+1,ROUTER_SEQ.length-1):cur;
     R.rt[aimIdx]+=(+res||0);R.marks+=(+res||0)}
   if(checkGoal())return;
-  if(R.visitDarts>=3)closeVisit();
+  if(R.visitDarts>=DPV(t))closeVisit();
   persistR();render()}
 
 function skipDart(){ // "no mark" for bulls/doubles where we only tap hits
   if(!R||R.phase!=='live'||!R.inVisit)return;
   R.visitDarts++;R.darts++;
-  if(R.visitDarts>=3)closeVisit();
+  if(R.visitDarts>=DPV(TPL(R.templateKey)))closeVisit();
   persistR();render()}
+
+/* 9-dart drills: nobody taps nine times. He throws the lot, then taps how many hit. */
+function logVisitHits(n){
+  if(!R||R.phase!=='live'||!R.inVisit)return;
+  const dpv=DPV(TPL(R.templateKey));
+  R.value+=Math.max(0,Math.min(dpv,n));R.darts+=dpv-R.visitDarts;R.visitDarts=dpv;
+  R.log.push(n);closeVisit();persistR();render()}
 
 function closeVisit(){
   R.inVisit=false;R.lastLogAt=Date.now();
   if(R.paceSecs>0)R.nextGoAt=Date.now()+R.paceSecs*1000;
+  // a 9-dart visit is setup, nine throws and the pull, so its pace runs from the
+  // go cue, not the tap — else he stands around a full minute after pulling.
+  if(R.paceSecs>0&&DPV(TPL(R.templateKey))===9)
+    R.nextGoAt=Math.max(R.lastGoAt+R.paceSecs*1000,Date.now()+5000);
   if(R.ending){finishBox();return}
-  if(TPL(R.templateKey).visitCap&&R.visits>=TPL(R.templateKey).visitCap){R.ending=true;finishBox()}}
+  const cap=R.rounds||TPL(R.templateKey).visitCap;
+  if(cap&&R.visits>=cap){R.ending=true;finishBox()}}
 
 function paintRing(now){
   const w=$('#ringWrap');if(!w)return;
@@ -441,7 +490,8 @@ function paintRing(now){
     const left=Math.max(0,(R.nextGoAt-now)/1000);
     frac=Math.min(1,left/R.paceSecs);num=Math.ceil(left);label='next in';
     w.classList.remove('go')}
-  else{frac=1;num='THROW';label=(R.tier===2?(3-R.visitDarts)+' darts left':'go');
+  else{const dpv=DPV(TPL(R.templateKey));frac=1;num='THROW';
+    label=R.tier!==2?'go':dpv===1?'1 dart':dpv===9?'9 darts, then tap':(dpv-R.visitDarts)+' darts left';
     w.classList.add('go')}
   const el=$('#ringN');if(el)el.textContent=num;
   const lb=$('#ringW');if(lb)lb.textContent=label;
@@ -449,11 +499,16 @@ function paintRing(now){
 
 function progHTML(){
   const t=TPL(R.templateKey);
+  if(t.shape==='rounds')return 'round <b>'+R.visits+'</b> of '+R.rounds+
+    (R.tier===2?' · <b>'+R.value+'</b> hits':'')+' · <b>'+R.darts+'</b> darts';
   if(t.shape==='timed'){
-    const left=R.endsAt?Math.max(0,(R.endsAt-rNow())/1000):0;
+    if(!R.endsAt)return (t.visitCap?'visit <b>'+R.visits+'</b> of '+t.visitCap+' · ':'')+'<b>'+R.darts+'</b> darts';
+    const left=Math.max(0,(R.endsAt-rNow())/1000);
+    if(t.scored===false)return '<b>'+fmtClock(left)+'</b> left';   // nothing counted, so no dart count
     const total=R.paceSecs?Math.floor(R.boxSecs/R.paceSecs):0;
     return '<b>'+fmtClock(left)+'</b> left'+(total?' · visit <b>'+R.visits+'</b> of '+total:'')+
       ' · <b>'+R.darts+'</b> darts'}
+  if(t.key==='onedart')return '<b>'+R.marks+'</b> of '+R.target+' hits · <b>'+R.darts+'</b> darts';
   if(t.key==='bulls')return '<b>'+R.marks+'</b> of '+R.target+' marks · <b>'+R.darts+'</b> darts';
   if(t.key==='doubles')return '<b>'+R.dbl+'</b> of '+R.target+' doubles · <b>'+R.darts+'</b> darts';
   if(t.key==='router'){const c=R.rt.filter(m=>m>=3).length;
@@ -519,15 +574,32 @@ function runHTML(){
   if(t.key==='doubles'){
     // mid-visit that is the number in hand; in the gap it is the one he is
     // walking back to throw at, which is the next one along.
-    const i=R.inVisit?Math.max(0,R.visits-1):R.visits;
+    const hand=R.inVisit||(R.tier===1&&R.visits>0);
+    const i=hand?R.visits-1:R.visits;
     const cur=DOUBLE_SEQ[i%DOUBLE_SEQ.length],nxt=DOUBLE_SEQ[(i+1)%DOUBLE_SEQ.length];
-    h+='<div class="aim"><div><div class="d">'+(R.inVisit?'Throw at':'Up next')+'</div>'+
+    h+='<div class="aim"><div><div class="d">'+(hand?'Throw at':'Up next')+'</div>'+
       '<div class="t cur">D'+cur+'</div></div>'+
       '<div><div class="d">Then</div><div class="t">D'+nxt+'</div></div></div>'}
+  if(t.key==='onedart'||t.key==='pile')
+    h+='<div class="aim"><div><div class="d">'+(t.key==='pile'?'All 9 at':'Throw at')+'</div>'+
+      '<div class="t cur">'+esc(AIMS[R.aim|0])+'</div></div></div>';
+  if(t.key==='clock9'){
+    // same rule as the doubles: mid-visit it is the round in hand, in the gap the next one
+    const hand=R.inVisit||(R.tier===1&&R.visits>0);
+    const i=hand?R.visits-1:R.visits;
+    h+='<div class="aim" style="flex-wrap:wrap;gap:4px"><div style="flex:1 0 100%"><div class="d">'+
+      (hand?'This round':'Up next')+' — one dart each</div></div>'+
+      clockAims(i,R.ring).map(a=>'<div style="flex:0 0 calc(33.3% - 4px)"><div class="t'+(hand?' cur':'')+'">'+a+'</div></div>').join('')+'</div>'}
+  if(t.cue)h+='<div class="hint" style="text-align:center;margin-bottom:10px;font-size:15px">'+esc(t.cue)+'</div>';
   // pads
-  if(R.tier===2&&t.key!=='countup'&&t.key!=='x01'&&t.scored!==false){
+  if(R.tier===2&&DPV(t)===9){
     const off=R.inVisit?'':' off';
-    h+='<div class="dots">'+[0,1,2].map(i=>'<i class="'+(i<R.visitDarts?'on':'')+'"></i>').join('')+'</div>';
+    h+='<div class="lbl" style="text-align:center">How many hit?</div>'+
+      [[0,1,2,3,4],[5,6,7,8,9]].map(r=>'<div class="pad'+off+'">'+r.map(n=>
+        '<button class="'+(n?'hit':'miss')+'" data-a="vhits" data-v="'+n+'" style="padding:14px 2px">'+n+'</button>').join('')+'</div>').join('')}
+  else if(R.tier===2&&t.key!=='countup'&&t.key!=='x01'&&t.scored!==false){
+    const off=R.inVisit?'':' off';
+    if(DPV(t)>1)h+='<div class="dots">'+Array.from({length:DPV(t)},(_,i)=>i).map(i=>'<i class="'+(i<R.visitDarts?'on':'')+'"></i>').join('')+'</div>';
     if(t.key==='ladder')h+='<div class="pad'+off+'">'+
       '<button class="hit" data-a="dart" data-v="T">T20</button>'+
       '<button data-a="dart" data-v="S">S20</button>'+
@@ -537,7 +609,7 @@ function runHTML(){
       '<button class="hit" data-a="dart" data-v="DB">DB +2</button>'+
       '<button class="hit" data-a="dart" data-v="SB">SB +1</button>'+
       '<button class="miss" data-a="skip">MISS</button></div>';
-    if(t.key==='doubles')h+='<div class="pad'+off+'">'+
+    if(t.key==='doubles'||t.key==='onedart')h+='<div class="pad'+off+'">'+
       '<button class="hit" data-a="dart" data-v="H">HIT</button>'+
       '<button class="miss" data-a="skip">MISS</button></div>';
     if(t.key==='router')h+='<div class="pad'+off+'">'+
@@ -557,24 +629,25 @@ function doneHTML(t,d){
   const needNum=(t.scored!==false)&&(R.tier===1||t.boardScored);
   let h='<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b><div class="hint">Finished</div></div></div>';
   if(t.scored===false){
-    h+='<div class="bigscore"><div class="n">✓</div><div class="w">warm-up done</div></div>'+
+    h+='<div class="bigscore"><div class="n">✓</div><div class="w">'+esc(t.name.toLowerCase())+' done</div></div>'+
       '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum" data-v="0">Close</button></div>';
     return h}
   if(needNum){
     const prev=sessionsFor(R.drillId).slice(-1)[0];
     const q=t.key==='x01'?'How many darts did it take?':
             t.key==='countup'?'What did the board say?':
-            t.shape==='goal'?'How many darts did it take?':'What was your score?';
+            t.shape==='goal'?'How many darts did it take?':
+            t.shape==='rounds'?'How many hits, all rounds?':'What was your score?';
     h+='<div class="card"><div class="lbl">'+esc(q)+'</div>'+
       '<input type="number" id="numIn" inputmode="numeric" value="'+(t.shape==='goal'&&!t.boardScored?R.darts:'')+'" placeholder="–">'+
       (prev?'<div class="hint" style="text-align:center;margin-top:8px">last time: '+prev.value+'</div>':'')+
-      '<div class="hint" style="text-align:center;margin-top:6px">'+R.visits+' visits · '+(R.visits*3)+' darts at '+fmtPace(R.paceSecs)+'</div></div>'+
+      '<div class="hint" style="text-align:center;margin-top:6px">'+R.visits+' visits · '+(R.visits*DPV(t))+' darts at '+fmtPace(R.paceSecs)+'</div></div>'+
       '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
       '<button class="btn btn-ghost" data-a="abandon">Discard</button></div>';
     return h}
   const v=runValue();
   h+='<div class="bigscore"><div class="n">'+(t.key==='ladder'&&v>0?'+':'')+v+'</div>'+
-    '<div class="w">'+(t.shape==='goal'?'darts':'score')+'</div></div>'+
+    '<div class="w">'+(t.shape==='goal'?'darts':t.shape==='rounds'?'hits':'score')+'</div></div>'+
     '<div class="card"><div class="hint" style="text-align:center">'+R.visits+' visits · '+R.darts+' darts · '+
     fmtPace(R.paceSecs)+' pace</div></div>'+
     '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
@@ -630,7 +703,7 @@ function setHead(t,s,back){
     b.setAttribute('data-a',back);tb.appendChild(b)}
   else tb.classList.remove('hasback')}
 
-const NAV=[['today','Today','\u{1F3AF}'],['drills','Drills','\u{1F4CB}'],['free','Free','\u{1F504}'],
+const NAV=[['today','Today','\u{1F3AF}'],['drills','Drills','\u{1F4CB}'],['free','Free','\u{1F504}'],['games','Games','\u{1F3C6}'],
            ['progress','Progress','\u{1F4C8}'],['more','More','⚙️']];
 function navHTML(){return NAV.map(n=>'<button data-a="view" data-v="'+n[0]+'" class="'+(view===n[0]?'on':'')+'">'+
   '<span class="ico">'+n[2]+'</span>'+n[1]+'</button>').join('')}
@@ -647,6 +720,7 @@ function render(){
   else if(view==='drills')h=libOpen?libraryHTML():drillsHTML();
   else if(view==='free')h=freeSetupHTML();
   else if(view==='progress')h=progressHTML();
+  else if(view==='games')h=gamesHTML();
   else h=moreHTML();
   $('#main').innerHTML=h}
 
@@ -768,8 +842,8 @@ function libraryHTML(){
         have.map(d=>'<b>'+esc(d.name)+'</b>').join(', ')+' — a new one charts separately.</div>':'')+
       '</button>'}).join('')}
 
-function anchorsHTML(v,act){
-  const A=[[15,'Fast'],[30,'Practice'],[90,'League']];
+function anchorsHTML(v,act,A){
+  A=A||[[15,'Fast'],[30,'Practice'],[90,'League']];
   return '<div class="anchors">'+A.map(a=>'<button data-a="'+act+'" data-v="'+a[0]+'" class="'+
     (v===a[0]?'on':'')+'">'+a[1]+'<br>'+fmtPace(a[0])+'</button>').join('')+'</div>'}
 
@@ -782,6 +856,16 @@ function addHTML(){
     h+=t.tiers.map((x,i)=>'<button class="tile" data-a="cfg" data-k="ladder" data-v="'+i+'" style="padding:11px">'+
       '<b style="font-size:16px;color:'+(c.ladder===i?'var(--accent)':'var(--text)')+'">'+esc(x.n)+'</b>'+
       '<div class="meta">'+esc(x.d)+'</div></button>').join('')}
+  if(t.adj.includes('aim')){
+    h+='<div class="lbl">Aim at</div><div class="row" style="flex-wrap:wrap">'+AIMS.map((a,i)=>
+      '<button class="btn btn-sm '+((c.aim|0)===i?'btn-primary':'')+'" data-a="cfg" data-k="aim" data-v="'+i+'" style="flex:1;margin:0 0 6px">'+esc(a)+'</button>').join('')+'</div>'}
+  if(t.adj.includes('ring')){
+    h+='<div class="lbl">What counts</div>'+RINGS.map((x,i)=>'<button class="tile" data-a="cfg" data-k="ring" data-v="'+i+'" style="padding:11px">'+
+      '<b style="font-size:16px;color:'+((c.ring|0)===i?'var(--accent)':'var(--text)')+'">'+esc(x.n)+'</b>'+
+      '<div class="meta">'+esc(x.d)+'</div></button>').join('')}
+  if(t.adj.includes('rounds')){
+    h+='<div class="lbl" id="lblrounds">Rounds — '+c.rounds+' × '+DPV(t)+' = '+(c.rounds*DPV(t))+' darts</div>'+
+      '<input type="range" min="2" max="15" step="1" value="'+c.rounds+'" data-a="cfgrange" data-k="rounds">'}
   if(t.adj.includes('boxSecs')){
     h+='<div class="lbl" id="lblboxSecs">Length — '+fmtClock(c.boxSecs).replace(':00',' min')+'</div>'+
       '<input type="range" min="60" max="1800" step="60" value="'+c.boxSecs+'" data-a="cfgrange" data-k="boxSecs">'}
@@ -790,14 +874,16 @@ function addHTML(){
       '<input type="range" min="3" max="30" step="1" value="'+c.target+'" data-a="cfgrange" data-k="target">'}
   if(t.adj.includes('paceSecs')){
     h+='<div class="lbl" id="lblpaceSecs">Pace — '+fmtPace(c.paceSecs)+' per visit</div>'+
-      '<input type="range" min="15" max="180" step="5" value="'+c.paceSecs+'" data-a="cfgrange" data-k="paceSecs">'+
-      '<div id="paceAnchors">'+anchorsHTML(c.paceSecs,'cfgpace')+'</div>'}
+      '<input type="range" min="'+(t.paceMin||15)+'" max="180" step="'+((t.paceMin||15)<15?1:5)+'" value="'+c.paceSecs+'" data-a="cfgrange" data-k="paceSecs">'+
+      '<div id="paceAnchors">'+anchorsHTML(c.paceSecs,'cfgpace',t.anchors)+'</div>'+
+      (DPV(t)===9?'<div class="hint" style="margin-top:6px">A visit here is all nine darts, so the pace covers setup, nine throws and the pull.</div>':'')}
   if(t.scored!==false&&!t.boardScored){
     h+='<div class="lbl" style="margin-top:14px">Tracking</div>'+
       '<div class="row"><button class="btn btn-sm '+(c.tier===1?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="1" style="flex:1">Just the number</button>'+
-      '<button class="btn btn-sm '+(c.tier===2?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="2" style="flex:1">Tap every dart</button></div>'+
+      '<button class="btn btn-sm '+(c.tier===2?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="2" style="flex:1">'+(DPV(t)===9?'Tap hits each round':'Tap every dart')+'</button></div>'+
       '<div class="hint" style="margin-top:6px">'+(c.tier===1?
         'The app runs the clock and the pace; you enter one number at the end.':
+        DPV(t)===9?'After each round of nine, one tap: how many hit.':
         'The app scores for you and keeps the detail. Needs ~20s pace or more to be comfortable.')+'</div>'}
   h+='<div class="lbl" style="margin-top:14px">Name</div>'+
     '<input type="text" id="cfgName" value="'+esc(c.name)+'" placeholder="'+esc(t.name)+'">';
@@ -849,7 +935,7 @@ function progressHTML(){
     h+='<div class="lbl" style="margin-top:14px">Across your variants</div>';
     multi.forEach(k=>{const t=TPL(k),ss=byT[k].slice().sort((a,b)=>a.date<b.date?-1:1);
       h+='<div class="card"><h3>'+esc(t.name)+'</h3>'+
-        '<div class="hint">'+(t.shape==='goal'?'darts per '+t.unit.replace(/s$/,''):'points per dart')+
+        '<div class="hint">'+(t.shape==='goal'?'darts per '+t.unit.replace(/s$/,''):(t.unit||'points')+' per dart')+
         ' — comparable across different paces and targets</div>'+
         spark(ss.map(s=>s.rate),{better:t.shape==='goal'?'down':'up'})+'</div>'})}
   return h}
@@ -868,6 +954,72 @@ function spark(vals,t){
     '<polyline class="ln" points="'+pts+'"></polyline>'+
     '<circle cx="'+sx(vals.length-1)+'" cy="'+sy(vals[vals.length-1])+'" r="4"></circle></svg>'}
 
+/* ============ games (GranBoard) ============
+   One row per real game: date, 501 or Cricket, the 80% number and the full-game
+   number off GranBoard's results screen. The full game is the headline — his
+   league numbers (29 PPD / 2.94 MPR) were full-game, never 80%.
+   501 here is open in / open out, fat bull (every bull 50), as the league scored it.
+   501 is stored per DART, whatever unit it was typed in; Cricket is MPR. */
+const LEAGUE={'501':29,cricket:2.94};
+let G={type:'501',date:'',p80:'',full:''};
+// how GranBoard shows each 501 number: 80% per round, the full game per dart (so a
+// short checkout isn't penalised). Tappable in case the screen says otherwise.
+const gUnit=k=>D.settings[k]||(k==='gbFull'?'ppd':'ppr');
+function gamesOf(type){return D.games.filter(g=>g.type===type).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.at<b.at?-1:1))}
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+function fmtG(type,v){return v==null?'–':type==='501'?v.toFixed(1):v.toFixed(2)}
+function gamesHTML(){
+  setHead('Games','GranBoard · 80% and full game');
+  if(!G.date)G.date=today();
+  const is501=G.type==='501';
+  const unitBtn=k=>'<button class="pill on" data-a="gunit" data-v="'+k+'" style="margin:0 0 0 6px;cursor:pointer">'+
+    (gUnit(k)==='ppd'?'per dart':'per round')+'</button>';
+  let h='<div class="card"><h3>Log a game</h3>'+
+    '<div class="row">'+[['501','501'],['cricket','Cricket']].map(o=>'<button class="btn btn-sm '+(G.type===o[0]?'btn-primary':'')+
+      '" data-a="gtype" data-v="'+o[0]+'" style="flex:1">'+o[1]+'</button>').join('')+'</div>'+
+    '<div class="hint" style="margin-top:4px">'+(is501?'Open in, open out, every bull 50.':'Standard cricket, no points cap.')+'</div>'+
+    '<div class="lbl" style="margin-top:12px">Date</div><input type="date" id="gDate" value="'+esc(G.date)+'" data-a="gin" data-k="date">'+
+    '<div class="lbl" style="margin-top:12px;display:flex;align-items:center">80% '+(is501?unitBtn('gb80'):'MPR')+'</div>'+
+    '<input type="number" inputmode="decimal" step="0.01" id="gP80" value="'+esc(G.p80)+'" data-a="gin" data-k="p80" placeholder="–">'+
+    '<div class="lbl" style="margin-top:12px;display:flex;align-items:center">Full game '+(is501?unitBtn('gbFull'):'MPR')+'</div>'+
+    '<input type="number" inputmode="decimal" step="0.01" id="gFull" value="'+esc(G.full)+'" data-a="gin" data-k="full" placeholder="–">'+
+    (is501?'<div class="hint" style="margin-top:6px">Tap per round / per dart to match what GranBoard shows.</div>':'')+
+    '<button class="btn btn-primary" data-a="gsave">Log it</button></div>';
+  ['501','cricket'].forEach(type=>{
+    const all=gamesOf(type);if(!all.length)return;
+    const last=all.slice(-30),f=avg(last.map(g=>g.full)),e=avg(last.filter(g=>g.p80!=null).map(g=>g.p80));
+    const u=type==='501'?'PPD':'MPR';
+    h+='<div class="card"><div class="row"><div style="flex:1"><h3 style="margin:0">'+(type==='501'?'501':'Cricket')+'</h3>'+
+      '<div class="hint">'+(last.length<all.length?'last 30 of '+all.length:all.length+' game'+(all.length>1?'s':''))+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:26px;font-weight:800">'+fmtG(type,f)+'</div>'+
+      '<div class="hint">full game '+u+(type==='501'&&f!=null?' · '+(f*3).toFixed(1)+' PPR':'')+'</div></div></div>'+
+      '<div class="row" style="margin-top:8px">'+
+        '<div class="grow hint">80%: <b style="color:var(--text)">'+fmtG(type,e)+'</b></div>'+
+        '<div class="grow hint">Gap: <b style="color:var(--text)">'+(e!=null&&f!=null?fmtG(type,e-f):'–')+'</b></div>'+
+        '<div class="grow hint">League: <b style="color:var(--text)">'+fmtG(type,LEAGUE[type])+'</b></div></div>'+
+      gSpark(all,type)+
+      '<div class="hint" style="margin-top:4px">solid = full game · faint = 80% · dashed = league</div></div>'});
+  const rec=D.games.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.at<b.at?1:-1)).slice(0,15);
+  if(rec.length){h+='<div class="lbl">Recent</div>';
+    h+=rec.map(g=>'<div class="cnt"><span class="nm">'+g.date+' · '+(g.type==='501'?'501':'Cricket')+
+      '<div class="hint" style="font-weight:400">80% '+fmtG(g.type,g.p80)+' · full '+fmtG(g.type,g.full)+
+      (g.type==='501'?' per dart':' MPR')+'</div></span>'+
+      '<button class="m" data-a="gdel" data-v="'+g.id+'">✕</button></div>').join('')}
+  return h}
+/* full game solid, 80% faint, league dashed — all on one scale */
+function gSpark(games,type){
+  if(games.length<2)return '<div class="hint" style="margin-top:8px">One game so far — the line starts at two.</div>';
+  const w=320,hh=80,pad=6,F=games.map(g=>g.full),E=games.map(g=>g.p80);
+  const all=F.concat(E.filter(v=>v!=null),[LEAGUE[type]]);
+  let mn=Math.min(...all),mx=Math.max(...all);if(mn===mx){mn-=1;mx+=1}
+  const sx=i=>pad+i*(w-2*pad)/(games.length-1),sy=v=>hh-pad-((v-mn)/(mx-mn))*(hh-2*pad);
+  const line=(vals,cls,st)=>{const pts=vals.map((v,i)=>v==null?null:sx(i)+','+sy(v)).filter(Boolean).join(' ');
+    return pts.indexOf(' ')<0?'':'<polyline class="'+cls+'" points="'+pts+'"'+(st?' style="'+st+'"':'')+'></polyline>'};
+  return '<svg class="chart" style="height:80px" viewBox="0 0 '+w+' '+hh+'" preserveAspectRatio="none">'+
+    '<line class="tg" x1="0" y1="'+sy(LEAGUE[type])+'" x2="'+w+'" y2="'+sy(LEAGUE[type])+'"></line>'+
+    line(E,'ln','opacity:.3')+line(F,'ln')+
+    '<circle cx="'+sx(F.length-1)+'" cy="'+sy(F[F.length-1])+'" r="4"></circle></svg>'}
+
 function moreHTML(){
   setHead('More','Settings');
   const v=+D.settings.volume;
@@ -878,7 +1030,7 @@ function moreHTML(){
     '<div class="card"><h3>Count-in</h3><div class="hint">Seconds before a drill starts, so you are in your stance.</div>'+
     '<div class="row" style="margin-top:10px">'+[3,5,8,12].map(n=>'<button class="btn btn-sm '+
       (D.settings.countIn===n?'btn-primary':'')+'" data-a="countin" data-v="'+n+'" style="flex:1">'+n+'s</button>').join('')+'</div></div>'+
-    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+
+    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+D.games.length+' games · '+
     D.drills.length+' drills</div>'+
     '<button class="btn" data-a="backup">Download backup</button>'+
     '<button class="btn btn-ghost" data-a="restore">Restore from file</button></div>'+
@@ -899,8 +1051,9 @@ function cfgLabel(k,v){
   const el=$('#lbl'+k);if(!el)return;
   if(k==='boxSecs')el.textContent='Length — '+fmtClock(v).replace(':00',' min');
   if(k==='target')el.textContent='Target — '+v+' '+(TPL(addTpl).targetLabel||'');
+  if(k==='rounds'){const n=DPV(TPL(addTpl));el.textContent='Rounds — '+v+' × '+n+' = '+(v*n)+' darts'}
   if(k==='paceSecs'){el.textContent='Pace — '+fmtPace(v)+' per visit';
-    const a=$('#paceAnchors');if(a)a.innerHTML=anchorsHTML(v,'cfgpace')}}
+    const a=$('#paceAnchors');if(a)a.innerHTML=anchorsHTML(v,'cfgpace',TPL(addTpl).anchors)}}
 document.addEventListener('input',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.getAttribute('data-a');
@@ -908,6 +1061,7 @@ document.addEventListener('input',e=>{
   if(a==='setfreepace'){const v=+el.value;D.settings.freePace=v;D.settingsAt=stamp();persist();
     const l=$('#lblFreePace');if(l)l.textContent='Pace — '+fmtPace(v)+' per visit';
     const an=$('#freeAnchors');if(an)an.innerHTML=anchorsHTML(v,'setfreepaceb');return}
+  if(a==='gin'){G[el.getAttribute('data-k')]=el.value;return}
   if(a==='fpace'){const v=+el.value;F.paceSecs=v;
     F.nextGoAt=Math.min(F.nextGoAt,Date.now()+v*1000);
     const l=$('#lblRunPace');if(l)l.textContent='Pace — '+fmtPace(v);
@@ -929,7 +1083,8 @@ document.addEventListener('click',e=>{
   case 'closelib': libOpen=false;render();break;
   case 'addtpl': {addTpl=v;editId=null;const t=TPL(v);
     addCfg=Object.assign({tier:1,name:t.name},t.def);
-    if(D.drills.some(d=>d.templateKey===v&&!d.archived))addCfg.name=t.name+' · '+fmtPace(t.def.paceSecs||30);
+    if(D.drills.some(d=>d.templateKey===v&&!d.archived))addCfg.name=t.name+' · '+
+      (t.adj.includes('aim')?AIMS[addCfg.aim|0]:fmtPace(t.def.paceSecs||30));
     showSheet();break}
   case 'cfg': addCfg[el.getAttribute('data-k')]=+v;showSheet();break;
   case 'cfgpace': addCfg.paceSecs=+v;showSheet();break;
@@ -937,9 +1092,10 @@ document.addEventListener('click',e=>{
     const nm=($('#cfgName')&&$('#cfgName').value.trim())||TPL(addTpl).name;
     if(editId){const d=D.drills.find(x=>x.id===editId);
       Object.assign(d,{name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,paceSecs:addCfg.paceSecs,
-        tier:addCfg.tier,ladder:addCfg.ladder,at:stamp()});toast('Saved')}
+        tier:addCfg.tier,ladder:addCfg.ladder,aim:addCfg.aim,ring:addCfg.ring,rounds:addCfg.rounds,at:stamp()});toast('Saved')}
     else{D.drills.push({id:uid(),templateKey:addTpl,name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,
-      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,createdAt:stamp(),at:stamp(),archived:false});
+      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,aim:addCfg.aim,ring:addCfg.ring,rounds:addCfg.rounds,
+      createdAt:stamp(),at:stamp(),archived:false});
       toast('Added')}
     persist();closeSheet();libOpen=false;view='today';render();break}
   case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;d.at=stamp();persist()}
@@ -951,7 +1107,8 @@ document.addEventListener('click',e=>{
       '<b>'+esc(d.name)+'</b><div class="meta">'+esc(drillLabel(d))+'</div></button>').join('')+
       '<button class="btn btn-ghost" data-a="closesheet">Done</button></div></div>';break}
   case 'edit': {const d=D.drills.find(x=>x.id===v);editId=d.id;addTpl=d.templateKey;
-    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
+    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0,
+      aim:d.aim|0,ring:d.ring|0,rounds:d.rounds||5};
     showSheet();break}
   case 'run': openRun(v);break;
   case 'begin': if(R&&R.phase==='ready')beginCountIn();break;
@@ -976,9 +1133,27 @@ document.addEventListener('click',e=>{
   case 'plancopy': {const src=D.plans[v];if(!src)break;
     D.plans[today()]={at:stamp(),items:livePlanItems(src).map(i=>({id:uid(),drillId:i.drillId,done:false}))};
     persist();render();toast('Routine copied');break}
+  case 'gtype': G.type=v;render();break;
+  case 'gunit': D.settings[v]=gUnit(v)==='ppd'?'ppr':'ppd';persist();render();break;
+  case 'gsave': {
+    const is501=G.type==='501',p80=G.p80===''?null:+G.p80,full=G.full===''?null:+G.full;
+    if(!isDate(G.date)){toast('Pick a date');break}
+    if(full==null||!Number.isFinite(full)){toast('Enter the full-game number');break}
+    if(p80!=null&&!Number.isFinite(p80)){toast('80% does not look right');break}
+    // 501 goes in per dart
+    const toD=(x,k)=>x==null?null:gUnit(k)==='ppr'?x/3:x;
+    const f=is501?toD(full,'gbFull'):full,e=is501?toD(p80,'gb80'):p80;
+    const max=is501?60:9;
+    if(f<0||f>max||(e!=null&&(e<0||e>max))){toast(is501?'That is more than 60 a dart — check per round / per dart':'MPR tops out at 9');break}
+    D.games.push({id:uid(),date:G.date,type:G.type,p80:e==null?null:+e.toFixed(3),full:+f.toFixed(3),at:stamp()});
+    G.p80='';G.full='';persist();toast('Logged');render();break}
+  case 'gdel': {const g=D.games.find(x=>x.id===v);
+    if(g&&confirm('Remove the '+g.date+' '+(g.type==='501'?'501':'Cricket')+' game?')){
+      D.games=D.games.filter(x=>x.id!==v);persist();render()}break}
   case 'dart': logDart(v);break;
   case 'skip': skipDart();break;
-  case 'finishnow': if(R){if(R.tier===1)R.darts=R.visits*3;endRun()}break;
+  case 'finishnow': if(R){if(R.tier===1)R.darts=R.visits*DPV(TPL(R.templateKey));endRun()}break;
+  case 'vhits': logVisitHits(+v);break;
   case 'savenum': {
     const inp=$('#numIn');
     const num=inp?parseInt(inp.value,10):null;
@@ -1032,7 +1207,8 @@ document.addEventListener('pointerdown',e=>{
   const el=e.target.closest('[data-a="run"]');if(!el)return;
   lpT=setTimeout(()=>{lpT=null;lpFired=true;setTimeout(()=>lpFired=false,700);const d=D.drills.find(x=>x.id===el.getAttribute('data-v'));if(!d)return;
     editId=d.id;addTpl=d.templateKey;
-    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0};
+    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0,
+      aim:d.aim|0,ring:d.ring|0,rounds:d.rounds||5};
     if(navigator.vibrate)navigator.vibrate(30);
     showSheet()},550)});
 document.addEventListener('pointerup',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
@@ -1055,8 +1231,8 @@ document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}
 const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
 const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
 const AUTH_KEY='tm_auth_v1', SYNC_KEY='tm_sync_v1';
-const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings';
-const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET];
+const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings', T_GAME='tm_games';
+const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET,T_GAME];
 const EPOCH='1970-01-01T00:00:00Z';
 let AU=load(AUTH_KEY,null);
 let SY=load(SYNC_KEY,null);
@@ -1101,6 +1277,7 @@ function localRows(){
   const m={};
   m[T_SESS]=D.sessions.map(x=>({id:x.id,sig:1,data:x}));
   m[T_FREE]=D.free.map(x=>({id:x.id,sig:1,data:x}));
+  m[T_GAME]=D.games.map(x=>({id:x.id,sig:1,data:x}));
   m[T_DRILL]=D.drills.map(x=>({id:x.id,sig:x.at||'-',data:x}));
   m[T_PLAN]=Object.keys(D.plans).filter(k=>D.plans[k].items.length).map(k=>({id:k,sig:D.plans[k].at||'-',data:D.plans[k]}));
   const v={freeCounters:D.freeCounters};SETTINGS_SYNCED.forEach(k=>{if(D.settings[k]!=null)v[k]=D.settings[k]});
@@ -1129,7 +1306,7 @@ const num=(x,fb)=>Number.isFinite(+x)?+x:fb;
 function cleanSession(s){
   if(!s||typeof s.id!=='string'||!isDate(s.date)||!TPL(s.templateKey)||typeof s.drillId!=='string')return null;
   const o={id:s.id,date:s.date,drillId:s.drillId,templateKey:s.templateKey};
-  ['boxSecs','target','paceSecs','tier','ladder','visits','darts','value','rate'].forEach(k=>o[k]=num(s[k],0));
+  ['boxSecs','target','paceSecs','tier','ladder','aim','ring','rounds','visits','darts','value','rate'].forEach(k=>o[k]=num(s[k],0));
   o.targetMet=s.targetMet===true?true:null;
   o.gaps=Array.isArray(s.gaps)?s.gaps.filter(Number.isFinite).slice(0,200):[];
   return o}
@@ -1137,11 +1314,15 @@ function cleanFree(f){
   if(!f||typeof f.id!=='string'||!isDate(f.date))return null;
   return {id:f.id,date:f.date,secs:num(f.secs,0),paceSecs:num(f.paceSecs,0),
     counters:Array.isArray(f.counters)?f.counters.filter(c=>c&&typeof c.label==='string').map(c=>({label:c.label,n:num(c.n,0)})):[]}}
+function cleanGame(g){
+  if(!g||typeof g.id!=='string'||!isDate(g.date)||(g.type!=='501'&&g.type!=='cricket')||!Number.isFinite(+g.full))return null;
+  return {id:g.id,date:g.date,type:g.type,full:+g.full,p80:g.p80==null||!Number.isFinite(+g.p80)?null:+g.p80,
+    at:typeof g.at==='string'?g.at:''}}
 function cleanDrill(d){
   if(!d||typeof d.id!=='string'||!TPL(d.templateKey))return null;
   return {id:d.id,templateKey:d.templateKey,name:typeof d.name==='string'&&d.name?d.name:TPL(d.templateKey).name,
     boxSecs:num(d.boxSecs,undefined),target:num(d.target,undefined),paceSecs:num(d.paceSecs,0),
-    tier:d.tier===2?2:1,ladder:num(d.ladder,0)|0,createdAt:typeof d.createdAt==='string'?d.createdAt:'',
+    tier:d.tier===2?2:1,ladder:num(d.ladder,0)|0,aim:num(d.aim,0)|0,ring:num(d.ring,0)|0,rounds:num(d.rounds,undefined),createdAt:typeof d.createdAt==='string'?d.createdAt:'',
     at:typeof d.at==='string'?d.at:'',archived:!!d.archived}}
 function cleanPlan(p){
   if(!p||!Array.isArray(p.items))return null;
@@ -1151,11 +1332,11 @@ function cleanPlan(p){
 /* Merge one remote row. Returns true only if local data actually changed. */
 function applyRemote(row){
   const t=row.table_name,id=row.record_id,d=row.data,L=ledgerOf(t);
-  if(t===T_SESS||t===T_FREE){
-    const arr=t===T_SESS?'sessions':'free';
+  if(t===T_SESS||t===T_FREE||t===T_GAME){
+    const arr=t===T_SESS?'sessions':t===T_FREE?'free':'games';
     if(row.deleted){const n=D[arr].length;D[arr]=D[arr].filter(x=>x.id!==id);delete L[id];return D[arr].length!==n}
     if(D[arr].some(x=>x.id===id))return false;          // a logged record never changes
-    const x=t===T_SESS?cleanSession(d):cleanFree(d);if(!x)return false;
+    const x=t===T_SESS?cleanSession(d):t===T_FREE?cleanFree(d):cleanGame(d);if(!x)return false;
     D[arr].push(x);L[id]=1;return true}
   if(t===T_DRILL){
     if(row.deleted)return false;                          // drills are archived, never deleted
