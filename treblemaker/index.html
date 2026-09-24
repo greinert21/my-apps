@@ -192,7 +192,9 @@ const TEMPLATES=[
 {key:'router',name:'Cricket Router',icon:'\u{1F501}',shape:'goal',unit:'marks',better:'down',
  blurb:'20, 19, 18, 17, 16, 15, Bull — three marks to close each. The Twist: your 3rd dart always goes at the NEXT number, even if the current one is still open. Score is darts to close the whole loop.',
  def:{target:7,paceSecs:30},adj:['paceSecs'],targetLabel:null},
-{key:'countup',name:'Count-Up',icon:'\u{1F522}',shape:'timed',unit:'points',better:'up',boardScored:true,visitCap:8,
+/* hidden: out of the library (he plays Count-Up on the GranBoard itself), but kept
+   so any drill or session already made from it still resolves */
+{key:'countup',name:'Count-Up',icon:'\u{1F522}',hidden:true,shape:'timed',unit:'points',better:'up',boardScored:true,visitCap:8,
  blurb:'The board’s own mode — 8 rounds, throw at whatever you like, the board totals it. The app just holds your pace. Enter the final score at the end. Divide by 24 for a real PPD.',
  def:{paceSecs:30},adj:['paceSecs'],targetLabel:null},
 {key:'x01',name:'501 · darts to finish',icon:'\u{1F3C1}',shape:'goal',unit:'darts',better:'down',boardScored:true,
@@ -922,7 +924,7 @@ function drillsHTML(){
       '<div style="flex:1;min-width:0">'+drillTile(d)+'</div></div>'}).join(''):
     '<div class="card"><p class="hint">Nothing set up yet — pick one from the library below.</p></div>';
   h+='<div class="lbl" style="margin-top:16px">Library — tap one to set it up</div>';
-  h+=TEMPLATES.map(t=>'<button class="tile" data-a="addtpl" data-v="'+t.key+'" style="padding:11px 14px">'+
+  h+=TEMPLATES.filter(t=>!t.hidden).map(t=>'<button class="tile" data-a="addtpl" data-v="'+t.key+'" style="padding:11px 14px">'+
     '<div class="row"><div class="grow" style="min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(t.name)+'</b>'+
     '<div class="meta">'+esc(t.blurb.split('. ')[0].replace(/\.$/,''))+'.</div></div>'+
     '<span style="font-size:24px;color:var(--accent)">+</span></div></button>').join('');
@@ -934,7 +936,7 @@ function drillsHTML(){
 
 function libraryHTML(){
   setHead('Library','Pick a drill, set it up, name it','closelib');
-  return TEMPLATES.map(t=>{
+  return TEMPLATES.filter(t=>!t.hidden).map(t=>{
     const have=D.drills.filter(d=>d.templateKey===t.key&&!d.archived);
     return '<button class="tile" data-a="addtpl" data-v="'+t.key+'">'+
       '<b>'+t.icon+' '+esc(t.name)+'</b>'+
