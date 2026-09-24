@@ -109,6 +109,21 @@ input[type=range]{width:100%;accent-color:var(--accent);height:34px}
 .dots i{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
 .dots i.on{background:var(--accent)}
 .spacer{flex:1}
+.ptile{display:flex;align-items:center;gap:4px;background:var(--card2);border:1px solid var(--line);
+  border-radius:14px;margin-bottom:8px;position:relative;touch-action:pan-y}
+.ptile.done{opacity:.55}
+.ptile.dragging{opacity:1;z-index:5;box-shadow:0 8px 24px rgba(0,0,0,.5);border-color:var(--accent)}
+.ptile .grip{font-size:24px;color:var(--dim);padding:12px 6px 12px 12px;touch-action:none;cursor:grab;user-select:none}
+.ptile .pbody{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--text);
+  text-align:left;padding:10px 4px;cursor:pointer;font:inherit}
+.ptile .pbody b{display:block;font-size:16px}
+.ptile .pbody .meta{display:block;color:var(--dim);font-size:13px;margin-top:2px}
+.ptile .st{font-size:18px;font-weight:800;color:var(--accent);width:18px;text-align:center}
+.ptile .x{background:none;border:none;color:var(--dim);font-size:18px;padding:12px 14px;cursor:pointer}
+.chk{flex:0 0 48px;border-radius:14px;border:2px solid var(--line);background:var(--card);color:#fff;
+  font-size:22px;font-weight:800;margin-bottom:10px;cursor:pointer}
+.chk.on{background:var(--accent-dark);border-color:var(--accent-dark)}
+.pickbar{position:sticky;bottom:78px;z-index:5;padding:10px 0 0;background:linear-gradient(transparent,var(--bg) 30%)}
 /* ---- chart ---- */
 .chart{width:100%;height:70px;display:block;margin-top:6px}
 .chart .ln{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
@@ -229,7 +244,8 @@ const stamp=()=>new Date().toISOString();
 function fmtClock(s){s=Math.max(0,Math.round(s));const m=Math.floor(s/60);return m+':'+String(s%60).padStart(2,'0')}
 function fmtPace(s){return s>=60?(s%60?Math.floor(s/60)+'m '+(s%60)+'s':Math.floor(s/60)+' min'):s+'s'}
 let toastT=null;
-function toast(m){const e=document.createElement('div');e.className='toast';e.textContent=m;
+function toast(m){document.querySelectorAll('.toast').forEach(x=>x.remove());   // one at a time — a second used to orphan the first
+  const e=document.createElement('div');e.className='toast';e.textContent=m;
   document.body.appendChild(e);clearTimeout(toastT);toastT=setTimeout(()=>e.remove(),2200)}
 function drillLabel(d){const t=TPL(d.templateKey);if(!t)return '';
   const bits=[];
@@ -301,14 +317,14 @@ function persistR(){if(R)save(RUN_KEY,R);else localStorage.removeItem(RUN_KEY)}
 
 /* Tapping a drill opens it in 'ready' — nothing runs until he hits Start, so he
    can open it at the sofa and walk to the oche. */
-function openRun(drillId){
+function openRun(drillId,itemId){
   if(R&&R.drillId===drillId){R.parked=false;persistR();acquireWake();render();return}
   if(R&&R.phase!=='ready'){
     const cur=D.drills.find(x=>x.id===R.drillId);
     if(!confirm('Discard the paused '+(cur?cur.name:'drill')+' and start this one?'))return}
   const d=D.drills.find(x=>x.id===drillId);if(!d)return;
   const t=TPL(d.templateKey);
-  R={drillId:d.id,templateKey:d.templateKey,tier:d.tier||1,
+  R={drillId:d.id,itemId:itemId||null,templateKey:d.templateKey,tier:d.tier||1,
      boxSecs:t.shape==='timed'?(d.boxSecs||0):0,target:d.target||0,
      paceSecs:d.paceSecs||0,ladder:d.ladder|0,aim:d.aim|0,ring:d.ring|0,
      rounds:t.shape==='rounds'?(d.rounds||5):0,
@@ -368,20 +384,31 @@ function runRate(){
   if(t.shape==='goal')return +(R.darts/Math.max(1,R.target||1)).toFixed(2);
   return +(R.value/R.darts).toFixed(3)}
 
+/* Finish: the result goes into today's plan and waits for Log day. From the
+   routine, the next drill opens straight away on its Start screen. */
 function saveRun(overrideValue){
   const t=TPL(R.templateKey);
-  markPlanDone(R.drillId);
-  if(t.scored===false){R=null;persistR();persist();releaseWake();toast(t.name+' done');render();return}
+  if(t.scored===false){fileResult(null);afterFinish(t.name+' done');return}
   let value=overrideValue!=null?overrideValue:runValue();
   let darts=R.darts||0;
   if(t.key==='x01'&&overrideValue!=null){darts=overrideValue}
   const rate=darts?(t.shape==='goal'?+(darts/Math.max(1,R.target||1)).toFixed(3):+(value/darts).toFixed(3)):0;
-  D.sessions.push({id:uid(),date:today(),drillId:R.drillId,templateKey:R.templateKey,
+  fileResult({id:uid(),date:today(),drillId:R.drillId,templateKey:R.templateKey,
     boxSecs:R.boxSecs,target:R.target,paceSecs:R.paceSecs,tier:R.tier,ladder:R.ladder,
     aim:R.aim,ring:R.ring,rounds:R.rounds,
     visits:R.visits,darts:darts,value:value,rate:rate,
     targetMet:t.shape==='goal'?true:null,gaps:R.gaps.slice(0,200)});
-  persist();R=null;persistR();releaseWake();toast('Logged');render()}
+  afterFinish('Saved — it hits the charts at Log day')}
+function afterFinish(msg){
+  const chain=!!R.itemId;
+  R=null;persistR();persist();releaseWake();toast(msg);
+  const nx=chain&&nextPlanItem();
+  if(nx){openRun(nx.drillId,nx.id);return}
+  view='today';render()}
+function skipItem(){
+  const p=planFor(today()),it=p&&R&&p.items.find(i=>i.id===R.itemId);
+  if(it){it.done=true;it.skipped=true;touchPlan(today())}
+  afterFinish('Skipped')}
 
 /* one tick drives the count-in, the box clock and the pace ring */
 setInterval(()=>{
@@ -526,9 +553,10 @@ function runHTML(){
       '<div class="card" style="margin-top:8px"><div class="hint">'+esc(t.blurb)+'</div>'+
       (last?'<div class="hint" style="margin-top:8px">Last time: <b style="color:var(--text)">'+
         (t.key==='ladder'&&last.value>0?'+':'')+last.value+'</b> · '+last.date+'</div>':'')+'</div>'+
-      '<div class="spacer"></div>'+
+      '<div class="spacer"></div>'+routinePos()+
       '<div class="hint" style="text-align:center;margin-bottom:4px">'+(D.settings.countIn||5)+'s count-in when you tap Start</div>'+
-      '<button class="btn btn-primary" data-a="begin" style="padding:22px;font-size:22px">▶ Start</button></div>'}
+      '<button class="btn btn-primary" data-a="begin" style="padding:22px;font-size:22px">▶ Start</button>'+
+      (R.itemId?'<button class="btn btn-ghost" data-a="planskip">Skip this one</button>':'')+'</div>'}
   if(R.phase==='countin')
     return '<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b>'+
       '<div class="hint">Get ready</div></div></div>'+
@@ -620,17 +648,25 @@ function runHTML(){
       '<div class="hint" style="text-align:center">marks scored on the number above</div>'}
   h+='<div class="spacer"></div>';
   h+='<div class="row">'+
-    (t.shape==='goal'||t.key==='x01'?'<button class="btn btn-good grow" data-a="finishnow">✓ Done</button>':'')+
+    (t.shape==='goal'||t.key==='x01'||t.scored===false?'<button class="btn btn-good grow" data-a="finishnow">✓ Done</button>':'')+
     '<button class="btn grow" data-a="pause">⏸ Pause</button></div>';
   h+='</div>';
   return h}
 
+function routinePos(){
+  if(!R.itemId)return '';
+  const items=livePlanItems(planFor(today())),i=items.findIndex(x=>x.id===R.itemId);
+  return i<0?'':'<div class="hint" style="text-align:center;margin-bottom:10px">Drill <b style="color:var(--text)">'+(i+1)+
+    '</b> of '+items.length+' in today’s plan</div>'}
+function finishLabel(){
+  const nx=R.itemId&&nextPlanItem(R.itemId),d=nx&&D.drills.find(x=>x.id===nx.drillId);
+  return d?'Finish → '+esc(d.name):'Finish'}
 function doneHTML(t,d){
   const needNum=(t.scored!==false)&&(R.tier===1||t.boardScored);
   let h='<div class="run"><div class="rhead"><div><b>'+esc(d.name)+'</b><div class="hint">Finished</div></div></div>';
   if(t.scored===false){
     h+='<div class="bigscore"><div class="n">✓</div><div class="w">'+esc(t.name.toLowerCase())+' done</div></div>'+
-      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum" data-v="0">Close</button></div>';
+      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum" data-v="0">'+finishLabel()+'</button></div>';
     return h}
   if(needNum){
     const prev=sessionsFor(R.drillId).slice(-1)[0];
@@ -642,7 +678,7 @@ function doneHTML(t,d){
       '<input type="number" id="numIn" inputmode="numeric" value="'+(t.shape==='goal'&&!t.boardScored?R.darts:'')+'" placeholder="–">'+
       (prev?'<div class="hint" style="text-align:center;margin-top:8px">last time: '+prev.value+'</div>':'')+
       '<div class="hint" style="text-align:center;margin-top:6px">'+R.visits+' visits · '+(R.visits*DPV(t))+' darts at '+fmtPace(R.paceSecs)+'</div></div>'+
-      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
+      '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">'+finishLabel()+'</button>'+
       '<button class="btn btn-ghost" data-a="abandon">Discard</button></div>';
     return h}
   const v=runValue();
@@ -650,7 +686,7 @@ function doneHTML(t,d){
     '<div class="w">'+(t.shape==='goal'?'darts':t.shape==='rounds'?'hits':'score')+'</div></div>'+
     '<div class="card"><div class="hint" style="text-align:center">'+R.visits+' visits · '+R.darts+' darts · '+
     fmtPace(R.paceSecs)+' pace</div></div>'+
-    '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">Log it</button>'+
+    '<div class="spacer"></div><button class="btn btn-primary" data-a="savenum">'+finishLabel()+'</button>'+
     '<button class="btn btn-ghost" data-a="abandon">Discard</button></div>';
   return h}
 
@@ -726,91 +762,142 @@ function render(){
 
 function todayHTML(){
   setHead('TrebleMaker','Paced practice');
-  const t=today();
-  const doneToday=D.sessions.filter(s=>s.date===t);
-  let h=parkedHTML();
-  if(!D.drills.length){
-    h+='<div class="card"><h3>Start here</h3><p class="hint">No drills yet. Open the library and add one — '+
-      '<b>The 20 Ladder</b> at L1 and the <b>Double Rotation</b> are the two that move a beginner fastest.</p>'+
-      '<button class="btn btn-primary" data-a="openlib">Browse the drill library</button></div>';
+  let h=parkedHTML()+staleHTML();
+  const p=planFor(today()),items=livePlanItems(p);
+  if(!items.length){
+    const lp=lastPlanDate();
+    h+='<div class="card"><h3>Today’s plan</h3><p class="hint">'+(D.drills.length?
+      'Check off what you’re throwing today in the Drills tab, then come back here to put it in order.':
+      'No drills yet. Set some up from the library in the Drills tab, check them, and build today’s plan.')+'</p>'+
+      '<button class="btn btn-primary" data-a="view" data-v="drills">Pick today’s drills</button>'+
+      (lp?'<button class="btn btn-ghost" data-a="plancopy" data-v="'+lp+'">Repeat '+lp+' ('+livePlanItems(D.plans[lp]).length+' drills)</button>':'')+
+      '</div>';
     return h}
-  h+=planCardHTML();
-  h+='<div class="card"><h3>'+(doneToday.length?doneToday.length+' done today':'Nothing thrown yet today')+'</h3>'+
-    (doneToday.length?'<div class="hint">'+doneToday.map(s=>{const d=D.drills.find(x=>x.id===s.drillId);
-      return esc(d?d.name:s.templateKey)+' · '+s.value}).join('<br>')+'</div>':
-      '<div class="hint">Pick a drill and go.</div>')+'</div>';
-  h+='<div class="lbl">Your drills</div>';
-  h+=D.drills.filter(d=>!d.archived).map(drillTile).join('');
-  h+='<button class="btn btn-ghost" data-a="openlib">+ Add a drill</button>';
+  const done=items.filter(i=>i.done).length,next=items.find(i=>!i.done),unl=unloggedItems(today());
+  h+='<div class="card"><div class="row" style="margin-bottom:10px"><h3 class="grow" style="margin:0">Today’s plan</h3>'+
+    '<span class="hint">'+done+' of '+items.length+' done</span></div>'+
+    '<div id="planList">'+items.map(planTile).join('')+'</div>'+
+    '<div class="hint" style="text-align:center;margin:2px 0 4px">Drag ≡ to reorder · tap a drill to throw it</div>';
+  if(next){const d=D.drills.find(x=>x.id===next.drillId);
+    h+='<button class="btn btn-primary" data-a="routine" style="padding:18px;font-size:19px">▶ '+
+      (done?'Continue — '+esc(d.name):'Start today’s routine')+'</button>'}
+  if(unl.length)h+='<button class="btn btn-good" data-a="logday" data-v="'+today()+'">Log day ('+unl.length+' drill'+(unl.length>1?'s':'')+')</button>';
+  else if(!next)h+='<div class="hint" style="text-align:center;margin-top:10px;color:var(--good)">Day logged — nice work 🎯</div>';
+  h+='<button class="btn btn-ghost" data-a="view" data-v="drills">+ Add drills</button></div>';
   return h}
 
 /* A drill he backed out of waits here, paused, until he goes back in. */
 function parkedHTML(){
   if(!R||!R.parked)return '';
   const d=D.drills.find(x=>x.id===R.drillId),t=TPL(R.templateKey);
-  const bits=R.phase==='done'?'finished — log it':R.phase==='ready'?'not started':
+  const bits=R.phase==='done'?'finished — tap to finish it':R.phase==='ready'?'not started':
     'paused'+(R.visits?' · visit '+R.visits+' · '+R.darts+' darts':'');
   return '<button class="tile" data-a="unpark" style="border-color:var(--warn)"><div class="row">'+
     '<div style="flex:1;min-width:0"><b>⏸ '+esc(d?d.name:t.name)+'</b><div class="meta">'+esc(bits)+'</div></div>'+
     '<span class="pill on">Go back in</span></div></button>'}
 
-/* ============ the day's routine ============
-   D.plans[date] = {at, items:[{id, drillId, done}]}. Keyed by the local date, so
-   it sticks for the whole day and a new day starts empty. The same drill twice
-   in one routine is fine — each item ticks off on its own. */
+/* ============ the day's plan ============
+   D.plans[date] = {at, items:[{id, drillId, done, skipped?, result?, logged?}]}.
+   Keyed by the local date, so it sticks for the whole day. The same drill twice
+   in one plan is fine — each item ticks off on its own.
+   Finishing a drill puts its session in item.result — on the phone, synced, safe
+   from a crash — but it only reaches D.sessions (and the charts) at Log day.
+   A one-off drill thrown outside the routine lands in the plan the same way, so
+   Log day is the one path to the charts. */
 function planFor(date){return D.plans[date]||null}
 function livePlanItems(p){return p?p.items.filter(i=>D.drills.some(d=>d.id===i.drillId&&!d.archived)):[]}
 function touchPlan(date){D.plans[date].at=stamp()}
 function ensurePlan(){const t=today();if(!D.plans[t])D.plans[t]={at:stamp(),items:[]};return D.plans[t]}
-function markPlanDone(drillId){
-  const p=planFor(today());if(!p)return;
-  const it=p.items.find(i=>i.drillId===drillId&&!i.done);
-  if(it){it.done=true;touchPlan(today())}}
+function unloggedItems(date){const p=D.plans[date];return p?p.items.filter(i=>i.result&&!i.logged):[]}
+function nextPlanItem(exceptId){return livePlanItems(planFor(today())).find(i=>!i.done&&i.id!==exceptId)||null}
 function lastPlanDate(){
   const t=today();
   return Object.keys(D.plans).filter(k=>k<t&&livePlanItems(D.plans[k]).length).sort().pop()||null}
+/* the run's result goes onto its plan item — the one it was started from, else
+   the first open item for that drill, else a new item on the end */
+function fileResult(res){
+  const p=ensurePlan();
+  let it=R.itemId&&p.items.find(i=>i.id===R.itemId&&!i.done);
+  if(!it)it=p.items.find(i=>i.drillId===R.drillId&&!i.done);
+  if(!it){it={id:uid(),drillId:R.drillId,done:false};p.items.push(it)}
+  it.done=true;if(res)it.result=res;touchPlan(today());return it}
+function logDay(date){
+  const p=D.plans[date];if(!p)return 0;
+  const us=unloggedItems(date);
+  us.forEach(i=>{if(!D.sessions.some(s=>s.id===i.result.id))D.sessions.push(Object.assign({},i.result,{date:date}));i.logged=true});
+  touchPlan(date);persist();return us.length}
+function fmtResult(r,t){
+  if(!r)return '';
+  if(t.shape==='goal'||t.key==='x01')return r.value+' darts';
+  if(t.shape==='rounds')return r.value+' hits';
+  if(t.key==='countup')return r.value+' pts';
+  return (t.key==='ladder'&&r.value>0?'+':'')+r.value}
+function planTile(i){
+  const d=D.drills.find(x=>x.id===i.drillId),t=TPL(d.templateKey);
+  const st=i.skipped?'–':i.done?'✓':'○';
+  const meta=i.skipped?'skipped':i.result?fmtResult(i.result,t)+(i.logged?' · logged':' · waiting for Log day'):
+    i.done?'done':drillLabel(d);
+  return '<div class="ptile'+(i.done?' done':'')+'" data-id="'+i.id+'">'+
+    '<span class="grip" data-grip="'+i.id+'">≡</span>'+
+    '<button class="pbody" data-a="planrun" data-v="'+i.id+'"><span class="st">'+st+'</span>'+
+      '<span style="flex:1;min-width:0"><b>'+t.icon+' '+esc(d.name)+'</b><span class="meta">'+esc(meta)+'</span></span></button>'+
+    (i.logged?'':'<button class="x" data-a="planrm" data-v="'+i.id+'">✕</button>')+'</div>'}
+/* finished-but-not-logged days before today */
+function staleHTML(){
+  return Object.keys(D.plans).filter(k=>k<today()&&unloggedItems(k).length).sort().map(k=>{const n=unloggedItems(k).length;
+    return '<div class="card" style="border-color:var(--warn)"><div class="row"><div class="grow"><b>'+k+'</b>'+
+      '<div class="hint">'+n+' drill'+(n>1?'s':'')+' finished but never logged</div></div>'+
+      '<button class="btn btn-sm btn-good" data-a="logday" data-v="'+k+'" style="margin:0">Log it</button></div></div>'}).join('')}
+function showLogSheet(date){
+  const p=D.plans[date],us=unloggedItems(date);
+  const open=livePlanItems(p).filter(i=>!i.done).length;
+  let h='<div class="sheet"><h3>Log '+(date===today()?'today':date)+'</h3>'+
+    us.map(i=>{const d=D.drills.find(x=>x.id===i.drillId),t=TPL(i.result.templateKey);
+      return '<div class="cnt"><span class="nm">'+t.icon+' '+esc(d?d.name:t.name)+'</span>'+
+        '<span style="font-weight:800">'+esc(fmtResult(i.result,t))+'</span></div>'}).join('')+
+    (open?'<p class="hint">'+open+' drill'+(open>1?'s':'')+' not thrown yet — they stay in the plan and can be logged later.</p>':'')+
+    '<button class="btn btn-good" data-a="logconfirm" data-v="'+date+'">Log day</button>'+
+    '<button class="btn btn-ghost" data-a="closesheet">Not yet</button></div>';
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+h+'</div>'}
 
-function planCardHTML(){
-  const p=planFor(today()),items=livePlanItems(p);
-  let h='<div class="card"><div class="row"><h3 class="grow" style="margin:0">Today’s routine</h3>'+
-    (items.length?'<button class="btn btn-sm" data-a="planedit">Edit</button>':'')+'</div>';
-  if(!items.length){
-    const lp=lastPlanDate();
-    h+='<div class="hint" style="margin-top:4px">Line up what you want to throw today. It stays put until tomorrow.</div>'+
-      '<button class="btn btn-primary" data-a="planedit">Build today’s routine</button>';
-    if(lp)h+='<button class="btn btn-ghost" data-a="plancopy" data-v="'+lp+'">Repeat '+lp+' ('+
-      livePlanItems(D.plans[lp]).length+' drills)</button>';
-    return h+'</div>'}
-  const next=items.find(i=>!i.done);
-  h+='<div style="margin-top:8px">'+items.map(i=>{
-    const d=D.drills.find(x=>x.id===i.drillId),t=TPL(d.templateKey);
-    return '<div class="row" style="padding:7px 0;border-top:1px solid var(--line)'+(i.done?';opacity:.45':'')+'">'+
-      '<button class="pill'+(i.done?' on':'')+'" data-a="plantick" data-v="'+i.id+'" style="margin:0;min-width:34px;cursor:pointer">'+
-        (i.done?'✓':'○')+'</button>'+
-      '<div class="grow" style="min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(d.name)+'</b>'+
-        '<div class="hint">'+esc(drillLabel(d))+'</div></div>'+
-      (i.done?'':'<button class="btn btn-sm" data-a="run" data-v="'+d.id+'">▶</button>')+'</div>'}).join('')+'</div>';
-  if(next){const d=D.drills.find(x=>x.id===next.drillId);
-    h+='<button class="btn btn-primary" data-a="run" data-v="'+d.id+'">▶ Next: '+esc(d.name)+'</button>'}
-  else h+='<div class="hint" style="text-align:center;margin-top:10px;color:var(--good)">Routine done — nice work 🎯</div>';
-  return h+'</div>'}
-
-function planSheetHTML(){
-  const p=ensurePlan(),items=livePlanItems(p);
-  let h='<div class="sheet"><h3>Today’s routine</h3>';
-  h+=items.length?items.map((i,n)=>{const d=D.drills.find(x=>x.id===i.drillId);
-    return '<div class="cnt"><span class="nm">'+(n+1)+'. '+esc(d.name)+(i.done?' ✓':'')+'</span>'+
-      '<button class="m" data-a="planmv" data-v="'+i.id+'" data-d="-1"'+(n?'':' style="visibility:hidden"')+'>↑</button>'+
-      '<button class="m" data-a="planmv" data-v="'+i.id+'" data-d="1"'+(n<items.length-1?'':' style="visibility:hidden"')+'>↓</button>'+
-      '<button class="m" data-a="planrm" data-v="'+i.id+'">✕</button></div>'}).join(''):
-    '<p class="hint">Nothing in it yet — tap drills below to add them in order.</p>';
-  h+='<div class="lbl" style="margin-top:14px">Add a drill</div>';
-  h+=D.drills.filter(d=>!d.archived).map(d=>'<button class="tile" data-a="planadd" data-v="'+d.id+'" style="padding:10px 14px">'+
-    '<div class="row"><div class="grow" style="min-width:0"><b style="font-size:16px">'+TPL(d.templateKey).icon+' '+esc(d.name)+'</b>'+
-    '<div class="meta">'+esc(drillLabel(d))+'</div></div><span style="font-size:22px;color:var(--accent)">+</span></div></button>').join('');
-  h+='<button class="btn btn-primary" data-a="plandone">Done</button></div>';
-  return h}
-function showPlanSheet(){$('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+planSheetHTML()+'</div>'}
+/* drag ≡ to reorder. Nothing re-renders mid-drag (that kills the gesture) —
+   the tile moves in the DOM and the order is only committed on release. */
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const g=e.target.closest('[data-grip]');if(!g)return;
+  e.preventDefault();
+  const tile=g.closest('.ptile');
+  drag={tile:tile,list:tile.parentNode,y0:e.clientY,base:tile.getBoundingClientRect().top};
+  tile.classList.add('dragging');try{g.setPointerCapture(e.pointerId)}catch(x){}});
+document.addEventListener('pointermove',e=>{
+  if(!drag)return;e.preventDefault();
+  const tl=drag.tile,dy=e.clientY-drag.y0;
+  tl.style.transform='translateY('+dy+'px)';
+  const mid=drag.base+dy+tl.offsetHeight/2;
+  const sibs=[...drag.list.children].filter(x=>x!==tl);
+  let idx=sibs.findIndex(x=>{const r=x.getBoundingClientRect();return mid<r.top+r.height/2});
+  if(idx<0)idx=sibs.length;
+  const cur=[...drag.list.children].indexOf(tl);
+  if(idx!==cur){
+    const before=tl.getBoundingClientRect().top-dy;
+    drag.list.insertBefore(tl,sibs[idx]||null);
+    tl.style.transform='';
+    const after=tl.getBoundingClientRect().top;
+    drag.y0+=after-before;drag.base=after;
+    tl.style.transform='translateY('+(e.clientY-drag.y0)+'px)'}});
+function endDrag(){
+  if(!drag)return;
+  const ids=[...drag.list.children].map(x=>x.getAttribute('data-id'));
+  drag.tile.classList.remove('dragging');drag.tile.style.transform='';drag=null;
+  const p=planFor(today());if(!p)return;
+  const by={};p.items.forEach(i=>by[i.id]=i);
+  const moved=ids.map(id=>by[id]).filter(Boolean);
+  const rest=p.items.filter(i=>!ids.includes(i.id));   // items for archived drills keep their place at the end
+  const order=moved.concat(rest).map(i=>i.id).join();
+  if(order!==p.items.map(i=>i.id).join()){p.items=moved.concat(rest);touchPlan(today());persist()}
+  render()}
+document.addEventListener('pointerup',endDrag);
+document.addEventListener('pointercancel',endDrag);
 
 function drillTile(d){
   const t=TPL(d.templateKey);if(!t)return '';
@@ -822,13 +909,27 @@ function drillTile(d){
       '<span>'+(t.shape==='goal'?'darts':'last')+'</span></div>':'')+
     '</div></button>'}
 
+/* The Drills tab: check what you're throwing today, build the plan. Tapping a
+   drill still throws it on its own; long-press edits it. */
+let pick=[];
 function drillsHTML(){
-  setHead('Drills','Tap to throw · long-press to edit');
-  let h='';
+  setHead('Drills','Check today’s drills · tap to throw one · long-press to edit');
   const act=D.drills.filter(d=>!d.archived);
-  h+= act.length?act.map(drillTile).join(''):'<div class="card"><p class="hint">Nothing added yet.</p></div>';
-  h+='<button class="btn btn-primary" data-a="openlib">+ Add a drill from the library</button>';
+  let h='<div class="lbl">My drills</div>';
+  h+=act.length?act.map(d=>{const on=pick.includes(d.id);
+    return '<div class="row" style="align-items:stretch;gap:8px">'+
+      '<button class="chk'+(on?' on':'')+'" data-a="pick" data-v="'+d.id+'">'+(on?'✓':'')+'</button>'+
+      '<div style="flex:1;min-width:0">'+drillTile(d)+'</div></div>'}).join(''):
+    '<div class="card"><p class="hint">Nothing set up yet — pick one from the library below.</p></div>';
+  h+='<div class="lbl" style="margin-top:16px">Library — tap one to set it up</div>';
+  h+=TEMPLATES.map(t=>'<button class="tile" data-a="addtpl" data-v="'+t.key+'" style="padding:11px 14px">'+
+    '<div class="row"><div class="grow" style="min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(t.name)+'</b>'+
+    '<div class="meta">'+esc(t.blurb.split('. ')[0].replace(/\.$/,''))+'.</div></div>'+
+    '<span style="font-size:24px;color:var(--accent)">+</span></div></button>').join('');
   if(act.length)h+='<button class="btn btn-ghost" data-a="editlist">Edit my drills</button>';
+  if(pick.length){const has=livePlanItems(planFor(today())).length;
+    h+='<div class="pickbar"><button class="btn btn-primary" data-a="buildplan" style="margin:0">'+
+      (has?'Add '+pick.length+' to today’s plan':'Build today’s plan ('+pick.length+')')+'</button></div>'}
   return h}
 
 function libraryHTML(){
@@ -911,8 +1012,11 @@ function freeSetupHTML(){
 
 function progressHTML(){
   setHead('Progress','One line per drill');
-  if(!D.sessions.length)return '<div class="card"><p class="hint">Nothing logged yet.</p></div>';
-  let h='';
+  const wait=unloggedItems(today()).length;
+  const waitH=wait?'<div class="card" style="border-color:var(--warn)"><div class="hint">'+wait+' result'+(wait>1?'s':'')+
+    ' from today waiting for <b style="color:var(--text)">Log day</b> on the Today tab.</div></div>':'';
+  if(!D.sessions.length)return waitH+'<div class="card"><p class="hint">Nothing logged yet.</p></div>';
+  let h=waitH;
   D.drills.filter(d=>!d.archived).forEach(d=>{
     const ss=sessionsFor(d.id);if(!ss.length)return;
     const t=TPL(d.templateKey);
@@ -1096,8 +1200,9 @@ document.addEventListener('click',e=>{
     else{D.drills.push({id:uid(),templateKey:addTpl,name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,
       paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,aim:addCfg.aim,ring:addCfg.ring,rounds:addCfg.rounds,
       createdAt:stamp(),at:stamp(),archived:false});
+      if(view==='drills'&&!libOpen)pick.push(D.drills[D.drills.length-1].id);
       toast('Added')}
-    persist();closeSheet();libOpen=false;view='today';render();break}
+    persist();closeSheet();if(!(view==='drills'&&!libOpen))view='today';libOpen=false;render();break}
   case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;d.at=stamp();persist()}
     closeSheet();render();toast('Removed');break}
   case 'closesheet': closeSheet();render();break;
@@ -1118,18 +1223,20 @@ document.addEventListener('click',e=>{
   case 'unpark': if(R){R.parked=false;persistR();if(R.phase==='done')releaseWake();render()}break;
   case 'abandon': if(R&&R.phase==='live'&&R.visits>1&&!confirm('Throw this drill away? Nothing will be logged.'))break;
     if(R){R=null;persistR()}releaseWake();render();break;
-  case 'planedit': showPlanSheet();break;
-  case 'planadd': ensurePlan().items.push({id:uid(),drillId:v,done:false});touchPlan(today());persist();showPlanSheet();break;
-  case 'planrm': {const p=ensurePlan();p.items=p.items.filter(i=>i.id!==v);touchPlan(today());persist();showPlanSheet();break}
-  case 'planmv': {const p=ensurePlan(),live=livePlanItems(p),i=live.findIndex(x=>x.id===v),j=i+ +el.getAttribute('data-d');
-    if(i<0||j<0||j>=live.length)break;
-    // swap within the full list, so an item for a removed drill never shifts
-    const a1=p.items.indexOf(live[i]),a2=p.items.indexOf(live[j]);
-    [p.items[a1],p.items[a2]]=[p.items[a2],p.items[a1]];
-    touchPlan(today());persist();showPlanSheet();break}
-  case 'plandone': closeSheet();render();break;
-  case 'plantick': {const p=planFor(today());const it=p&&p.items.find(i=>i.id===v);
-    if(it){it.done=!it.done;touchPlan(today());persist();render()}break}
+  case 'planrm': {const p=ensurePlan(),it=p.items.find(i=>i.id===v);if(!it)break;
+    if(it.result&&!confirm('Remove it? Its result has not been logged and will be lost.'))break;
+    p.items=p.items.filter(i=>i.id!==v);touchPlan(today());persist();render();break}
+  case 'planrun': {const it=ensurePlan().items.find(i=>i.id===v);if(!it)break;
+    if(it.done){toast(it.skipped?'Skipped today':'Already done today');break}
+    openRun(it.drillId,it.id);break}
+  case 'routine': {const nx=nextPlanItem();if(nx)openRun(nx.drillId,nx.id);break}
+  case 'planskip': skipItem();break;
+  case 'logday': showLogSheet(v);break;
+  case 'logconfirm': {const n=logDay(v);closeSheet();view='progress';render();toast(n+' drill'+(n===1?'':'s')+' logged');break}
+  case 'pick': {const i=pick.indexOf(v);if(i<0)pick.push(v);else pick.splice(i,1);render();break}
+  case 'buildplan': {const p=ensurePlan();
+    D.drills.filter(d=>pick.includes(d.id)).forEach(d=>p.items.push({id:uid(),drillId:d.id,done:false}));
+    touchPlan(today());persist();pick=[];view='today';render();toast('Plan built — drag to put it in order');break}
   case 'plancopy': {const src=D.plans[v];if(!src)break;
     D.plans[today()]={at:stamp(),items:livePlanItems(src).map(i=>({id:uid(),drillId:i.drillId,done:false}))};
     persist();render();toast('Routine copied');break}
@@ -1327,7 +1434,10 @@ function cleanDrill(d){
 function cleanPlan(p){
   if(!p||!Array.isArray(p.items))return null;
   return {at:typeof p.at==='string'?p.at:'',items:p.items.filter(i=>i&&typeof i.id==='string'&&typeof i.drillId==='string')
-    .map(i=>({id:i.id,drillId:i.drillId,done:!!i.done}))}}
+    .map(i=>{const o={id:i.id,drillId:i.drillId,done:!!i.done};
+      if(i.skipped)o.skipped=true;if(i.logged)o.logged=true;
+      const r=i.result&&cleanSession(i.result);if(r)o.result=r;
+      return o})}}
 
 /* Merge one remote row. Returns true only if local data actually changed. */
 function applyRemote(row){
