@@ -7,6 +7,7 @@ Matt's personal apps — plain HTML, no build step, hosted on GitHub Pages.
 | App | URL | Status |
 |---|---|---|
 | 🏋️ Workout Tracker | [/workout/](https://greinert21.github.io/my-apps/workout/) | Live |
+| 🍽️ Supper Club | [/supperclub/](https://greinert21.github.io/my-apps/supperclub/) | Live (Phase 1) |
 | 🐟 Fillet & Fire | [/fillet-fire/](https://greinert21.github.io/my-apps/fillet-fire/) | Live |
 | 🎣 StrikeZone | [/strikezone/](https://greinert21.github.io/my-apps/strikezone/) | Live |
 | 🌱 GardenMap | [/garden/](https://greinert21.github.io/my-apps/garden/) | Live |
