@@ -211,47 +211,50 @@ function apply(t, seg){
 function won(t){ return closedAll(t) && G.pts[t] >= G.pts[1 - t]; }
 
 
-/* ---------- the board's chirps: 1 for a single, 2 for a double, 3 for a treble ----------
-   His darts only (ghost turns land all at once). Short sine blips that glide up,
-   each a little higher than the last. iOS needs the context woken by a real
+/* ---------- hit sounds: 1 for a single, 2 for a double, 3 for a treble ----------
+   His darts only (ghost turns land all at once). iOS needs the context woken by a real
    oscillator on a tap, so the first click plays a silent blip. */
 let AC = null, muted = false;
 try { muted = localStorage.getItem('tm_mock_mute') === '1'; } catch (e) {}
-let OUT = null, WARM = 0;      // compressor + makeup gain, same chain as the app's other sounds
+let OUT = null, WARM = 0;
+/* Sound chain copied from sounds.html so Soft coin sounds exactly as Matt picked it:
+   compressor -16 dB / ratio 5 → master 1.2×, plus a 40 Hz keep-awake far too quiet
+   to hear so the speakers never doze between darts and clip the next chirp. */
 function audio(){
   if (!AC){
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
     AC = new C();
-    const comp = AC.createDynamicsCompressor(), mk = AC.createGain();
-    comp.threshold.value = -18; comp.knee.value = 6; comp.ratio.value = 6;
-    comp.attack.value = 0.002; comp.release.value = 0.1; mk.gain.value = 2.2;
-    comp.connect(mk).connect(AC.destination); OUT = comp;
+    const comp = AC.createDynamicsCompressor(), vol = AC.createGain();
+    comp.threshold.value = -16; comp.knee.value = 6; comp.ratio.value = 5;
+    comp.attack.value = 0.002; comp.release.value = 0.12; vol.gain.value = 1.2;
+    comp.connect(vol).connect(AC.destination); OUT = comp;
+    const k = AC.createOscillator(), kg = AC.createGain();
+    k.frequency.value = 40; kg.gain.value = 0.0004; k.connect(kg).connect(AC.destination); k.start();
     WARM = AC.currentTime + 0.35;   // the sound card takes a moment to open; nothing before this is heard
-    const o = AC.createOscillator(), g = AC.createGain(); g.gain.value = 0;
-    o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime + 0.02);
   }
   if (AC.state === 'suspended') AC.resume();
   return AC;
 }
+function tone(t, f, dur, peak, hold){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+  g.gain.setValueAtTime(peak, t + 0.005 + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
+}
+/* Soft coin (Matt's pick, sound board round 2 #2): a two-step coin on a triangle
+   wave, each hit of a double/treble a step higher. 1 single, 2 double, 3 treble. */
 function chirp(n){
   if (muted || !n) return;
   const ac = audio(); if (!ac) return;
-  // a context that is still waking would swallow the tone — wait for it
   if (ac.state !== 'running'){ ac.resume().then(() => chirp(n)); return; }
-  const t0 = Math.max(ac.currentTime + 0.02, WARM);
+  const t0 = Math.max(ac.currentTime + 0.03, WARM);
   for (let k = 0; k < n; k++){
-    const t = t0 + k * 0.12, f = 1100 + k * 200;
-    // a bright sine on top of a softer triangle an octave down, for body
-    [['sine', f, 1], ['triangle', f / 2, 0.6]].forEach(([type, fr, lv]) => {
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = type;
-      o.frequency.setValueAtTime(fr, t);
-      o.frequency.exponentialRampToValueAtTime(fr * 1.4, t + 0.06);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.9 * lv, t + 0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
-      o.connect(g).connect(OUT); o.start(t); o.stop(t + 0.12);
-    });
+    const t = t0 + k * 0.18, f = 988 * Math.pow(1.12, k);
+    tone(t, f, 0.06, 0.6, 0.03);
+    tone(t + 0.06, f * 1.335, 0.16, 0.6, 0.05);
   }
 }
 const chirps = seg => seg === 'MISS' ? 0 : seg[0] === 'T' ? 3 : seg[0] === 'D' ? 2 : 1;   // DB = 2, SB/BULL = 1
