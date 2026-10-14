@@ -80,6 +80,8 @@ a{color:inherit;text-decoration:none}
 .ms span{display:block;font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim);text-transform:uppercase}
 .ms b{display:block;font-size:clamp(18px,min(3vw,3.8vh),30px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15}
 .ms .lk b::after{content:" 🔒";font-size:.6em}
+.badge{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.6px;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.badge.aw{background:#3a2e08;color:#fde047;border:1px solid #a16207}
 .msg{margin:10px 0 0;border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
 .msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
 .msg.loss{border-color:#7f1d1d;background:#2a1215;color:#fecaca}
@@ -258,6 +260,54 @@ function chirp(n){
   }
 }
 const chirps = seg => seg === 'MISS' ? 0 : seg[0] === 'T' ? 3 : seg[0] === 'D' ? 2 : 1;   // DB = 2, SB/BULL = 1
+
+/* ---------- award jingles: same rounded triangle tone as Soft coin ----------
+   Notes are MIDI numbers (88 = E6), each [start, note, length, level]. They play
+   once the turn's result is known — after the last dart's coin — and never hold
+   anything up. Bigger award wins: ton-80 > hat trick > high ton > low ton. */
+const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+function jnote(t, m, dur, peak){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(midi(m), t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+  g.gain.setValueAtTime(peak, t + 0.004 + dur * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
+}
+const JINGLES = {
+  low:   [[0,88,.09],[.07,92,.09],[.14,95,.09],[.21,100,.26]],
+  high:  [[0,83,.08],[.06,88,.08],[.12,92,.08],[.18,95,.08],[.24,100,.08],[.30,95,.07],[.36,100,.34],[.36,92,.34,.35]],
+  ton80: [[0,83,.1],[.11,83,.1],[.22,83,.1],[.33,88,.36],[.33,92,.36,.4],[.72,92,.08],[.79,95,.08],
+          [.86,100,.55],[.86,95,.55,.35],[.86,92,.55,.3]],
+  hat:   [[0,100,.08],[.12,100,.08],[.24,100,.08],[.36,95,.07],[.42,92,.07],[.48,95,.07],[.54,104,.34],[.54,100,.34,.35]]
+};
+// cricket: 4 marks = a 3-note run; every extra mark adds a note and ends higher; 9 lands on a chord
+function marksJingle(n){
+  const sc = [76,80,83,88,92,95,100,104], c = Math.max(3, Math.min(8, n - 1)), out = [];
+  for (let i = 0; i < c; i++) out.push([i * .065, sc[i], i === c - 1 ? .3 : .08]);
+  if (n >= 9){ const t = (c - 1) * .065; out.push([t, sc[c - 3], .45, .35], [t, sc[c - 4], .45, .3]); }
+  return out;
+}
+function jingle(spec, delay){
+  if (typeof muted !== 'undefined' && muted) return;
+  const ac = audio(); if (!ac) return;
+  if (ac.state !== 'running'){ ac.resume().then(() => jingle(spec, delay)); return; }
+  const t0 = Math.max(ac.currentTime + (delay || 0.03), typeof WARM !== 'undefined' ? WARM : 0);
+  for (const [dt, m, dur, pk] of spec) jnote(t0 + dt, m, dur, pk || .5);
+}
+const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
+const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
+function awardC(c){
+  const m = me();
+  if (m.awarded) return;
+  m.awarded = true;
+  const bulls = m.turn.filter(x => x === 'SB' || x === 'DB').length, mk = Math.min(9, m.turnLive);
+  let spec = null;
+  if (bulls === 3){ spec = JINGLES.hat; m.badge = 'HAT TRICK'; }
+  else if (mk >= 4){ spec = marksJingle(mk); m.badge = mk + ' MARK'; }
+  if (spec) jingle(spec, after(c));
+}
 function muteBtn(){ const b = $('#mute'); if (b) b.textContent = muted ? '🔇' : '🔊'; }
 
 /* ---------- Matt's turn: replayed from the turn's start so any dart can be fixed ---------- */
@@ -273,16 +323,19 @@ function evalTurn(){
 function throwDart(seg){
   const m = me();
   if (G.done || m.turn.length >= 3 || m.wonOnDart) return;
+  if (!m.turn.length){ m.badge = null; m.awarded = false; }     // a new turn clears last turn's award
   m.turn.push(seg);
   chirp(chirps(seg));
   evalTurn();
+  if (m.wonOnDart || m.turn.length === 3) awardC(chirps(seg));
   if (m.wonOnDart) endMine(true);
   render();
 }
 function endMine(finished){
   const m = me();
+  if (m.turn.length) awardC(0);                  // fewer than 3 registered — the turn is final now
   if (!finished) while (m.turn.length < 3) m.turn.push('MISS');
-  m.live += m.turnLive; m.rounds++; m.last = m.turn.slice(); m.turn = []; m.turnLive = 0; m.wonOnDart = false;
+  m.live += m.turnLive; m.rounds++; m.last = m.turn.slice(); m.turn = []; m.turnLive = 0; m.wonOnDart = false; m.awarded = false;
   if (!G.lock80 && closedCount(0) >= 6) G.lock80 = {live:m.live, rounds:m.rounds};
   if (finished){
     if (!G.over) G.over = {team:0, why:'You closed it out — You & Partner win.'};
@@ -411,7 +464,8 @@ function render(){
         '<div><span>Turns</span><b>' + m.rounds + '</b></div></div>';
     } else st = '<div class="st">' + (p.rounds ? 'MPR <b>' + (p.live / p.rounds).toFixed(2) + '</b>' : 'waiting') + '</div>';
     return '<div class="pl' + (p.team ? ' away' : '') + (mine && !G.done ? ' on' : '') + '">' +
-      '<div class="ph"><span class="nm">' + p.name + '</span>' + (p.lvl ? '<span class="lvl">' + p.lvl + '</span>' : '') + '</div>' +
+      '<div class="ph"><span class="nm">' + p.name + '</span>' + (p.lvl ? '<span class="lvl">' + p.lvl + '</span>' : '') +
+        (mine && m.badge ? '<span class="badge aw">' + m.badge + '</span>' : '') + '</div>' +
       '<div class="slots">' + slotsHTML(segs, mine && m.turn.length > 0 && !G.done) +
       '<span class="tt">' + (segs.length ? tl + 'M' : '') + '</span></div>' + st + '</div>';
   }).join('');

@@ -47,6 +47,9 @@ h1{margin:0;font-size:22px;font-weight:800}
   <div class="sub">Tap each one. A single plays once, a double twice, a treble three times. Round 2 — Coin is #1. Tell Claude the numbers you like.</div>
   <div class="bar"><label for="vol">Volume</label><input id="vol" type="range" min="0.2" max="2.5" step="0.1" value="1.2"><span class="v" id="volv">1.2×</span></div>
   <div class="grid" id="grid"></div>
+  <h2 style="font-size:19px;margin:22px 0 4px">Award jingles</h2>
+  <div class="sub" style="margin-bottom:10px">Same tone as Soft coin. These play after the last dart of a big turn.</div>
+  <div class="grid" id="jgrid"></div>
   <div class="note">If the very first tap after opening is silent, tap again — some speakers take a moment to wake. After that a near-silent tone keeps them awake.</div>
 </div>
 <script>
@@ -130,6 +133,45 @@ const SOUNDS = [
    hit:(t, k) => { const f = 1568 * Math.pow(1.06, k); tone(t, f, .045, .5, {wave:pulse(.25), hold:.02}); tone(t + .045, f * 1.335, .1, .5, {wave:pulse(.25), hold:.03}); }}
 ];
 
+
+/* ---------- award jingles: same rounded triangle tone as Soft coin ----------
+   Notes are MIDI numbers (88 = E6), each [start, note, length, level]. They play
+   once the turn's result is known — after the last dart's coin — and never hold
+   anything up. Bigger award wins: ton-80 > hat trick > high ton > low ton. */
+const midi = m => 440 * Math.pow(2, (m - 69) / 12);
+function jnote(t, m, dur, peak){
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(midi(m), t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+  g.gain.setValueAtTime(peak, t + 0.004 + dur * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
+}
+const JINGLES = {
+  low:   [[0,88,.09],[.07,92,.09],[.14,95,.09],[.21,100,.26]],
+  high:  [[0,83,.08],[.06,88,.08],[.12,92,.08],[.18,95,.08],[.24,100,.08],[.30,95,.07],[.36,100,.34],[.36,92,.34,.35]],
+  ton80: [[0,83,.1],[.11,83,.1],[.22,83,.1],[.33,88,.36],[.33,92,.36,.4],[.72,92,.08],[.79,95,.08],
+          [.86,100,.55],[.86,95,.55,.35],[.86,92,.55,.3]],
+  hat:   [[0,100,.08],[.12,100,.08],[.24,100,.08],[.36,95,.07],[.42,92,.07],[.48,95,.07],[.54,104,.34],[.54,100,.34,.35]]
+};
+// cricket: 4 marks = a 3-note run; every extra mark adds a note and ends higher; 9 lands on a chord
+function marksJingle(n){
+  const sc = [76,80,83,88,92,95,100,104], c = Math.max(3, Math.min(8, n - 1)), out = [];
+  for (let i = 0; i < c; i++) out.push([i * .065, sc[i], i === c - 1 ? .3 : .08]);
+  if (n >= 9){ const t = (c - 1) * .065; out.push([t, sc[c - 3], .45, .35], [t, sc[c - 4], .45, .3]); }
+  return out;
+}
+function jingle(spec, delay){
+  if (typeof muted !== 'undefined' && muted) return;
+  const ac = audio(); if (!ac) return;
+  if (ac.state !== 'running'){ ac.resume().then(() => jingle(spec, delay)); return; }
+  const t0 = Math.max(ac.currentTime + (delay || 0.03), typeof WARM !== 'undefined' ? WARM : 0);
+  for (const [dt, m, dur, pk] of spec) jnote(t0 + dt, m, dur, pk || .5);
+}
+const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
+const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
+
 function play(i, n){
   const ac = audio(); if (!ac) return;
   if (ac.state !== 'running'){ ac.resume().then(() => play(i, n)); return; }
@@ -143,6 +185,16 @@ document.getElementById('grid').innerHTML = SOUNDS.map((s, i) =>
   '<div class="ds">' + s.ds + '</div><div class="b3">' +
   [['Single',1],['Double',2],['Treble',3]].map(([l, n]) => '<button data-i="' + i + '" data-n="' + n + '">' + n + '<small>' + l + '</small></button>').join('') +
   '</div></div>').join('');
+const JLIST = [['Low ton','100–150','low'],['High ton','151–179','high'],['Ton 80','180','ton80'],['Hat trick','3 bulls in a turn','hat'],
+  ['4 mark','cricket',4],['5 mark','cricket',5],['6 mark','cricket',6],['7 mark','cricket',7],['8 mark','cricket',8],['9 mark','cricket',9]];
+document.getElementById('jgrid').innerHTML = JLIST.map((j, i) =>
+  '<div class="card"><div class="hd"><span class="nm">' + j[0] + '</span></div><div class="ds" style="min-height:0">' + j[1] + '</div>' +
+  '<div class="b3"><button data-j="' + i + '">▶ Play</button></div></div>').join('');
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-j]'); if (!b) return;
+  const j = JLIST[+b.dataset.j];
+  jingle(typeof j[2] === 'number' ? marksJingle(j[2]) : JINGLES[j[2]], 0.03);
+});
 document.addEventListener('pointerdown', () => audio(), {passive:true});
 document.addEventListener('click', e => {
   const b = e.target.closest('button[data-i]'); if (b) play(+b.dataset.i, +b.dataset.n);
