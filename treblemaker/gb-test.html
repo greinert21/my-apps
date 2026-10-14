@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GranBoard Test</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e26; --card2:#232834; --line:#2e3442;
+  --text:#eef1f6; --dim:#8b93a3; --accent:#f43f5e; --accent-dark:#be123c;
+  --good:#4ade80; --warn:#fbbf24; --danger:#f87171; --blue:#38bdf8;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.45;-webkit-text-size-adjust:100%}
+.topbar{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 10px;border-bottom:1px solid var(--line)}
+.topbar h1{margin:0;font-size:22px;font-weight:800}
+.topbar .sub{font-size:13px;color:var(--dim);margin-top:2px}
+main{padding:14px 14px 60px;max-width:760px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 6px;font-size:18px}
+.hint{font-size:13px;color:var(--dim)}
+.btn{display:block;width:100%;border:none;border-radius:14px;padding:15px 16px;
+  font-size:17px;font-weight:700;color:var(--text);background:var(--card2);
+  cursor:pointer;touch-action:manipulation;margin-top:10px;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4}
+.btn-primary{background:var(--accent-dark);color:#fff}
+.btn-sm{display:inline-block;width:auto;padding:9px 14px;font-size:15px;margin:0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}
+.status{display:flex;align-items:center;gap:8px;font-weight:700}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--dim)}
+.dot.on{background:var(--good)} .dot.busy{background:var(--warn)} .dot.off{background:var(--danger)}
+.big{text-align:center;padding:18px 0 8px}
+.big .seg{font-size:84px;font-weight:900;line-height:1;letter-spacing:-1px}
+.big .seg.miss{color:var(--danger)} .big .seg.btn{color:var(--blue)}
+.big .seg.T{color:var(--warn)} .big .seg.D{color:var(--good)} .big .seg.B{color:var(--accent)}
+.big .what{color:var(--dim);font-size:15px;margin-top:6px}
+.counts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px}
+.counts div{background:var(--card2);border-radius:12px;padding:8px 4px;text-align:center}
+.counts b{display:block;font-size:24px}
+.counts span{font-size:12px;color:var(--dim)}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;max-height:420px;overflow:auto}
+.log .e{display:grid;grid-template-columns:70px 64px 1fr auto;gap:8px;padding:5px 2px;border-bottom:1px solid var(--line)}
+.log .gap{border-top:2px solid var(--accent-dark)}
+.log .t,.log .dt,.log .raw{color:var(--dim)}
+.log .unk{color:var(--warn)}
+.log .sys{color:var(--blue)}
+.checks{margin:0;padding-left:20px}
+.checks li{margin:5px 0}
+select{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;
+  padding:9px 10px;font-size:16px}
+label.tog{display:flex;align-items:center;gap:8px;font-size:15px;margin-top:10px}
+label.tog input{width:20px;height:20px}
+.warnbox{background:#3a2a10;border:1px solid #6b4e16;color:#fde68a;border-radius:12px;padding:10px 12px;font-size:14px}
+.mock{display:none}
+.mock.show{display:block}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>GranBoard Test</h1>
+  <div class="sub">TrebleMaker · Bluetooth spike · Chrome on Android only</div>
+</div>
+<main>
+  <div id="nobt" class="card" style="display:none">
+    <div class="warnbox">This browser has no Web Bluetooth. Open this page in <b>Chrome on the Galaxy Tab</b>.
+      iPhone Safari can't do it.</div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div class="status grow"><span id="dot" class="dot"></span><span id="stat">Not connected</span></div>
+      <button class="btn btn-sm" id="bDisc" data-a="disconnect" disabled>Disconnect</button>
+    </div>
+    <button class="btn btn-primary" id="bConn" data-a="connect">Connect to GranBoard</button>
+    <div class="hint" style="margin-top:8px">Close the GranBoard app first. The board only talks to one thing at a time.
+      Chrome will ask for Nearby devices permission the first time.</div>
+    <div class="hint" id="chars" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div class="big"><div class="seg" id="seg">—</div><div class="what" id="what">Throw a dart</div></div>
+    <div class="counts">
+      <div><b id="cDarts">0</b><span>darts</span></div>
+      <div><b id="cHits">0</b><span>hits</span></div>
+      <div><b id="cMiss">0</b><span>miss</span></div>
+      <div><b id="cBtn">0</b><span>button</span></div>
+      <div><b id="cUnk">0</b><span>unknown</span></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn btn-sm grow" data-a="reset">Reset counts</button>
+      <button class="btn btn-sm grow" data-a="copy">Copy log</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Things to try</h3>
+    <ol class="checks">
+      <li>Three normal darts. One row each, right segment?</li>
+      <li>A dart into the black surround. Does it say <b>MISS</b>?</li>
+      <li>A dart that misses the board completely (wall/floor). Anything?</li>
+      <li>A bounce-out. Does it register, and as what?</li>
+      <li>Reset counts, then pile all 9 into T20. Does it say 9 darts?</li>
+      <li>Press the button on the board.</li>
+      <li>Leave it 5 minutes untouched. Still connected?</li>
+    </ol>
+    <div class="hint">Then tap <b>Copy log</b> and paste it to Claude.</div>
+  </div>
+
+  <div class="card">
+    <h3>LED ring</h3>
+    <div class="row">
+      <select id="num"></select>
+      <button class="btn btn-sm" data-a="ledNum">Light number</button>
+      <button class="btn btn-sm" data-a="ledHit">Flash it</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn btn-sm" data-a="ledRing">Ring green</button>
+      <button class="btn btn-sm" data-a="ledBlink">Blink white</button>
+      <button class="btn btn-sm" data-a="ledWave">Wave</button>
+      <button class="btn btn-sm" data-a="ledClear">Clear</button>
+    </div>
+    <label class="tog"><input type="checkbox" id="echo"> Flash each hit on the ring</label>
+    <div class="hint" style="margin-top:6px">"Light number" stays on until Clear. That's how a drill would show its target.</div>
+  </div>
+
+  <div class="card mock" id="mock">
+    <h3>Fake board (?mock)</h3>
+    <div class="row">
+      <button class="btn btn-sm" data-a="fake" data-c="3.4@">T20</button>
+      <button class="btn btn-sm" data-a="fake" data-c="3.3@">S20 in</button>
+      <button class="btn btn-sm" data-a="fake" data-c="1.6@">D18</button>
+      <button class="btn btn-sm" data-a="fake" data-c="4.0@">DB</button>
+      <button class="btn btn-sm" data-a="fake" data-c="8.0@">SB</button>
+      <button class="btn btn-sm" data-a="fake" data-c="OUT@">Miss</button>
+      <button class="btn btn-sm" data-a="fake" data-c="BTN@">Button</button>
+      <button class="btn btn-sm" data-a="fake" data-c="Z.9@">Junk</button>
+      <button class="btn btn-sm" data-a="fake" data-c="10.">Half</button>
+      <button class="btn btn-sm" data-a="fake" data-c="4@">…rest</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Log</h3>
+    <div class="hint">Newest first. Δ = time since the previous event. A red line = a pause over 2.5 s (a new visit).</div>
+    <div class="log" id="log"></div>
+  </div>
+</main>
+<script>
+'use strict';
+const SVC = '442f1570-8a00-9a28-cbe1-e1d4212d53eb';
+
+// GranBoard 3s hit codes, from the raw bytes in keenanlk/granboard-ble-codes and sobassy/gran-app.
+// (That doc's ASCII column says U/V/W where the bytes 55/56/57 are really 7/8/9.)
+// ascii (without the trailing '@') -> [number, ring]. 25 = bull.
+// Ring: I inner single, O outer single, T treble, D double; bull S = 25, D = 50.
+const CODES = {
+  '0.0':[13,'I'],'0.1':[4,'I'],'0.2':[13,'T'],'0.3':[4,'T'],'0.4':[13,'O'],'0.5':[4,'O'],'0.6':[4,'D'],
+  '1.0':[6,'I'],'1.1':[6,'T'],'1.2':[18,'I'],'1.3':[6,'O'],'1.4':[18,'T'],'1.5':[18,'O'],'1.6':[18,'D'],
+  '2.0':[10,'I'],'2.1':[10,'T'],'2.2':[10,'O'],'2.3':[1,'I'],'2.4':[1,'T'],'2.5':[1,'O'],'2.6':[1,'D'],
+  '3.0':[15,'I'],'3.1':[15,'T'],'3.2':[15,'O'],'3.3':[20,'I'],'3.4':[20,'T'],'3.5':[20,'O'],'3.6':[20,'D'],
+  '4.0':[25,'D'],'4.2':[15,'D'],'4.3':[10,'D'],'4.4':[6,'D'],'4.5':[13,'D'],'4.6':[5,'D'],
+  '5.0':[12,'I'],'5.1':[5,'I'],'5.2':[5,'T'],'5.3':[12,'T'],'5.4':[5,'O'],'5.5':[12,'O'],'5.6':[12,'D'],
+  '6.0':[19,'T'],'6.1':[19,'I'],'6.2':[8,'I'],'6.3':[19,'O'],'6.4':[8,'T'],'6.5':[8,'O'],'6.6':[8,'D'],
+  '10.0':[17,'T'],'10.1':[17,'I'],'10.2':[17,'O'],'10.3':[14,'I'],'10.4':[14,'T'],'10.5':[14,'O'],'10.6':[14,'D'],
+  '11.0':[16,'I'],'11.1':[7,'I'],'11.2':[7,'T'],'11.3':[16,'T'],'11.4':[7,'O'],'11.5':[16,'O'],'11.6':[16,'D'],
+  '7.0':[3,'T'],'7.1':[3,'I'],'7.2':[3,'O'],'7.3':[11,'I'],'7.4':[11,'T'],'7.5':[11,'O'],'7.6':[11,'D'],
+  '8.0':[25,'S'],'8.2':[2,'D'],'8.3':[17,'D'],'8.4':[3,'D'],'8.5':[19,'D'],'8.6':[7,'D'],
+  '9.0':[2,'T'],'9.1':[2,'I'],'9.2':[2,'O'],'9.3':[9,'I'],'9.4':[9,'T'],'9.5':[9,'O'],'9.6':[9,'D']
+};
+// LED ring cell for each number (bull = 0).
+const LED_POS = {0:0,1:28,2:49,3:55,4:34,5:22,6:40,7:1,8:7,9:16,10:43,
+  11:10,12:19,13:37,14:13,15:46,16:4,17:52,18:31,19:58,20:25};
+
+const $ = id => document.getElementById(id);
+let dev = null, notifyCh = null, writeCh = null, buf = '';
+let wakeLock = null;
+let C = {darts:0, hits:0, miss:0, btn:0, unk:0};
+let events = [];               // {at, dt, raw, bytes, label, kind}
+let lastAt = 0;
+
+function decode(raw){
+  if (raw === 'OUT') return {kind:'miss', label:'MISS', what:'Miss (outside the scoring area)'};
+  if (raw === 'BTN') return {kind:'btn', label:'BUTTON', what:'Board button'};
+  const c = CODES[raw];
+  if (!c) return {kind:'unk', label:'?? ' + raw, what:'Unknown code'};
+  const [n, r] = c;
+  if (n === 25) return r === 'D'
+    ? {kind:'hit', label:'DB', cls:'B', score:50, what:'Bull 50'}
+    : {kind:'hit', label:'SB', cls:'B', score:25, what:'Bull 25'};
+  const mult = r === 'T' ? 3 : r === 'D' ? 2 : 1;
+  const label = (r === 'T' ? 'T' : r === 'D' ? 'D' : 'S') + n;
+  const what = r === 'I' ? 'Single ' + n + ', inner' : r === 'O' ? 'Single ' + n + ', outer'
+    : (r === 'T' ? 'Treble ' : 'Double ') + n + ' — ' + n * mult;
+  return {kind:'hit', label, cls:r === 'I' || r === 'O' ? '' : r, n, mult, score:n * mult, what};
+}
+
+// Notifications may in theory split or merge, so buffer and cut on '@'.
+function onBytes(bytes){
+  buf += String.fromCharCode(...bytes);
+  let i;
+  while ((i = buf.indexOf('@')) >= 0){
+    const raw = buf.slice(0, i);
+    buf = buf.slice(i + 1);
+    onCode(raw);
+  }
+  if (buf.length > 16){ logSys('dropped partial "' + buf + '"'); buf = ''; }
+}
+
+function onCode(raw){
+  const now = Date.now();
+  const d = decode(raw);
+  const bytes = Array.from(raw + '@').map(ch => ch.charCodeAt(0)).join('-');
+  const dt = lastAt ? now - lastAt : null;
+  lastAt = now;
+  events.unshift({at:now, dt, raw:raw + '@', bytes, label:d.label, kind:d.kind});
+  if (events.length > 300) events.length = 300;
+  if (d.kind === 'hit'){ C.hits++; C.darts++; }
+  else if (d.kind === 'miss'){ C.miss++; C.darts++; }
+  else if (d.kind === 'btn') C.btn++;
+  else C.unk++;
+  const seg = $('seg');
+  seg.textContent = d.kind === 'unk' ? '??' : d.label;
+  seg.className = 'seg ' + (d.kind === 'miss' ? 'miss' : d.kind === 'btn' ? 'btn' : d.cls || '');
+  $('what').textContent = d.what + (d.kind === 'unk' ? ' ' + raw + '@' : '');
+  if (d.kind === 'hit' && $('echo').checked) echoHit(d);
+  render();
+}
+
+function logSys(msg){
+  events.unshift({at:Date.now(), dt:null, raw:'', bytes:'', label:msg, kind:'sys'});
+  render();
+}
+
+function fmtT(ms){
+  const d = new Date(ms);
+  return d.toTimeString().slice(0, 8);
+}
+function fmtDt(dt){ return dt == null ? '' : dt < 10000 ? (dt / 1000).toFixed(2) + 's' : Math.round(dt / 1000) + 's'; }
+
+function render(){
+  $('cDarts').textContent = C.darts; $('cHits').textContent = C.hits;
+  $('cMiss').textContent = C.miss; $('cBtn').textContent = C.btn; $('cUnk').textContent = C.unk;
+  $('log').innerHTML = events.slice(0, 150).map(e =>
+    '<div class="e' + (e.dt != null && e.dt > 2500 ? ' gap' : '') + '">' +
+    '<span class="t">' + fmtT(e.at) + '</span>' +
+    '<span class="dt">' + fmtDt(e.dt) + '</span>' +
+    '<span class="' + (e.kind === 'unk' ? 'unk' : e.kind === 'sys' ? 'sys' : '') + '">' + esc(e.label) + '</span>' +
+    '<span class="raw">' + esc(e.raw) + '</span></div>').join('');
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function setStatus(text, cls){
+  $('stat').textContent = text;
+  $('dot').className = 'dot' + (cls ? ' ' + cls : '');
+  const on = cls === 'on';
+  $('bDisc').disabled = !on;
+  $('bConn').textContent = on ? 'Connected' : dev ? 'Reconnect' : 'Connect to GranBoard';
+  $('bConn').disabled = on || cls === 'busy';
+}
+
+async function connect(){
+  if (!navigator.bluetooth){ $('nobt').style.display = ''; return; }
+  try {
+    if (!dev){
+      setStatus('Pick the board…', 'busy');
+      dev = await navigator.bluetooth.requestDevice({filters:[{services:[SVC]}]});
+      dev.addEventListener('gattserverdisconnected', () => {
+        notifyCh = writeCh = null;
+        setStatus('Disconnected', 'off');
+        logSys('disconnected');
+        releaseWake();
+      });
+    }
+    setStatus('Connecting…', 'busy');
+    const server = await dev.gatt.connect();
+    const svc = await server.getPrimaryService(SVC);
+    const chars = await svc.getCharacteristics();
+    $('chars').textContent = 'Characteristics: ' + chars.map(c => c.uuid.slice(0, 8) + ' [' +
+      ['read','write','writeWithoutResponse','notify','indicate'].filter(p => c.properties[p]).join(',') + ']').join('  ');
+    notifyCh = chars.find(c => c.properties.notify) || null;
+    writeCh = chars.find(c => c.properties.writeWithoutResponse || c.properties.write) || null;
+    if (!notifyCh) throw new Error('no notify characteristic');
+    notifyCh.addEventListener('characteristicvaluechanged', e =>
+      onBytes(new Uint8Array(e.target.value.buffer, e.target.value.byteOffset, e.target.value.byteLength)));
+    await notifyCh.startNotifications();
+    setStatus('Connected · ' + (dev.name || 'GranBoard'), 'on');
+    logSys('connected to ' + (dev.name || 'board') + (writeCh ? '' : ' (no LED characteristic)'));
+    grabWake();
+  } catch (err){
+    setStatus(dev ? 'Disconnected' : 'Not connected', dev ? 'off' : '');
+    logSys('connect failed: ' + (err && err.message || err));
+  }
+}
+
+function disconnect(){ if (dev && dev.gatt.connected) dev.gatt.disconnect(); }
+
+// GATT operations can't overlap, so every write goes through one queue.
+let wq = Promise.resolve();
+function send(bytes){
+  if (!writeCh){ logSys('LED: not connected'); return; }
+  const data = new Uint8Array(bytes);
+  wq = wq.then(() => writeCh.properties.writeWithoutResponse
+      ? writeCh.writeValueWithoutResponse(data) : writeCh.writeValueWithResponse(data))
+    .then(() => new Promise(r => setTimeout(r, 60)))
+    .catch(err => logSys('LED write failed: ' + (err && err.message || err)));
+}
+// 16-byte effect: [cmd, r,g,b, r2,g2,b2, 0,0,0, pos, 0, dur, 0,0, flag]
+function fx(cmd, rgb, pos, dur, flag, rgb2){
+  const b = new Array(16).fill(0);
+  b[0] = cmd; b[1] = rgb[0]; b[2] = rgb[1]; b[3] = rgb[2];
+  if (rgb2){ b[4] = rgb2[0]; b[5] = rgb2[1]; b[6] = rgb2[2]; }
+  b[10] = pos; b[12] = dur; b[15] = flag;
+  send(b);
+}
+function echoHit(d){
+  if (d.n == null){ fx(0x17, [0,200,255], 0, 0x0A, 1); return; }
+  const col = d.mult === 3 ? [255,200,0] : d.mult === 2 ? [0,255,0] : [255,0,0];
+  fx(d.mult, col, LED_POS[d.n], 0x14, 0);
+}
+
+async function grabWake(){
+  try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+function releaseWake(){ try { wakeLock && wakeLock.release(); } catch (e) {} wakeLock = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && dev && dev.gatt.connected) grabWake();
+});
+
+function copyLog(){
+  const lines = [
+    'GranBoard test log · ' + new Date().toString(),
+    navigator.userAgent,
+    $('chars').textContent,
+    'darts ' + C.darts + ' · hits ' + C.hits + ' · miss ' + C.miss + ' · button ' + C.btn + ' · unknown ' + C.unk,
+    ''
+  ].concat(events.slice().reverse().map(e =>
+    fmtT(e.at) + '  ' + (fmtDt(e.dt) || '-').padStart(7) + '  ' + e.label.padEnd(8) + ' ' + e.raw + (e.bytes ? '  (' + e.bytes + ')' : '')));
+  const text = lines.join('\n');
+  const done = () => logSys('log copied (' + events.length + ' rows)');
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done){
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch (e) { logSys('copy failed'); }
+  ta.remove();
+}
+
+const ACTIONS = {
+  connect, disconnect,
+  reset(){ C = {darts:0, hits:0, miss:0, btn:0, unk:0}; events = []; lastAt = 0;
+    $('seg').textContent = '—'; $('seg').className = 'seg'; $('what').textContent = 'Throw a dart'; render(); },
+  copy: copyLog,
+  ledNum(){ const b = new Array(20).fill(0); b[+$('num').value - 1] = 0x05; send(b); },
+  ledHit(){ fx(0x03, [255,0,0], LED_POS[+$('num').value], 0x14, 0); },
+  ledRing(){ fx(0x14, [0,255,0], 0, 0x14, 1); },
+  ledBlink(){ fx(0x17, [255,255,255], 0, 0x1E, 1); },
+  ledWave(){ fx(0x11, [255,0,0], 0x10, 0x05, 0, [0,0,255]); },
+  ledClear(){ send(new Array(20).fill(0)); },
+  fake(el){ onBytes(Array.from(el.dataset.c).map(ch => ch.charCodeAt(0))); }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]');
+  if (el && !el.disabled && ACTIONS[el.dataset.a]) ACTIONS[el.dataset.a](el);
+});
+
+$('num').innerHTML = Array.from({length:20}, (_, i) => '<option' + (i === 19 ? ' selected' : '') + '>' + (i + 1) + '</option>').join('');
+if (!navigator.bluetooth) $('nobt').style.display = '';
+if (/[?&]mock\b/.test(location.search)) $('mock').classList.add('show');
+render();
+</script>
+</body>
+</html>
