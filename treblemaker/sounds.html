@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hit Sound Board</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e26; --card2:#232834; --line:#2e3442;
+  --text:#eef1f6; --dim:#8b93a3; --accent:#f43f5e; --accent-dark:#be123c;
+  --good:#4ade80; --warn:#fbbf24;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.4}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+.wrap{max-width:1000px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px)}
+h1{margin:0;font-size:22px;font-weight:800}
+.sub{color:var(--dim);font-size:14px;margin-top:2px}
+.bar{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin:12px 0}
+.bar label{font-weight:700;font-size:14px;white-space:nowrap}
+.bar input{flex:1;accent-color:var(--accent)}
+.bar .v{font-weight:800;min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+.card.on{border-color:var(--accent)}
+.hd{display:flex;align-items:baseline;gap:10px}
+.n{font-size:28px;font-weight:900;color:var(--accent);line-height:1}
+.nm{font-weight:800;font-size:18px}
+.ds{color:var(--dim);font-size:13px;margin:4px 0 10px;min-height:2.8em}
+.b3{display:flex;gap:6px}
+.b3 button{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:12px 0;font-weight:800}
+.b3 button:active{transform:scale(.97);background:var(--accent-dark)}
+.b3 small{display:block;font-size:11px;font-weight:600;color:var(--dim)}
+.note{color:var(--dim);font-size:13px;margin-top:14px}
+@media (max-width:760px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:480px){ .grid{grid-template-columns:1fr} .ds{min-height:0} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hit Sound Board</h1>
+  <div class="sub">Tap each one. A single plays once, a double twice, a treble three times. Tell Claude the numbers you like.</div>
+  <div class="bar"><label for="vol">Volume</label><input id="vol" type="range" min="0.2" max="2.5" step="0.1" value="1.2"><span class="v" id="volv">1.2×</span></div>
+  <div class="grid" id="grid"></div>
+  <div class="note">If the very first tap after opening is silent, tap again — some speakers take a moment to wake. After that a near-silent tone keeps them awake.</div>
+</div>
+<script>
+'use strict';
+let AC = null, OUT = null, VOL = null;
+function audio(){
+  if (!AC){
+    const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+    AC = new C();
+    const comp = AC.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 6; comp.ratio.value = 5;
+    comp.attack.value = 0.002; comp.release.value = 0.12;
+    VOL = AC.createGain(); VOL.gain.value = +document.getElementById('vol').value;
+    comp.connect(VOL).connect(AC.destination); OUT = comp;
+    // keep-awake: a 40 Hz tone far too quiet to hear, so the speakers never doze off
+    // between darts and clip the start of the next sound
+    const k = AC.createOscillator(), kg = AC.createGain();
+    k.frequency.value = 40; kg.gain.value = 0.0004;
+    k.connect(kg).connect(AC.destination); k.start();
+  }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+
+/* building blocks */
+function tone(t, f, dur, peak, o = {}){
+  const ac = AC, osc = ac.createOscillator(), g = ac.createGain();
+  osc.type = o.type || 'sine';
+  osc.frequency.setValueAtTime(f, t);
+  if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || dur * .6));
+  const a = o.attack || 0.005;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + a);
+  if (o.hold) g.gain.setValueAtTime(peak, t + a + o.hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g).connect(OUT); osc.start(t); osc.stop(t + dur + 0.02);
+}
+let NOISE = null;
+function noise(t, dur, peak, freq, q){
+  const ac = AC;
+  if (!NOISE){
+    NOISE = ac.createBuffer(1, ac.sampleRate * 0.2, ac.sampleRate);
+    const d = NOISE.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  s.buffer = NOISE; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f).connect(g).connect(OUT); s.start(t); s.stop(t + dur + 0.02);
+}
+const STEP = [1, 1.26, 1.5];          // a major chord going up: root, third, fifth
+
+/* the nine — each plays hit k (0, 1, 2) at time t; gap = time between hits */
+const SOUNDS = [
+  {name:'Chirp', ds:'What the mockups use now: a quick upward glide with a soft tone underneath.', gap:.12,
+   hit:(t, k) => { const f = 1100 + k * 200; tone(t, f, .11, .8, {to:f * 1.4, glide:.06}); tone(t, f / 2, .11, .45, {type:'triangle', to:f * .7, glide:.06}); }},
+  {name:'Soft blip', ds:'Plain round beeps, gentle, rising a little each time.', gap:.13,
+   hit:(t, k) => tone(t, 880 * STEP[k], .1, .7)},
+  {name:'Wood tick', ds:'A short knock, like a drumstick on wood. Same sound each time.', gap:.11,
+   hit:(t) => { noise(t, .03, .9, 2600, 3); tone(t, 190, .05, .6, {to:120}); }},
+  {name:'Marimba', ds:'Mellow wooden notes, rising like a little tune.', gap:.14,
+   hit:(t, k) => { const f = 523 * STEP[k]; tone(t, f, .28, .7, {attack:.003}); tone(t, f * 4, .08, .18, {attack:.002}); }},
+  {name:'Bell', ds:'A small bright bell with a short ring.', gap:.16,
+   hit:(t, k) => { const f = 1047 * STEP[k]; tone(t, f, .45, .55); tone(t, f * 2.76, .25, .2); tone(t, f * 5.4, .12, .1); }},
+  {name:'Coin', ds:'Arcade coin pickup — two quick steps up.', gap:.18,
+   hit:(t, k) => { const f = 988 * Math.pow(1.12, k); tone(t, f, .06, .22, {type:'square', hold:.03}); tone(t + .06, f * 1.335, .14, .22, {type:'square', hold:.04}); }},
+  {name:'Bloop', ds:'A bubbly upward "bloop".', gap:.13,
+   hit:(t, k) => tone(t, 320 * Math.pow(1.2, k), .1, .8, {to:950 * Math.pow(1.2, k), glide:.08})},
+  {name:'Glass ping', ds:'High, clean and airy, like tapping a glass.', gap:.13,
+   hit:(t, k) => { const f = 2093 * STEP[k] / 1.26; tone(t, f, .22, .45); tone(t, f * 2, .08, .12); }},
+  {name:'Machine beep', ds:'Flat electronic beeps, like a bar dart machine. Same pitch every time.', gap:.1,
+   hit:(t) => tone(t, 2000, .065, .25, {type:'square', hold:.04, attack:.002})}
+];
+
+function play(i, n){
+  const ac = audio(); if (!ac) return;
+  if (ac.state !== 'running'){ ac.resume().then(() => play(i, n)); return; }
+  const s = SOUNDS[i], t0 = ac.currentTime + 0.03;
+  for (let k = 0; k < n; k++) s.hit(t0 + k * s.gap, k);
+  document.querySelectorAll('.card').forEach((c, j) => c.classList.toggle('on', j === i));
+}
+
+document.getElementById('grid').innerHTML = SOUNDS.map((s, i) =>
+  '<div class="card"><div class="hd"><span class="n">' + (i + 1) + '</span><span class="nm">' + s.name + '</span></div>' +
+  '<div class="ds">' + s.ds + '</div><div class="b3">' +
+  [['Single',1],['Double',2],['Treble',3]].map(([l, n]) => '<button data-i="' + i + '" data-n="' + n + '">' + n + '<small>' + l + '</small></button>').join('') +
+  '</div></div>').join('');
+document.addEventListener('pointerdown', () => audio(), {passive:true});
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-i]'); if (b) play(+b.dataset.i, +b.dataset.n);
+});
+const vol = document.getElementById('vol');
+vol.addEventListener('input', () => {
+  document.getElementById('volv').textContent = (+vol.value).toFixed(1) + '×';
+  if (VOL) VOL.gain.value = +vol.value;
+});
+</script>
+</body>
+</html>
