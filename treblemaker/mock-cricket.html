@@ -288,7 +288,7 @@ function marksJingle(n){
   const sc = [76,80,83,88,92,95,100], c = Math.max(3, Math.min(7, n - 1)), out = [];
   if (n >= 9){
     for (let i = 0; i < c - 1; i++) out.push([i * .065, sc[i], .08]);
-    const t = (c - 1) * .065;                       // the climbs take the top note's place
+    const t = (c - 1) * .065 + .12;                 // a short breath after the run before the climbs (Matt)
     for (const [dt, m, dur, pk, w] of climbs(5)) out.push([t + dt, m, dur, pk, w]);
     return out;
   }
