@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partner 501 Mockup</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e26; --card2:#232834; --line:#2e3442;
+  --text:#eef1f6; --dim:#8b93a3; --accent:#f43f5e; --accent-dark:#be123c;
+  --good:#4ade80; --warn:#fbbf24; --danger:#f87171; --away:#38bdf8; --away-dark:#0369a1;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.35;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+.wrap{max-width:1100px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 14px)}
+
+/* top line */
+.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.top .t{flex:1;min-width:0}
+.top b{font-size:18px;font-weight:800}
+.top .s{font-size:13px;color:var(--dim)}
+.undo{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:700}
+.undo:disabled{opacity:.35}
+
+/* the board of four */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl{position:relative;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px 12px 18px;overflow:hidden;min-width:0}
+.pl::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent-dark)}
+.pl.away::before{background:var(--away-dark)}
+.pl.on{border-color:var(--accent);background:#21161b}
+.pl.done{opacity:.55}
+.ph{display:flex;align-items:baseline;gap:8px;min-width:0}
+.nm{font-weight:800;font-size:clamp(15px,2.2vw,20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl.on .nm::before{content:"▶ ";color:var(--accent)}
+.lvl{font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.badge{margin-left:auto;font-size:11px;font-weight:800;letter-spacing:.6px;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.badge.frz{background:#3b2a0c;color:var(--warn);border:1px solid #6b4e16}
+.badge.out{background:#123321;color:var(--good);border:1px solid #1f6b3f}
+.sc{font-size:clamp(46px,min(11vw,12vh),150px);font-weight:900;line-height:1;letter-spacing:-2px;margin:6px 0 8px;font-variant-numeric:tabular-nums}
+.sc.bust{color:var(--danger)}
+.slots{display:flex;gap:6px;align-items:center}
+.slot{flex:1;min-width:0;height:clamp(34px,min(6vw,7.5vh),64px);border-radius:10px;background:var(--card2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(14px,min(2.6vw,3.4vh),28px);font-variant-numeric:tabular-nums}
+button.slot{cursor:pointer}
+.slot.e{color:var(--line)}
+.slot.T{color:#1a1200;background:var(--warn);border-color:var(--warn)}
+.slot.D{color:#04210f;background:var(--good);border-color:var(--good)}
+.slot.B{color:#fff;background:var(--accent-dark);border-color:var(--accent)}
+.slot.M{color:var(--dim)}
+.tt{min-width:3.2em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(14px,2.4vw,19px);font-variant-numeric:tabular-nums}
+.st{font-size:13px;color:var(--dim);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st b{color:var(--text)}
+
+/* one-line status between board and controls */
+.msg{margin:10px 0 0;border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
+.msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
+.msg.loss{border-color:#7f1d1d;background:#2a1215;color:#fecaca}
+.msg .row{display:flex;gap:10px;align-items:center}
+.msg .row span{flex:1}
+.btn{border:none;border-radius:12px;padding:10px 16px;font-weight:800;background:var(--accent-dark);color:#fff}
+
+/* fake board */
+.fake{margin-top:10px;background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:10px 12px 12px}
+.fake .lbl{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px}
+.keys{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.keys button{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:11px 0;font-weight:800;font-size:16px}
+.keys button:active,.bb:active,.pad button:active{transform:scale(.97)}
+.bb{display:block;width:100%;margin-top:8px;border:none;border-radius:12px;padding:15px;font-size:18px;font-weight:800;background:#1e3a5f;color:#dbeafe}
+
+/* correction sheet */
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:560px;background:var(--card);border:1px solid var(--line);border-radius:20px 20px 0 0;
+  padding:16px 14px calc(env(safe-area-inset-bottom) + 16px)}
+.sheet h3{margin:0 0 2px;font-size:18px}
+.sheet .hint{font-size:13px;color:var(--dim);margin-bottom:10px}
+.rings{display:flex;gap:6px;margin-bottom:8px}
+.rings button{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:9px 0;font-weight:800}
+.rings button.on{background:var(--accent-dark);border-color:var(--accent);color:#fff}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pad button{border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:12px 0;font-weight:800;font-size:17px}
+.pad .wide{grid-column:span 5;padding:11px 0}
+.sheet .alt{display:flex;gap:6px;margin-top:8px}
+.sheet .alt button{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:11px 0;font-weight:700;color:var(--dim)}
+
+@media (max-width:520px){
+  .wrap{padding-left:10px;padding-right:10px}
+  .grid{gap:8px}
+  .pl{padding:10px 10px 10px 14px;border-radius:14px}
+  .pl::before{width:5px}
+  .sc{letter-spacing:-1px}
+  .lvl{display:none}
+  .slots{gap:4px}
+  .tt{min-width:2.4em}
+  .st{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="t"><b>Partner 501</b><div class="s" id="sub"></div></div>
+    <button class="undo" id="undo" data-a="undo">↶ Undo</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div id="msg"></div>
+  <div class="fake">
+    <div class="lbl">Fake board · mockup only — the real one is the GranBoard</div>
+    <div class="keys">
+      <button data-a="throw" data-v="T20">T20</button>
+      <button data-a="throw" data-v="S20">20</button>
+      <button data-a="throw" data-v="S1">1</button>
+      <button data-a="throw" data-v="S5">5</button>
+      <button data-a="throw" data-v="T19">T19</button>
+      <button data-a="throw" data-v="S19">19</button>
+      <button data-a="throw" data-v="D20">D20</button>
+      <button data-a="throw" data-v="BULL">Bull</button>
+      <button data-a="throw" data-v="MISS">Miss</button>
+      <button data-a="other">Other…</button>
+    </div>
+    <button class="bb" data-a="board">⏎ Board button — end turn</button>
+  </div>
+</div>
+<div id="modalwrap"></div>
+<script>
+'use strict';
+/* Mockup of the partner 501 screen. Open out, every bull 50, NDA freeze:
+   you may only go out if your partner's score is <= the opponents' combined.
+   Turn order Matt, Opp 1, Partner, Opp 2. Ghost turns land instantly. */
+const $ = s => document.querySelector(s);
+const ORDER = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];   // clockwise from the top
+
+function val(seg){
+  if (seg === 'MISS') return 0;
+  if (seg === 'BULL') return 50;
+  const n = +seg.slice(1);
+  return seg[0] === 'T' ? n * 3 : seg[0] === 'D' ? n * 2 : n;
+}
+function label(seg){ return seg === 'MISS' ? '—' : seg === 'BULL' ? 'BULL' : seg[0] === 'S' ? seg.slice(1) : seg; }
+function cls(seg){ return seg === 'MISS' ? 'M' : seg === 'BULL' ? 'B' : seg[0] === 'S' ? '' : seg[0]; }
+
+let G, snaps = [];
+function newGame(){
+  G = {
+    game: G ? G.game % 7 + 1 : 1, round: 1, over: null, done: false,
+    p: [
+      {name:'Matt', team:0, lvl:'', score:501, start:501, turn:[], last:[], bust:false, darts:0, out:false},
+      {name:'Dutch', team:1, lvl:'29 PPD', ppd:29, score:501, last:[], darts:0, out:false},
+      {name:'Partner', team:0, lvl:'Me', ppd:24, score:501, last:[], darts:0, out:false},
+      {name:'Rocco', team:1, lvl:'24 PPD', ppd:24, score:501, last:[], darts:0, out:false}
+    ],
+    lock80: null
+  };
+  snaps = [];
+  render();
+}
+const me = () => G.p[0];
+const partnerOf = i => G.p.find((q, j) => j !== i && q.team === G.p[i].team);
+const oppsOf = i => G.p.filter(q => q.team !== G.p[i].team);
+function frozen(i){
+  const pa = partnerOf(i);
+  return pa.score > oppsOf(i).reduce((s, q) => s + q.score, 0);
+}
+
+/* ---------- Matt's turn ---------- */
+function evalTurn(){
+  const m = me();
+  let s = m.start; m.bust = false; m.out = false;
+  for (const seg of m.turn){
+    s -= val(seg);
+    if (s < 0){ m.bust = true; break; }
+    if (s === 0){ m.out = true; break; }
+  }
+  m.score = m.bust ? m.start : s;
+}
+function throwDart(seg){
+  const m = me();
+  if (G.done || m.turn.length >= 3 || m.bust || m.out) return;
+  m.turn.push(seg);
+  evalTurn();
+  if (m.out) finishMe();
+  render();
+}
+function finishMe(){
+  const m = me();
+  m.darts += m.turn.length; m.last = m.turn.slice(); m.turn = []; m.start = 0;
+  if (G.over){ G.done = true; return; }          // finishing the leg after the game was decided
+  if (frozen(0)) G.over = {team:1, why:'You went out frozen — Partner on ' + partnerOf(0).score +
+      ', opponents combined ' + oppsOf(0).reduce((s, q) => s + q.score, 0) + '. Game to Dutch & Rocco.'};
+  else G.over = {team:0, why:'Game shot — you went out. You & Partner win.'};
+  G.done = true;
+}
+function boardButton(){
+  const m = me();
+  if (G.done) return;
+  snaps.push(JSON.stringify(G)); if (snaps.length > 20) snaps.shift();
+  // a turn is always 3 darts: anything that never registered counts as a 0
+  while (m.turn.length < 3 && !m.bust) m.turn.push('MISS');
+  m.darts += m.turn.length; m.last = m.turn.slice(); m.turn = []; m.start = m.score; m.bust = false;
+  if (!G.lock80 && m.score <= 100) G.lock80 = {pts:501 - m.score, darts:m.darts};
+  if (!G.over){
+    for (const i of [1, 2, 3]){ ghostTurn(i); if (G.over) break; }
+    G.round++;
+  }
+  render();
+}
+
+/* ---------- ghosts: a dart lands near where it was aimed ---------- */
+const rnd = () => Math.random();
+function neighbour(n){ const k = ORDER.indexOf(n); return ORDER[(k + (rnd() < .5 ? 19 : 1)) % 20]; }
+function land(aim, ppd){
+  const pT = Math.max(.08, Math.min(.6, (ppd - 16.6) / 40));
+  if (aim === 'BULL') return rnd() < .3 + pT / 2 ? 'BULL' : 'S' + ORDER[Math.floor(rnd() * 20)];
+  const r = aim[0], n = +aim.slice(1), x = rnd();
+  if (r === 'T') return x < pT ? aim : x < .8 ? 'S' + n : 'S' + neighbour(n);
+  if (r === 'D') return x < pT + .05 ? aim : x < .6 ? 'S' + n : x < .85 ? 'MISS' : 'S' + neighbour(n);
+  return x < .78 ? aim : 'S' + neighbour(n);
+}
+function aimFor(rem){
+  if (rem > 60) return 'T20';
+  if (rem === 50) return 'BULL';
+  if (rem <= 20) return 'S' + rem;
+  if (rem % 3 === 0) return 'T' + rem / 3;
+  if (rem % 2 === 0 && rem <= 40) return 'D' + rem / 2;
+  return rem - 20 <= 20 ? 'S20' : 'T' + Math.min(20, Math.floor((rem - 2) / 3));
+}
+function ghostTurn(i){
+  const g = G.p[i], start = g.score, turn = [];
+  let s = start;
+  for (let d = 0; d < 3; d++){
+    let seg = land(aimFor(s), g.ppd);
+    if (s - val(seg) === 0 && frozen(i)) seg = 'MISS';          // a frozen ghost holds rather than lose the game
+    turn.push(seg);
+    s -= val(seg);
+    if (s < 0){ s = start; turn.push('BUST'); break; }
+    if (s === 0) break;
+  }
+  g.last = turn.filter(x => x !== 'BUST'); g.bust = turn.includes('BUST');
+  g.darts += g.last.length; g.score = s;
+  if (s === 0){
+    g.out = true;
+    const mine = g.team === 0;
+    G.over = {team:g.team, why:(mine ? 'Partner went out — you win the game.' : g.name + ' went out — Dutch & Rocco win.') +
+      ' Finish your leg.'};
+  }
+}
+
+/* ---------- correcting one of his darts ---------- */
+let fix = null;   // {i, ring}
+function openFix(i){
+  fix = {i, ring: 'S'};
+  const seg = me().turn[i];
+  if (seg && /^[SDT]/.test(seg)) fix.ring = seg[0];
+  renderFix();
+}
+function renderFix(){
+  if (!fix){ $('#modalwrap').innerHTML = ''; return; }
+  const seg = me().turn[fix.i];
+  const nums = Array.from({length:20}, (_, k) => k + 1);
+  $('#modalwrap').innerHTML = '<div class="modal" data-a="closefix"><div class="sheet">' +
+    '<h3>Dart ' + (fix.i + 1) + ' — board said ' + label(seg) + '</h3>' +
+    '<div class="hint">Tap what you actually hit. Your other darts stay as they are.</div>' +
+    '<div class="rings">' + [['S','Single'],['D','Double'],['T','Treble']].map(r =>
+      '<button class="' + (fix.ring === r[0] ? 'on' : '') + '" data-a="ring" data-v="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
+    '<div class="pad">' + nums.map(n => '<button data-a="setseg" data-v="' + fix.ring + n + '">' + n + '</button>').join('') +
+    '<button class="wide" data-a="setseg" data-v="BULL">Bull (50)</button></div>' +
+    '<div class="alt"><button data-a="setseg" data-v="MISS">Bounce-out (0)</button>' +
+    '<button data-a="rmdart">Remove dart</button></div></div></div>';
+}
+
+/* ---------- other… (fake board only) ---------- */
+let other = null;
+function renderOther(){
+  if (!other){ return; }
+  const nums = Array.from({length:20}, (_, k) => k + 1);
+  $('#modalwrap').innerHTML = '<div class="modal" data-a="closefix"><div class="sheet">' +
+    '<h3>Throw a dart</h3><div class="hint">Fake board — pretend the GranBoard registered this.</div>' +
+    '<div class="rings">' + [['S','Single'],['D','Double'],['T','Treble']].map(r =>
+      '<button class="' + (other.ring === r[0] ? 'on' : '') + '" data-a="oring" data-v="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
+    '<div class="pad">' + nums.map(n => '<button data-a="othrow" data-v="' + other.ring + n + '">' + n + '</button>').join('') +
+    '<button class="wide" data-a="othrow" data-v="BULL">Bull (50)</button></div></div></div>';
+}
+
+/* ---------- render ---------- */
+function slotsHTML(segs, mine){
+  let h = '';
+  for (let k = 0; k < 3; k++){
+    const seg = segs[k];
+    if (!seg){ h += '<div class="slot e">·</div>'; continue; }
+    h += mine ? '<button class="slot ' + cls(seg) + '" data-a="fix" data-v="' + k + '">' + label(seg) + '</button>'
+              : '<div class="slot ' + cls(seg) + '">' + label(seg) + '</div>';
+  }
+  return h;
+}
+function render(){
+  const m = me();
+  $('#sub').textContent = 'League night · game ' + G.game + ' of 7 · round ' + G.round;
+  $('#undo').disabled = !snaps.length;
+  const order = [0, 2, 1, 3];    // home pair on top, away pair below
+  $('#grid').innerHTML = order.map(i => {
+    const p = G.p[i], mine = i === 0, live = mine && m.turn.length > 0;
+    const segs = mine ? (m.turn.length ? m.turn : m.last) : p.last;
+    const tot = segs.reduce((s, x) => s + val(x), 0);
+    const on = mine && !G.done;
+    const showBust = mine && m.bust;
+    const frz = !p.out && p.score <= 180 && p.score > 0 && frozen(i);
+    let st = '';
+    if (mine){
+      const ppd = m.darts ? ((501 - (m.turn.length ? m.start : m.score)) / m.darts) : 0;
+      st = '<div class="st">PPD <b>' + (m.darts ? ppd.toFixed(1) : '–') + '</b> · 80% <b>' +
+        (G.lock80 ? (G.lock80.pts / G.lock80.darts).toFixed(1) + ' 🔒' : '–') + '</b> · ' + m.darts + ' darts</div>';
+    } else st = '<div class="st">' + (p.darts ? 'PPD <b>' + ((501 - p.score) / p.darts).toFixed(1) + '</b>' : 'waiting') + '</div>';
+    return '<div class="pl' + (p.team ? ' away' : '') + (on ? ' on' : '') + (p.out && !mine ? ' done' : '') + '">' +
+      '<div class="ph"><span class="nm">' + p.name + '</span>' + (p.lvl ? '<span class="lvl">' + p.lvl + '</span>' : '') +
+        (p.out ? '<span class="badge out">OUT</span>' : !mine && p.bust ? '<span class="badge frz">BUST</span>' : frz ? '<span class="badge frz">FROZEN</span>' : '') + '</div>' +
+      '<div class="sc' + (showBust ? ' bust' : '') + '">' + (showBust ? 'BUST' : p.score) + '</div>' +
+      '<div class="slots">' + slotsHTML(segs, mine && m.turn.length > 0 && !G.done) +
+        '<span class="tt">' + (segs.length ? tot : '') + '</span></div>' + st + '</div>';
+  }).join('');
+
+  let msg = '';
+  if (G.done){
+    const won = G.over && G.over.team === 0;
+    const ppd = (501 / m.darts).toFixed(1);
+    msg = '<div class="msg ' + (won ? 'win' : 'loss') + '"><div class="row"><span>' +
+      (G.over ? G.over.why.replace(' Finish your leg.', '') : '') + ' · your leg: ' + m.darts + ' darts, ' + ppd + ' PPD</span>' +
+      '<button class="btn" data-a="next">Next game ›</button></div></div>';
+  } else if (G.over){
+    msg = '<div class="msg ' + (G.over.team === 0 ? 'win' : 'loss') + '">' + G.over.why + '</div>';
+  } else if (m.bust){
+    msg = '<div class="msg">Bust — pull your darts and hit the board button.</div>';
+  } else if (m.turn.length === 3){
+    msg = '<div class="msg">Pull your darts · board button for the next turn.</div>';
+  } else if (frozen(0) && m.score <= 180){
+    msg = '<div class="msg" style="border-color:#6b4e16;color:var(--warn)">Frozen — going out now loses the game. Partner ' +
+      partnerOf(0).score + ' &gt; opponents ' + oppsOf(0).reduce((s, q) => s + q.score, 0) + '.</div>';
+  }
+  $('#msg').innerHTML = msg;
+}
+
+/* ---------- clicks ---------- */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]');
+  if (!el) return;
+  const a = el.dataset.a, v = el.dataset.v;
+  if (a === 'closefix' && e.target !== el) return;       // only the backdrop closes the sheet
+  switch (a){
+    case 'throw': throwDart(v); break;
+    case 'board': boardButton(); break;
+    case 'undo': if (snaps.length){ G = JSON.parse(snaps.pop()); render(); } break;
+    case 'next': newGame(); break;
+    case 'fix': if (me().turn[+v]) openFix(+v); break;
+    case 'ring': fix.ring = v; renderFix(); break;
+    case 'setseg': me().turn[fix.i] = v; fix = null; evalTurn(); if (me().out) finishMe(); renderFix(); render(); break;
+    case 'rmdart': me().turn.splice(fix.i, 1); fix = null; evalTurn(); renderFix(); render(); break;
+    case 'closefix': fix = null; other = null; $('#modalwrap').innerHTML = ''; break;
+    case 'other': other = {ring:'T'}; renderOther(); break;
+    case 'oring': other.ring = v; renderOther(); break;
+    case 'othrow': other = null; $('#modalwrap').innerHTML = ''; throwDart(v); break;
+  }
+});
+newGame();
+</script>
+</body>
+</html>
