@@ -286,8 +286,12 @@ function n8(t, m, dur, peak, wave){
   o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
 }
 const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
-// hat trick (Matt: "perfect"): the high-ton climb three times, each a step higher — both games
-JINGLES.hat = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)];
+// Final 501 jingles (Matt, sound board round 2 set A "Level-up"). Hat trick ("perfect") is
+// shared with Cricket and ends the 9-mark jingle.
+JINGLES.low   = [...climb(0, 72), [.2, 84, .28, .24, 'p']];
+JINGLES.high  = [...climb(0, 72), ...climb(.22, 74), [.44, 86, .32, .24, 'p']];
+JINGLES.hat   = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)];
+JINGLES.ton80 = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76), ...climb(.66, 79)];
 const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
 const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
 function award501(c){

@@ -218,9 +218,8 @@ const SET8 = [
   {name:'Level-up', ds:'Arpeggio climbs. Bigger award, more climbs, each starting higher.', j:{
     low:   [...climb(0, 72), [.2, 84, .28, .24, 'p']],
     high:  [...climb(0, 72), ...climb(.22, 74), [.44, 86, .32, .24, 'p']],
-    ton80: [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76),
-            [.66, 88, .5, .24, 'p'], [.66, 84, .5, .14, 's'], [.66, 79, .5, .12, 's'],
-            [.9, 100, .07, .12, 'p'], [.97, 103, .07, .12, 'p'], [1.04, 107, .22, .12, 'p']],
+    // Matt: the chord + sparkle ending was horrible — four climbs (one more than the hat trick), ending on the climb
+    ton80: [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76), ...climb(.66, 79)],
     // Matt: the high-ton climb, three times instead of two, each a step higher
     hat:   [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)]     // no held note at the end (Matt)
   }},
@@ -233,7 +232,8 @@ const SET8 = [
     hat:   [[0, 84, .07, .15, 's'], [.11, 84, .07, .15, 's'], [.22, 84, .07, .15, 's'], [.36, 79, .08, .15, 's'], [.45, 84, .3, .17, 's']]
   }}
 ];
-JINGLES.hat = SET8[0].j.hat;     // the final hat trick, used by both games and by 9 marks
+// the final 501 picks, all from set A (Level-up); hat trick is also Cricket's and the end of 9 marks
+for (const k of ['low', 'high', 'ton80', 'hat']) JINGLES[k] = SET8[0].j[k];
 function play8(si, k){
   const ac = audio(); if (!ac) return;
   if (ac.state !== 'running'){ ac.resume().then(() => play8(si, k)); return; }
