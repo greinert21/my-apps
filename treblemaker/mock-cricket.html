@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partner Cricket Mockup</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e26; --card2:#232834; --line:#2e3442;
+  --text:#eef1f6; --dim:#8b93a3; --accent:#f43f5e; --accent-dark:#be123c;
+  --good:#4ade80; --warn:#fbbf24; --danger:#f87171; --away:#38bdf8; --away-dark:#0369a1;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.35;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1180px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 14px)}
+
+.top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.top .t{flex:1;min-width:0}
+.top b{font-size:18px;font-weight:800}
+.top .s{font-size:13px;color:var(--dim)}
+.seg2{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg2 a{padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim)}
+.seg2 a.on{background:var(--card2);color:var(--text)}
+.undo{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:700}
+.undo:disabled{opacity:.35}
+
+.cg{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:10px;align-items:start}
+
+/* the marks board */
+.board{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:10px 10px 6px;overflow:hidden}
+.bh{display:grid;grid-template-columns:1fr 64px 1fr;align-items:end;margin-bottom:4px}
+.bh .tm{text-align:center;min-width:0}
+.bh .tn{font-size:13px;font-weight:700;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh .pts{font-size:clamp(34px,min(7vw,8vh),72px);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums}
+.bh .home .pts{color:#fecdd3} .bh .away .pts{color:#bae6fd}
+.bh .tm.lead .tn::after{content:" · leads";color:var(--good)}
+.row{display:grid;grid-template-columns:1fr 64px 1fr;align-items:center;height:clamp(36px,7.4vh,66px);border-top:1px solid var(--line)}
+.row .num{text-align:center;font-weight:900;font-size:clamp(20px,min(4vw,5vh),38px);font-variant-numeric:tabular-nums}
+.row .mk{display:flex;justify-content:center;align-items:center;height:100%}
+.row .mk svg{display:block;height:clamp(24px,5.4vh,48px);width:clamp(24px,5.4vh,48px)}
+.row.home3 .mk.h{background:rgba(190,18,60,.16)} .row.away3 .mk.a{background:rgba(3,105,161,.18)}
+.row.dead{opacity:.32}
+.row.dead .num{text-decoration:line-through}
+.row.tgt .num{color:var(--warn)}
+
+/* players */
+.pls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pl{position:relative;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:10px 12px 10px 16px;overflow:hidden;min-width:0}
+.pl::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--accent-dark)}
+.pl.away::before{background:var(--away-dark)}
+.pl.on{border-color:var(--accent);background:#21161b}
+.ph{display:flex;align-items:baseline;gap:8px;min-width:0;margin-bottom:8px}
+.nm{font-weight:800;font-size:clamp(15px,2vw,19px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl.on .nm::before{content:"▶ ";color:var(--accent)}
+.lvl{font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.slots{display:flex;gap:5px;align-items:center}
+.slot{flex:1;min-width:0;height:clamp(34px,min(5.5vw,7vh),56px);border-radius:10px;background:var(--card2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(14px,min(2.4vw,3vh),24px)}
+.slot.e{color:var(--line)}
+.slot.T{color:#1a1200;background:var(--warn);border-color:var(--warn)}
+.slot.D{color:#04210f;background:var(--good);border-color:var(--good)}
+.slot.B{color:#fff;background:var(--accent-dark);border-color:var(--accent)}
+.slot.M{color:var(--dim)}
+.tt{min-width:2.6em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(14px,2.2vw,18px)}
+.st{font-size:13px;color:var(--dim);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st b{color:var(--text)}
+
+.ms{display:flex;gap:6px;margin-top:8px}
+.ms div{flex:1;min-width:0;background:var(--card2);border-radius:10px;padding:5px 8px;text-align:center}
+.ms span{display:block;font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim);text-transform:uppercase}
+.ms b{display:block;font-size:clamp(18px,min(3vw,3.8vh),30px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15}
+.ms .lk b::after{content:" 🔒";font-size:.6em}
+.msg{margin:10px 0 0;border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
+.msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
+.msg.loss{border-color:#7f1d1d;background:#2a1215;color:#fecaca}
+.msg .r{display:flex;gap:10px;align-items:center}
+.msg .r span{flex:1}
+.btn{border:none;border-radius:12px;padding:10px 16px;font-weight:800;background:var(--accent-dark);color:#fff}
+
+.fake{margin-top:10px;background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:10px 12px 12px}
+.fake .lbl{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px}
+.keys{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.keys button{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 0;font-weight:800;font-size:15px}
+.keys button:active,.bb:active,.pad button:active{transform:scale(.97)}
+.bb{display:block;width:100%;margin-top:8px;border:none;border-radius:12px;padding:15px;font-size:18px;font-weight:800;background:#1e3a5f;color:#dbeafe}
+
+.modal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:560px;background:var(--card);border:1px solid var(--line);border-radius:20px 20px 0 0;
+  padding:16px 14px calc(env(safe-area-inset-bottom) + 16px)}
+.sheet h3{margin:0 0 2px;font-size:18px}
+.sheet .hint{font-size:13px;color:var(--dim);margin-bottom:10px}
+.rings{display:flex;gap:6px;margin-bottom:8px}
+.rings button{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:9px 0;font-weight:800}
+.rings button.on{background:var(--accent-dark);border-color:var(--accent);color:#fff}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.pad button{border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:12px 0;font-weight:800;font-size:17px}
+.pad .half{grid-column:span 5}
+.sheet .alt{display:flex;gap:6px;margin-top:8px}
+.sheet .alt button{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:11px 0;font-weight:700;color:var(--dim)}
+
+@media (max-width:760px){
+  .ms{gap:4px} .ms div{padding:5px 2px} .ms span{letter-spacing:0}
+  .row .mk svg{height:clamp(22px,3.8vh,34px);width:clamp(22px,3.8vh,34px)}
+  .cg{grid-template-columns:1fr}
+  .wrap{padding-left:10px;padding-right:10px}
+  .row{height:clamp(32px,5.2vh,46px)}
+  .lvl{display:none}
+  .keys{grid-template-columns:repeat(6,1fr);gap:5px}
+  .keys button{font-size:14px;padding:9px 0}
+  .st{font-size:12px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="t"><b>Partner Cricket</b><div class="s" id="sub"></div></div>
+    <div class="seg2"><a href="mock-501.html">501</a><a class="on" href="mock-cricket.html">Cricket</a></div>
+    <button class="undo" id="undo" data-a="undo">↶ Undo</button>
+  </div>
+  <div class="cg">
+    <div class="board" id="board"></div>
+    <div class="pls" id="pls"></div>
+  </div>
+  <div id="msg"></div>
+  <div class="fake">
+    <div class="lbl">Fake board · mockup only — the real one is the GranBoard</div>
+    <div class="keys">
+      <button data-a="throw" data-v="T20">T20</button><button data-a="throw" data-v="T19">T19</button>
+      <button data-a="throw" data-v="T18">T18</button><button data-a="throw" data-v="T17">T17</button>
+      <button data-a="throw" data-v="T16">T16</button><button data-a="throw" data-v="T15">T15</button>
+      <button data-a="throw" data-v="S20">20</button><button data-a="throw" data-v="S19">19</button>
+      <button data-a="throw" data-v="S18">18</button><button data-a="throw" data-v="S17">17</button>
+      <button data-a="throw" data-v="S16">16</button><button data-a="throw" data-v="S15">15</button>
+      <button data-a="throw" data-v="SB">SB</button><button data-a="throw" data-v="DB">DB</button>
+      <button data-a="throw" data-v="S1">1</button><button data-a="throw" data-v="S5">5</button>
+      <button data-a="throw" data-v="MISS">Miss</button><button data-a="other">Other…</button>
+    </div>
+    <button class="bb" data-a="board">⏎ Board button — end turn</button>
+  </div>
+</div>
+<div id="modalwrap"></div>
+<script>
+'use strict';
+/* Mockup of partner Cricket (NDA): partners share one set of marks and points.
+   15–20 and bull; outer bull 1 mark, inner 2. Only live marks count toward MPR.
+   A team wins when it has closed everything and has >= the other team's points.
+   Turn order Matt, Opp 1, Partner, Opp 2. Ghost turns land instantly. */
+const $ = s => document.querySelector(s);
+const TG = [20,19,18,17,16,15,25];
+const ORDER = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+
+function parse(seg){                 // -> {idx, n, m} or null for no mark
+  if (seg === 'SB') return {idx:6, n:25, m:1};
+  if (seg === 'DB') return {idx:6, n:25, m:2};
+  if (seg === 'MISS') return null;
+  const n = +seg.slice(1), idx = TG.indexOf(n);
+  if (idx < 0) return null;
+  return {idx, n, m: seg[0] === 'T' ? 3 : seg[0] === 'D' ? 2 : 1};
+}
+function label(seg){ return seg === 'MISS' ? '—' : seg === 'SB' || seg === 'DB' ? seg : seg[0] === 'S' ? seg.slice(1) : seg; }
+function cls(seg){
+  if (seg === 'MISS') return 'M';
+  if (seg === 'SB' || seg === 'DB') return 'B';
+  if (!parse(seg)) return 'M';
+  return seg[0] === 'S' ? '' : seg[0];
+}
+
+let G, snaps = [];
+function newGame(){
+  G = {
+    game: G ? G.game % 3 + 4 : 4, round: 1, over: null, done: false,
+    marks: [[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]], pts: [0,0],
+    p: [
+      {name:'Matt', team:0, lvl:'', turn:[], last:[], live:0, rounds:0, turnLive:0},
+      {name:'Dutch', team:1, lvl:'2.9 MPR', mpr:2.9, last:[], live:0, rounds:0, turnLive:0},
+      {name:'Partner', team:0, lvl:'Me', mpr:2.4, last:[], live:0, rounds:0, turnLive:0},
+      {name:'Rocco', team:1, lvl:'2.4 MPR', mpr:2.4, last:[], live:0, rounds:0, turnLive:0}
+    ],
+    base: null, lock80: null
+  };
+  G.base = JSON.stringify({marks:G.marks, pts:G.pts});
+  snaps = [];
+  render();
+}
+const me = () => G.p[0];
+const closedAll = t => G.marks[t].every(x => x >= 3);
+const closedCount = t => G.marks[t].filter(x => x >= 3).length;
+
+/* one dart for a team: returns the live marks it made */
+function apply(t, seg){
+  const d = parse(seg); if (!d) return 0;
+  const o = 1 - t; let live = 0;
+  for (let k = 0; k < d.m; k++){
+    if (G.marks[t][d.idx] < 3){ G.marks[t][d.idx]++; live++; }
+    else if (G.marks[o][d.idx] < 3){ G.pts[t] += d.n; live++; }
+  }
+  return live;
+}
+function won(t){ return closedAll(t) && G.pts[t] >= G.pts[1 - t]; }
+
+/* ---------- Matt's turn: replayed from the turn's start so any dart can be fixed ---------- */
+function evalTurn(){
+  const m = me(), b = JSON.parse(G.base);
+  G.marks = b.marks; G.pts = b.pts; m.turnLive = 0; m.wonOnDart = false;
+  for (const seg of m.turn){
+    m.turnLive += apply(0, seg);
+    if (!G.over && won(0)){ m.wonOnDart = true; break; }
+    if (G.over && closedAll(0)){ m.wonOnDart = true; break; }
+  }
+}
+function throwDart(seg){
+  const m = me();
+  if (G.done || m.turn.length >= 3 || m.wonOnDart) return;
+  m.turn.push(seg);
+  evalTurn();
+  if (m.wonOnDart) endMine(true);
+  render();
+}
+function endMine(finished){
+  const m = me();
+  if (!finished) while (m.turn.length < 3) m.turn.push('MISS');
+  m.live += m.turnLive; m.rounds++; m.last = m.turn.slice(); m.turn = []; m.turnLive = 0; m.wonOnDart = false;
+  if (!G.lock80 && closedCount(0) >= 6) G.lock80 = {live:m.live, rounds:m.rounds};
+  if (finished){
+    if (!G.over) G.over = {team:0, why:'You closed it out — You & Partner win.'};
+    G.done = true;
+  }
+  G.base = JSON.stringify({marks:G.marks, pts:G.pts});
+}
+function boardButton(){
+  if (G.done) return;
+  snaps.push(JSON.stringify(G)); if (snaps.length > 20) snaps.shift();
+  endMine(false);
+  if (!G.over){
+    for (const i of [1, 2, 3]){ ghostTurn(i); if (G.over) break; }
+    G.round++;
+  }
+  G.base = JSON.stringify({marks:G.marks, pts:G.pts});
+  render();
+}
+
+/* ---------- ghosts: close in order, point when behind ---------- */
+const rnd = () => Math.random();
+function neighbour(n){ const k = ORDER.indexOf(n); return ORDER[(k + (rnd() < .5 ? 19 : 1)) % 20]; }
+function choose(t){
+  const o = 1 - t, mk = G.marks;
+  const pointable = TG.map((n, k) => k).filter(k => mk[t][k] >= 3 && mk[o][k] < 3);
+  if (closedAll(t) || (G.pts[t] < G.pts[o] && pointable.length)) {
+    const k = pointable[0];
+    if (k != null) return k === 6 ? 'DB' : 'T' + TG[k];
+  }
+  const k = mk[t].findIndex(x => x < 3);
+  return k === 6 ? 'DB' : 'T' + TG[k];
+}
+function land(aim, mpr){
+  const pT = Math.max(.05, Math.min(.45, (mpr - 1.65) / 9));
+  const x = rnd();
+  if (aim === 'DB') return x < .1 + pT ? 'DB' : x < .45 ? 'SB' : 'S' + ORDER[Math.floor(rnd() * 20)];
+  const n = +aim.slice(1);
+  return x < pT ? aim : x < pT + .55 ? 'S' + n : x < .93 ? 'S' + neighbour(n) : 'MISS';
+}
+function ghostTurn(i){
+  const g = G.p[i], turn = [];
+  let live = 0;
+  for (let d = 0; d < 3; d++){
+    const seg = land(choose(g.team), g.mpr);
+    turn.push(seg);
+    live += apply(g.team, seg);
+    if (won(g.team)) break;
+  }
+  g.last = turn; g.turnLive = live; g.live += live; g.rounds++;
+  if (won(g.team)){
+    G.over = {team:g.team, why: g.team === 0 ? 'Partner closed it out — you win the game.'
+      : g.name + ' closed it out — Dutch & Rocco win. Close out your board.'};
+    if (g.team === 0) G.done = true;
+  }
+}
+
+/* ---------- marks ---------- */
+function markSVG(n){
+  if (!n) return '';
+  const st = 'stroke="currentColor" stroke-width="7" stroke-linecap="round" fill="none"';
+  let s = '<svg viewBox="0 0 60 60">';
+  s += '<line x1="16" y1="44" x2="44" y2="16" ' + st + '/>';
+  if (n >= 2) s += '<line x1="16" y1="16" x2="44" y2="44" ' + st + '/>';
+  if (n >= 3) s += '<circle cx="30" cy="30" r="25" ' + st.replace('7', '5') + '/>';
+  return s + '</svg>';
+}
+
+/* ---------- correcting one of his darts ---------- */
+let fix = null, other = null;
+function pickSheet(title, hint, ringAct, pickAct, extra, ring){
+  const nums = Array.from({length:20}, (_, k) => k + 1);
+  $('#modalwrap').innerHTML = '<div class="modal" data-a="closesheet"><div class="sheet">' +
+    '<h3>' + title + '</h3><div class="hint">' + hint + '</div>' +
+    '<div class="rings">' + [['S','Single'],['D','Double'],['T','Treble']].map(r =>
+      '<button class="' + (ring === r[0] ? 'on' : '') + '" data-a="' + ringAct + '" data-v="' + r[0] + '">' + r[1] + '</button>').join('') + '</div>' +
+    '<div class="pad">' + nums.map(n => '<button data-a="' + pickAct + '" data-v="' + ring + n + '">' + n + '</button>').join('') +
+    '<button class="half" style="grid-column:span 2" data-a="' + pickAct + '" data-v="SB">Outer bull</button>' +
+    '<button class="half" style="grid-column:span 3" data-a="' + pickAct + '" data-v="DB">Inner bull</button></div>' + extra + '</div></div>';
+}
+function renderFix(){
+  if (!fix){ $('#modalwrap').innerHTML = ''; return; }
+  pickSheet('Dart ' + (fix.i + 1) + ' — board said ' + label(me().turn[fix.i]),
+    'Tap what you actually hit. Your other darts stay as they are.', 'ring', 'setseg',
+    '<div class="alt"><button data-a="setseg" data-v="MISS">Bounce-out (0)</button><button data-a="rmdart">Remove dart</button></div>', fix.ring);
+}
+
+/* ---------- render ---------- */
+function slotsHTML(segs, tappable){
+  let h = '';
+  for (let k = 0; k < 3; k++){
+    const seg = segs[k];
+    if (!seg){ h += '<div class="slot e">·</div>'; continue; }
+    h += tappable ? '<button class="slot ' + cls(seg) + '" data-a="fix" data-v="' + k + '">' + label(seg) + '</button>'
+                  : '<div class="slot ' + cls(seg) + '">' + label(seg) + '</div>';
+  }
+  return h;
+}
+function render(){
+  const m = me();
+  $('#sub').textContent = 'League night · game ' + G.game + ' of 7 · round ' + G.round;
+  $('#undo').disabled = !snaps.length;
+  const lead = G.pts[0] > G.pts[1] ? 0 : G.pts[1] > G.pts[0] ? 1 : -1;
+  const aim = !G.done ? choose(0) : null;     // what the closing-in-order plan says to throw at next
+  const aimIdx = aim ? (aim === 'DB' ? 6 : TG.indexOf(+aim.slice(1))) : -1;
+  let b = '<div class="bh"><div class="tm home' + (lead === 0 ? ' lead' : '') + '"><div class="tn">You &amp; Partner</div><div class="pts">' + G.pts[0] + '</div></div>' +
+    '<div></div><div class="tm away' + (lead === 1 ? ' lead' : '') + '"><div class="tn">Dutch &amp; Rocco</div><div class="pts">' + G.pts[1] + '</div></div></div>';
+  b += TG.map((n, k) => {
+    const h = G.marks[0][k], a = G.marks[1][k];
+    const c = (h >= 3 && a >= 3 ? ' dead' : '') + (h >= 3 ? ' home3' : '') + (a >= 3 ? ' away3' : '') + (k === aimIdx ? ' tgt' : '');
+    return '<div class="row' + c + '"><div class="mk h" style="color:#fda4af">' + markSVG(h) + '</div>' +
+      '<div class="num">' + (n === 25 ? 'B' : n) + '</div><div class="mk a" style="color:#7dd3fc">' + markSVG(a) + '</div></div>';
+  }).join('');
+  $('#board').innerHTML = b;
+
+  const order = [0, 2, 1, 3];
+  $('#pls').innerHTML = order.map(i => {
+    const p = G.p[i], mine = i === 0;
+    const segs = mine ? (m.turn.length ? m.turn : m.last) : p.last;
+    const tl = mine && m.turn.length ? m.turnLive : p.turnLive;
+    let st;
+    if (mine){
+      // 80% runs live until the team has 3 marks on 6 of the 7, then freezes
+      const mpr = m.rounds ? m.live / m.rounds : 0, p80 = G.lock80 ? G.lock80.live / G.lock80.rounds : mpr;
+      st = '<div class="ms"><div><span>MPR</span><b>' + (m.rounds ? mpr.toFixed(2) : '–') + '</b></div>' +
+        '<div' + (G.lock80 ? ' class="lk"' : '') + '><span>80%</span><b>' + (m.rounds ? p80.toFixed(2) : '–') + '</b></div>' +
+        '<div><span>Turns</span><b>' + m.rounds + '</b></div></div>';
+    } else st = '<div class="st">' + (p.rounds ? 'MPR <b>' + (p.live / p.rounds).toFixed(2) + '</b>' : 'waiting') + '</div>';
+    return '<div class="pl' + (p.team ? ' away' : '') + (mine && !G.done ? ' on' : '') + '">' +
+      '<div class="ph"><span class="nm">' + p.name + '</span>' + (p.lvl ? '<span class="lvl">' + p.lvl + '</span>' : '') + '</div>' +
+      '<div class="slots">' + slotsHTML(segs, mine && m.turn.length > 0 && !G.done) +
+      '<span class="tt">' + (segs.length ? tl + 'M' : '') + '</span></div>' + st + '</div>';
+  }).join('');
+
+  let msg = '';
+  if (G.done){
+    const won0 = G.over && G.over.team === 0;
+    msg = '<div class="msg ' + (won0 ? 'win' : 'loss') + '"><div class="r"><span>' +
+      G.over.why.replace(' Close out your board.', '') + ' · your MPR ' + (m.live / m.rounds).toFixed(2) +
+      '</span><button class="btn" data-a="next">Next game ›</button></div></div>';
+  } else if (G.over){
+    msg = '<div class="msg loss">' + G.over.why + '</div>';
+  } else if (m.turn.length === 3){
+    msg = '<div class="msg">Pull your darts · board button for the next turn.</div>';
+  }
+  $('#msg').innerHTML = msg;
+}
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]');
+  if (!el) return;
+  const a = el.dataset.a, v = el.dataset.v;
+  if (a === 'closesheet' && e.target !== el) return;
+  switch (a){
+    case 'throw': throwDart(v); break;
+    case 'board': boardButton(); break;
+    case 'undo': if (snaps.length){ G = JSON.parse(snaps.pop()); render(); } break;
+    case 'next': newGame(); break;
+    case 'fix': if (me().turn[+v]){ const s = me().turn[+v]; fix = {i:+v, ring: /^[SDT]\d/.test(s) ? s[0] : 'S'}; renderFix(); } break;
+    case 'ring': fix.ring = v; renderFix(); break;
+    case 'setseg': me().turn[fix.i] = v; fix = null; evalTurn(); if (me().wonOnDart) endMine(true); renderFix(); render(); break;
+    case 'rmdart': me().turn.splice(fix.i, 1); fix = null; evalTurn(); renderFix(); render(); break;
+    case 'closesheet': fix = null; other = null; $('#modalwrap').innerHTML = ''; break;
+    case 'other': other = {ring:'T'}; pickSheet('Throw a dart', 'Fake board — pretend the GranBoard registered this.', 'oring', 'othrow', '', 'T'); break;
+    case 'oring': other.ring = v; pickSheet('Throw a dart', 'Fake board — pretend the GranBoard registered this.', 'oring', 'othrow', '', v); break;
+    case 'othrow': other = null; $('#modalwrap').innerHTML = ''; throwDart(v); break;
+  }
+});
+newGame();
+</script>
+</body>
+</html>

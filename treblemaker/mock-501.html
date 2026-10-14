@@ -28,6 +28,9 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
 .top .s{font-size:13px;color:var(--dim)}
 .undo{border:1px solid var(--line);background:var(--card2);border-radius:999px;padding:7px 14px;font-size:14px;font-weight:700}
 .undo:disabled{opacity:.35}
+.seg2{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.seg2 a{padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);text-decoration:none}
+.seg2 a.on{background:var(--card2);color:var(--text)}
 
 /* the board of four */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -58,6 +61,11 @@ button.slot{cursor:pointer}
 .st{font-size:13px;color:var(--dim);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st b{color:var(--text)}
 
+.ms{display:flex;gap:6px;margin-top:8px}
+.ms div{flex:1;min-width:0;background:var(--card2);border-radius:10px;padding:5px 8px;text-align:center}
+.ms span{display:block;font-size:11px;font-weight:700;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim);text-transform:uppercase}
+.ms b{display:block;font-size:clamp(18px,min(3vw,3.8vh),30px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15}
+.ms .lk b::after{content:" 🔒";font-size:.6em}
 /* one-line status between board and controls */
 .msg{margin:10px 0 0;border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
 .msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
@@ -90,6 +98,7 @@ button.slot{cursor:pointer}
 .sheet .alt button{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:11px 0;font-weight:700;color:var(--dim)}
 
 @media (max-width:520px){
+  .ms{gap:4px} .ms div{padding:5px 2px} .ms span{letter-spacing:0}
   .wrap{padding-left:10px;padding-right:10px}
   .grid{gap:8px}
   .pl{padding:10px 10px 10px 14px;border-radius:14px}
@@ -106,6 +115,7 @@ button.slot{cursor:pointer}
 <div class="wrap">
   <div class="top">
     <div class="t"><b>Partner 501</b><div class="s" id="sub"></div></div>
+    <div class="seg2"><a class="on" href="mock-501.html">501</a><a href="mock-cricket.html">Cricket</a></div>
     <button class="undo" id="undo" data-a="undo">↶ Undo</button>
   </div>
   <div class="grid" id="grid"></div>
@@ -309,12 +319,15 @@ function render(){
     const tot = segs.reduce((s, x) => s + val(x), 0);
     const on = mine && !G.done;
     const showBust = mine && m.bust;
-    const frz = !p.out && p.score <= 180 && p.score > 0 && frozen(i);
+    const frz = !G.over && !p.out && p.score <= 180 && p.score > 0 && frozen(i);
     let st = '';
     if (mine){
       const ppd = m.darts ? ((501 - (m.turn.length ? m.start : m.score)) / m.darts) : 0;
-      st = '<div class="st">PPD <b>' + (m.darts ? ppd.toFixed(1) : '–') + '</b> · 80% <b>' +
-        (G.lock80 ? (G.lock80.pts / G.lock80.darts).toFixed(1) + ' 🔒' : '–') + '</b> · ' + m.darts + ' darts</div>';
+      // 80% runs live until it locks at 100 or less, then freezes
+      const p80 = G.lock80 ? G.lock80.pts / G.lock80.darts : ppd;
+      st = '<div class="ms"><div><span>PPD</span><b>' + (m.darts ? ppd.toFixed(1) : '–') + '</b></div>' +
+        '<div' + (G.lock80 ? ' class="lk"' : '') + '><span>80%</span><b>' + (m.darts ? p80.toFixed(1) : '–') + '</b></div>' +
+        '<div><span>Darts</span><b>' + m.darts + '</b></div></div>';
     } else st = '<div class="st">' + (p.darts ? 'PPD <b>' + ((501 - p.score) / p.darts).toFixed(1) + '</b>' : 'waiting') + '</div>';
     return '<div class="pl' + (p.team ? ' away' : '') + (on ? ' on' : '') + (p.out && !mine ? ' done' : '') + '">' +
       '<div class="ph"><span class="nm">' + p.name + '</span>' + (p.lvl ? '<span class="lvl">' + p.lvl + '</span>' : '') +
