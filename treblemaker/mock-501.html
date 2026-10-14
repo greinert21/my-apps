@@ -251,13 +251,11 @@ const JINGLES = {
   hat:   [[0,100,.08],[.12,100,.08],[.24,100,.08],[.36,95,.07],[.42,92,.07],[.48,95,.07],[.54,104,.34],[.54,100,.34,.35]]
 };
 // cricket: 4 marks = a 3-note run; every extra mark adds a note and ends higher.
-// 9 marks (Matt): the 8-mark run, with its top note struck three times to finish.
+// 9 marks (Matt): exactly the 8-mark run, then the hat trick jingle.
 function marksJingle(n){
   const sc = [76,80,83,88,92,95,100], c = Math.max(3, Math.min(7, n - 1)), out = [];
-  for (let i = 0; i < c - 1; i++) out.push([i * .065, sc[i], .08]);
-  const t = (c - 1) * .065;
-  if (n >= 9) out.push([t, sc[c - 1], .09], [t + .11, sc[c - 1], .09], [t + .22, sc[c - 1], .3]);
-  else out.push([t, sc[c - 1], .3]);
+  for (let i = 0; i < c; i++) out.push([i * .065, sc[i], i === c - 1 ? .3 : .08]);
+  if (n >= 9){ const t = (c - 1) * .065 + .3; for (const [dt, m, dur, pk, w] of JINGLES.hat) out.push([t + dt, m, dur, pk, w]); }
   return out;
 }
 function jingle(spec, delay){
@@ -265,8 +263,31 @@ function jingle(spec, delay){
   const ac = audio(); if (!ac) return;
   if (ac.state !== 'running'){ ac.resume().then(() => jingle(spec, delay)); return; }
   const t0 = Math.max(ac.currentTime + (delay || 0.03), typeof WARM !== 'undefined' ? WARM : 0);
-  for (const [dt, m, dur, pk] of spec) jnote(t0 + dt, m, dur, pk || .5);
+  for (const [dt, m, dur, pk, w] of spec) (w ? n8 : jnote)(t0 + dt, m, dur, pk || .5, w);   // w = 8-bit wave
 }
+/* 8-bit voice for the Level-up jingles (sounds.html round 2, set A) */
+const PW = {};
+function pulse(duty){
+  if (!PW[duty]){
+    const N = 64, re = new Float32Array(N), im = new Float32Array(N);
+    for (let n = 1; n < N; n++) im[n] = 2 / (n * Math.PI) * Math.sin(n * Math.PI * duty);
+    PW[duty] = AC.createPeriodicWave(re, im);
+  }
+  return PW[duty];
+}
+function n8(t, m, dur, peak, wave){
+  const o = AC.createOscillator(), g = AC.createGain();
+  if (wave === 's') o.type = 'square'; else o.setPeriodicWave(pulse(.25));
+  o.frequency.setValueAtTime(midi(m), t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.003);
+  g.gain.setValueAtTime(peak, t + 0.003 + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
+}
+const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
+// hat trick (Matt: "perfect"): the high-ton climb three times, each a step higher — both games
+JINGLES.hat = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)];
 const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
 const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
 function award501(c){
