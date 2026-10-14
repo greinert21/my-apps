@@ -50,6 +50,9 @@ h1{margin:0;font-size:22px;font-weight:800}
   <h2 style="font-size:19px;margin:22px 0 4px">Award jingles</h2>
   <div class="sub" style="margin-bottom:10px">Same tone as Soft coin. These play after the last dart of a big turn.</div>
   <div class="grid" id="jgrid"></div>
+  <h2 style="font-size:19px;margin:22px 0 4px">501 awards — round 2 (8-bit)</h2>
+  <div class="sub" style="margin-bottom:10px">Original jingles in the old-console "level up" style — bright pulse tones, climbing arpeggios. Two styles to compare.</div>
+  <div id="j8"></div>
   <div class="note">If the very first tap after opening is silent, tap again — some speakers take a moment to wake. After that a near-silent tone keeps them awake.</div>
 </div>
 <script>
@@ -197,6 +200,54 @@ document.addEventListener('click', e => {
   const b = e.target.closest('button[data-j]'); if (!b) return;
   const j = JLIST[+b.dataset.j];
   jingle(typeof j[2] === 'number' ? marksJingle(j[2]) : JINGLES[j[2]], 0.03);
+});
+
+/* ---------- 501 awards, round 2: original 8-bit jingles (not copies of any game's music) ----------
+   [start, midi note, length, level, wave] — wave 'p' = 25% pulse, 's' = square. */
+function n8(t, m, dur, peak, wave){
+  const o = AC.createOscillator(), g = AC.createGain();
+  if (wave === 's') o.type = 'square'; else o.setPeriodicWave(pulse(.25));
+  o.frequency.setValueAtTime(midi(m), t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(peak, t + 0.003);
+  g.gain.setValueAtTime(peak, t + 0.003 + dur * 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
+}
+// a quick climb: root, third, fifth, octave
+const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
+const SET8 = [
+  {name:'Level-up', ds:'Arpeggio climbs. Bigger award, more climbs, each starting higher.', j:{
+    low:   [...climb(0, 72), [.2, 84, .28, .24, 'p']],
+    high:  [...climb(0, 72), ...climb(.22, 74), [.44, 86, .32, .24, 'p']],
+    ton80: [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76),
+            [.66, 88, .5, .24, 'p'], [.66, 84, .5, .14, 's'], [.66, 79, .5, .12, 's'],
+            [.9, 100, .07, .12, 'p'], [.97, 103, .07, .12, 'p'], [1.04, 107, .22, .12, 'p']],
+    hat:   [[0, 96, .06, .2, 'p'], [.1, 96, .06, .2, 'p'], [.2, 96, .06, .2, 'p'],
+            ...climb(.32, 84, .045), [.5, 96, .3, .22, 'p']]
+  }},
+  {name:'8-bit fanfare', ds:'Short punchy chiptune fanfares on a square wave.', j:{
+    low:   [[0, 67, .09, .16, 's'], [.09, 72, .09, .16, 's'], [.18, 76, .09, .16, 's'], [.27, 79, .3, .17, 's']],
+    high:  [[0, 67, .08, .16, 's'], [.08, 72, .08, .16, 's'], [.16, 76, .08, .16, 's'], [.24, 79, .12, .16, 's'],
+            [.38, 76, .08, .16, 's'], [.46, 79, .34, .17, 's'], [.46, 84, .34, .1, 'p']],
+    ton80: [[0, 72, .08, .16, 's'], [.1, 72, .08, .16, 's'], [.2, 72, .08, .16, 's'], [.3, 79, .26, .17, 's'],
+            [.58, 77, .08, .16, 's'], [.67, 79, .08, .16, 's'], [.76, 84, .55, .17, 's'], [.76, 88, .55, .1, 'p'], [.76, 91, .55, .08, 'p']],
+    hat:   [[0, 84, .07, .15, 's'], [.11, 84, .07, .15, 's'], [.22, 84, .07, .15, 's'], [.36, 79, .08, .15, 's'], [.45, 84, .3, .17, 's']]
+  }}
+];
+function play8(si, k){
+  const ac = audio(); if (!ac) return;
+  if (ac.state !== 'running'){ ac.resume().then(() => play8(si, k)); return; }
+  const t0 = ac.currentTime + 0.03;
+  for (const [dt, m, dur, pk, w] of SET8[si].j[k]) n8(t0 + dt, m, dur, pk, w);
+}
+document.getElementById('j8').innerHTML = SET8.map((st, si) =>
+  '<div class="card" style="margin-bottom:10px"><div class="hd"><span class="n">' + String.fromCharCode(65 + si) + '</span><span class="nm">' + st.name + '</span></div>' +
+  '<div class="ds" style="min-height:0">' + st.ds + '</div><div class="b3">' +
+  [['low','Low ton'],['high','High ton'],['ton80','Ton 80'],['hat','Hat trick']].map(([k, l]) =>
+    '<button data-s8="' + si + '" data-k="' + k + '">▶<small>' + l + '</small></button>').join('') + '</div></div>').join('');
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-s8]'); if (b) play8(+b.dataset.s8, b.dataset.k);
 });
 document.addEventListener('pointerdown', () => audio(), {passive:true});
 document.addEventListener('click', e => {
