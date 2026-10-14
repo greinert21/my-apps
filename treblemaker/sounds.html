@@ -214,14 +214,14 @@ function n8(t, m, dur, peak, wave){
 }
 // a quick climb: root, third, fifth, octave
 const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
+const climbs = n => [72, 74, 76, 79, 84].slice(0, n).flatMap((r, i) => climb(i * .22, r));
 const SET8 = [
   {name:'Level-up', ds:'Arpeggio climbs. Bigger award, more climbs, each starting higher.', j:{
-    low:   [...climb(0, 72), [.2, 84, .28, .24, 'p']],
-    high:  [...climb(0, 72), ...climb(.22, 74), [.44, 86, .32, .24, 'p']],
-    // Matt: the chord + sparkle ending was horrible — four climbs (one more than the hat trick), ending on the climb
-    ton80: [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76), ...climb(.66, 79)],
-    // Matt: the high-ton climb, three times instead of two, each a step higher
-    hat:   [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)]     // no held note at the end (Matt)
+    // final (Matt): climbs a step higher each time, ending on the climb — low 2, hat 3, high 4, ton-80 5
+    low:   climbs(2),
+    high:  climbs(4),
+    ton80: climbs(5),
+    hat:   climbs(3)
   }},
   {name:'8-bit fanfare', ds:'Short punchy chiptune fanfares on a square wave.', j:{
     low:   [[0, 67, .09, .16, 's'], [.09, 72, .09, .16, 's'], [.18, 76, .09, .16, 's'], [.27, 79, .3, .17, 's']],

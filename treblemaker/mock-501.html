@@ -286,12 +286,12 @@ function n8(t, m, dur, peak, wave){
   o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + 0.02);
 }
 const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
-// Final 501 jingles (Matt, sound board round 2 set A "Level-up"). Hat trick ("perfect") is
-// shared with Cricket and ends the 9-mark jingle.
-JINGLES.low   = [...climb(0, 72), [.2, 84, .28, .24, 'p']];
-JINGLES.high  = [...climb(0, 72), ...climb(.22, 74), [.44, 86, .32, .24, 'p']];
-JINGLES.hat   = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76)];
-JINGLES.ton80 = [...climb(0, 72), ...climb(.22, 74), ...climb(.44, 76), ...climb(.66, 79)];
+// Final 501 jingles (Matt): the Level-up climb repeated, each climb a step higher
+// (C, D, E, G, high C), always ending on the climb — no chime after it.
+// Low ton 2 climbs, hat trick 3 ("perfect", shared with Cricket and the 9-mark tail),
+// high ton 4, ton-80 5.
+const climbs = n => [72, 74, 76, 79, 84].slice(0, n).flatMap((r, i) => climb(i * .22, r));
+JINGLES.low = climbs(2); JINGLES.hat = climbs(3); JINGLES.high = climbs(4); JINGLES.ton80 = climbs(5);
 const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
 const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
 function award501(c){
