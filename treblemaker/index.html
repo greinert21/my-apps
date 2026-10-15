@@ -828,7 +828,7 @@ function setHead(t,s,back){
   else tb.classList.remove('hasback')}
 
 const NAV=[['drills','Drills','\u{1F3AF}'],['free','Free','\u{1F504}'],['games','Games','\u{1F3C6}'],
-           ['progress','Statistics','\u{1F4C8}'],['more','More','⚙️']];
+           ['progress','Stats','\u{1F4C8}'],['more','More','⚙️']];
 function navHTML(){return NAV.map(n=>'<button data-a="view" data-v="'+n[0]+'" class="'+(view===n[0]?'on':'')+'">'+
   '<span class="ico">'+n[2]+'</span>'+n[1]+'</button>').join('')}
 
@@ -1130,7 +1130,7 @@ function streaksOf(m){
 
 /* ---- the screen ---- */
 function statsHTML(){
-  setHead('Statistics',{overview:'Everything at a glance',x01:'In-app x01 games — from every dart',drills:'Your drills',log:'Typed GranBoard games'}[ST.sec]);
+  setHead('Stats',{overview:'Everything at a glance',x01:'In-app x01 games — from every dart',drills:'Your drills',log:'Typed GranBoard games'}[ST.sec]);
   let h='<div class="stabs">'+[['overview','Overview'],['x01','x01'],['drills','Drills'],['log','GranBoard log']].map(o=>
       '<button class="'+(ST.sec===o[0]?'on':'')+'" data-a="stsec" data-v="'+o[0]+'">'+o[1]+'</button>').join('')+'</div>'+
     '<div class="chips">'+[['last30','Last 30 games'],['month','This month'],['all','All time']].map(o=>
@@ -1395,7 +1395,7 @@ function gbLogHTML(){
     (is501?'<div class="hint" style="margin-top:6px">Tap per round / per dart to match what GranBoard shows.</div>':'')+
     '<button class="btn btn-primary" data-a="gsave">Log it</button></div>';
   if(D.games.length)h+='<button class="tile" data-a="gostats" data-v="log"><b>\u{1F4C8} Charts for these games</b>'+
-    '<div class="meta">Statistics → GranBoard log: 80% and full game over time, against your league numbers.</div></button>';
+    '<div class="meta">Stats → GranBoard log: 80% and full game over time, against your league numbers.</div></button>';
   const rec=D.games.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.at<b.at?1:-1)).slice(0,15);
   if(rec.length){h+='<div class="lbl">Recent</div>';
     h+=rec.map(g=>'<div class="cnt"><span class="nm">'+g.date+' · '+(g.type==='501'?'501':'Cricket')+
