@@ -54,6 +54,7 @@ main{padding:14px 14px 60px;max-width:760px;margin:0 auto}
 .log .t,.log .dt,.log .raw{color:var(--dim)}
 .log .unk{color:var(--warn)}
 .log .sys{color:var(--blue)}
+.log .dup{color:var(--dim);text-decoration:line-through}
 .checks{margin:0;padding-left:20px}
 .checks li{margin:5px 0}
 select{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;
@@ -105,13 +106,14 @@ label.tog input{width:20px;height:20px}
   <div class="card">
     <h3>Things to try</h3>
     <ol class="checks">
-      <li>Three normal darts. One row each, right segment?</li>
+      <li>Connect, then throw your <b>first dart</b> and say what you hit. Does row 1 match?</li>
+      <li>Try the <b>LED</b> buttons now, while it's connected.</li>
+      <li>Throw real darts (not finger presses). Any <b>dup</b> rows?</li>
       <li>A dart into the black surround. Does it say <b>MISS</b>?</li>
       <li>A dart that misses the board completely (wall/floor). Anything?</li>
       <li>A bounce-out. Does it register, and as what?</li>
       <li>Reset counts, then pile all 9 into T20. Does it say 9 darts?</li>
-      <li>Press the button on the board.</li>
-      <li>Leave it 5 minutes untouched. Still connected?</li>
+      <li>Walk away 5 minutes. If it drops, does it <b>reconnect by itself</b> when you come back and throw?</li>
     </ol>
     <div class="hint">Then tap <b>Copy log</b> and paste it to Claude.</div>
   </div>
@@ -183,10 +185,17 @@ const LED_POS = {0:0,1:28,2:49,3:55,4:34,5:22,6:40,7:1,8:7,9:16,10:43,
 
 const $ = id => document.getElementById(id);
 let dev = null, notifyCh = null, writeCh = null, buf = '';
+let userDisc = false, retryT = null, retries = 0;
+function onNotify(e){ onBytes(new Uint8Array(e.target.value.buffer, e.target.value.byteOffset, e.target.value.byteLength)); }
 let wakeLock = null;
 let C = {darts:0, hits:0, miss:0, btn:0, unk:0};
 let events = [];               // {at, dt, raw, bytes, label, kind}
 let lastAt = 0;
+// Run 1 showed switch chatter: one hit arriving 2-5 times within ~0.25 s. Real separate
+// hits were never closer than ~0.6 s, so the same code again within DUP_MS is a duplicate.
+const DUP_MS = 400;
+let lastCode = '', lastCodeAt = 0, dups = 0;
+let listenAt = 0;            // when notifications started — darts before this can't be heard
 
 function decode(raw){
   if (raw === 'OUT') return {kind:'miss', label:'MISS', what:'Miss (outside the scoring area)'};
@@ -222,7 +231,15 @@ function onCode(raw){
   const bytes = Array.from(raw + '@').map(ch => ch.charCodeAt(0)).join('-');
   const dt = lastAt ? now - lastAt : null;
   lastAt = now;
-  events.unshift({at:now, dt, raw:raw + '@', bytes, label:d.label, kind:d.kind});
+  if (raw === lastCode && now - lastCodeAt < DUP_MS){        // the button too: a chatter must never end two turns
+    lastCodeAt = now; dups++;                          // chatter: logged, never counted
+    events.unshift({at:now, dt, raw:raw + '@', bytes, label:'dup ' + d.label, kind:'dup'});
+    render(); return;
+  }
+  lastCode = raw; lastCodeAt = now;
+  const first = C.darts === 0 && C.btn === 0 && C.unk === 0 && d.kind !== 'btn';
+  events.unshift({at:now, dt, raw:raw + '@', bytes,
+    label:d.label + (first && listenAt ? '  ← first, ' + ((now - listenAt) / 1000).toFixed(1) + 's after listening' : ''), kind:d.kind});
   if (events.length > 300) events.length = 300;
   if (d.kind === 'hit'){ C.hits++; C.darts++; }
   else if (d.kind === 'miss'){ C.miss++; C.darts++; }
@@ -254,7 +271,7 @@ function render(){
     '<div class="e' + (e.dt != null && e.dt > 2500 ? ' gap' : '') + '">' +
     '<span class="t">' + fmtT(e.at) + '</span>' +
     '<span class="dt">' + fmtDt(e.dt) + '</span>' +
-    '<span class="' + (e.kind === 'unk' ? 'unk' : e.kind === 'sys' ? 'sys' : '') + '">' + esc(e.label) + '</span>' +
+    '<span class="' + (e.kind === 'unk' ? 'unk' : e.kind === 'sys' ? 'sys' : e.kind === 'dup' ? 'dup' : '') + '">' + esc(e.label) + '</span>' +
     '<span class="raw">' + esc(e.raw) + '</span></div>').join('');
 }
 function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -276,9 +293,11 @@ async function connect(){
       dev = await navigator.bluetooth.requestDevice({filters:[{services:[SVC]}]});
       dev.addEventListener('gattserverdisconnected', () => {
         notifyCh = writeCh = null;
-        setStatus('Disconnected', 'off');
-        logSys('disconnected');
         releaseWake();
+        const idle = lastAt ? Math.round((Date.now() - lastAt) / 1000) + ' s after the last dart' : '';
+        if (userDisc){ userDisc = false; setStatus('Disconnected', 'off'); logSys('disconnected (you)'); return; }
+        logSys('board dropped the connection ' + idle + ' — reconnecting');
+        retries = 0; autoReconnect();
       });
     }
     setStatus('Connecting…', 'busy');
@@ -290,24 +309,38 @@ async function connect(){
     notifyCh = chars.find(c => c.properties.notify) || null;
     writeCh = chars.find(c => c.properties.writeWithoutResponse || c.properties.write) || null;
     if (!notifyCh) throw new Error('no notify characteristic');
-    notifyCh.addEventListener('characteristicvaluechanged', e =>
-      onBytes(new Uint8Array(e.target.value.buffer, e.target.value.byteOffset, e.target.value.byteLength)));
+    notifyCh.addEventListener('characteristicvaluechanged', onNotify);   // named, so a reconnect never adds it twice
     await notifyCh.startNotifications();
+    listenAt = Date.now();
+    clearTimeout(retryT); retries = 0;
     setStatus('Connected · ' + (dev.name || 'GranBoard'), 'on');
-    logSys('connected to ' + (dev.name || 'board') + (writeCh ? '' : ' (no LED characteristic)'));
+    logSys('connected to ' + (dev.name || 'board') + ' — listening for darts now' + (writeCh ? '' : ' (no LED characteristic)'));
     grabWake();
+    return true;
   } catch (err){
     setStatus(dev ? 'Disconnected' : 'Not connected', dev ? 'off' : '');
     logSys('connect failed: ' + (err && err.message || err));
+    return false;
   }
 }
+// After a drop, keep trying quietly: every 3 s for a minute, then every 15 s. A sleeping
+// board usually wakes when a dart hits it, and the next try picks it up — no picker needed.
+async function autoReconnect(){
+  clearTimeout(retryT);
+  if (!dev || dev.gatt.connected) return;
+  const n = ++retries;
+  setStatus('Reconnecting… (try ' + n + ')', 'busy');
+  const ok = await connect();                     // (resets retries on success)
+  if (ok){ logSys('reconnected by itself on try ' + n); return; }
+  retryT = setTimeout(autoReconnect, retries < 20 ? 3000 : 15000);
+}
 
-function disconnect(){ if (dev && dev.gatt.connected) dev.gatt.disconnect(); }
+function disconnect(){ clearTimeout(retryT); if (dev && dev.gatt.connected){ userDisc = true; dev.gatt.disconnect(); } }
 
 // GATT operations can't overlap, so every write goes through one queue.
 let wq = Promise.resolve();
 function send(bytes){
-  if (!writeCh){ logSys('LED: not connected'); return; }
+  if (!writeCh){ logSys('LED: not connected — try again once it says Connected'); return; }
   const data = new Uint8Array(bytes);
   wq = wq.then(() => writeCh.properties.writeWithoutResponse
       ? writeCh.writeValueWithoutResponse(data) : writeCh.writeValueWithResponse(data))
@@ -341,7 +374,7 @@ function copyLog(){
     'GranBoard test log · ' + new Date().toString(),
     navigator.userAgent,
     $('chars').textContent,
-    'darts ' + C.darts + ' · hits ' + C.hits + ' · miss ' + C.miss + ' · button ' + C.btn + ' · unknown ' + C.unk,
+    'darts ' + C.darts + ' · hits ' + C.hits + ' · miss ' + C.miss + ' · button ' + C.btn + ' · unknown ' + C.unk + ' · dups ignored ' + dups,
     ''
   ].concat(events.slice().reverse().map(e =>
     fmtT(e.at) + '  ' + (fmtDt(e.dt) || '-').padStart(7) + '  ' + e.label.padEnd(8) + ' ' + e.raw + (e.bytes ? '  (' + e.bytes + ')' : '')));
@@ -360,7 +393,7 @@ function fallbackCopy(text, done){
 
 const ACTIONS = {
   connect, disconnect,
-  reset(){ C = {darts:0, hits:0, miss:0, btn:0, unk:0}; events = []; lastAt = 0;
+  reset(){ C = {darts:0, hits:0, miss:0, btn:0, unk:0}; events = []; lastAt = 0; dups = 0; lastCode = '';
     $('seg').textContent = '—'; $('seg').className = 'seg'; $('what').textContent = 'Throw a dart'; render(); },
   copy: copyLog,
   ledNum(){ const b = new Array(20).fill(0); b[+$('num').value - 1] = 0x05; send(b); },
