@@ -285,11 +285,16 @@ function setStatus(text, cls){
   const on = cls === 'on';
   $('bDisc').disabled = !on;
   $('bConn').textContent = on ? 'Connected' : dev ? 'Reconnect' : 'Connect to GranBoard';
-  $('bConn').disabled = on || cls === 'busy';
+  $('bConn').disabled = on || (cls === 'busy' && !autoOn);   // still tappable during auto-retries
 }
 
-async function connect(){
+// On Android a GATT connect can hang instead of failing; give each try 10 s.
+function withTimeout(pr, ms, what){
+  return Promise.race([pr, new Promise((_, no) => setTimeout(() => no(new Error(what + ' timed out after ' + ms / 1000 + ' s')), ms))]);
+}
+async function connect(auto){
   if (!navigator.bluetooth){ $('nobt').style.display = ''; return; }
+  if (!auto){ clearTimeout(retryT); autoOn = false; }   // a manual tap takes over from the retry loop
   try {
     if (!dev){
       setStatus('Pick the board…', 'busy');
@@ -303,9 +308,9 @@ async function connect(){
         retries = 0; autoReconnect();
       });
     }
-    setStatus('Connecting…', 'busy');
-    const server = await dev.gatt.connect();
-    const svc = await server.getPrimaryService(SVC);
+    if (!auto) setStatus('Connecting…', 'busy');
+    const server = await withTimeout(dev.gatt.connect(), 10000, 'connect');
+    const svc = await withTimeout(server.getPrimaryService(SVC), 10000, 'service lookup');
     const chars = await svc.getCharacteristics();
     $('chars').textContent = 'Characteristics: ' + chars.map(c => c.uuid.slice(0, 8) + ' [' +
       ['read','write','writeWithoutResponse','notify','indicate'].filter(p => c.properties[p]).join(',') + ']').join('  ');
@@ -315,30 +320,37 @@ async function connect(){
     notifyCh.addEventListener('characteristicvaluechanged', onNotify);   // named, so a reconnect never adds it twice
     await notifyCh.startNotifications();
     listenAt = Date.now();
-    clearTimeout(retryT); retries = 0;
+    clearTimeout(retryT); retries = 0; autoOn = false;
     setStatus('Connected · ' + (dev.name || 'GranBoard'), 'on');
     logSys('connected to ' + (dev.name || 'board') + ' — listening for darts now' + (writeCh ? '' : ' (no LED characteristic)'));
     grabWake();
     return true;
   } catch (err){
-    setStatus(dev ? 'Disconnected' : 'Not connected', dev ? 'off' : '');
-    logSys('connect failed: ' + (err && err.message || err));
+    try { if (dev && dev.gatt.connected) dev.gatt.disconnect(); } catch (e) {}   // drop a half-made link
+    logSys((auto ? 'try ' + retries + ' failed: ' : 'connect failed: ') + (err && err.message || err));
+    // while the retry loop is running, the status says so — it never looks like it gave up
+    if (!auto) setStatus(dev ? 'Disconnected' : 'Not connected', dev ? 'off' : '');
     return false;
   }
 }
 // After a drop, keep trying quietly: every 3 s for a minute, then every 15 s. A sleeping
 // board usually wakes when a dart hits it, and the next try picks it up — no picker needed.
+let autoOn = false;
 async function autoReconnect(){
   clearTimeout(retryT);
   if (!dev || dev.gatt.connected) return;
+  autoOn = true;
   const n = ++retries;
   setStatus('Reconnecting… (try ' + n + ')', 'busy');
-  const ok = await connect();                     // (resets retries on success)
+  const ok = await connect(true);                 // (resets retries on success)
   if (ok){ logSys('reconnected by itself on try ' + n); return; }
-  retryT = setTimeout(autoReconnect, retries < 20 ? 3000 : 15000);
+  if (!autoOn) return;                            // he tapped Reconnect meanwhile
+  const wait = retries < 20 ? 3 : 15;
+  setStatus('Reconnecting… (try ' + n + ' failed, next in ' + wait + ' s)', 'busy');
+  retryT = setTimeout(autoReconnect, wait * 1000);
 }
 
-function disconnect(){ clearTimeout(retryT); if (dev && dev.gatt.connected){ userDisc = true; dev.gatt.disconnect(); } }
+function disconnect(){ clearTimeout(retryT); autoOn = false; if (dev && dev.gatt.connected){ userDisc = true; dev.gatt.disconnect(); } }
 
 // GATT operations can't overlap, so every write goes through one queue.
 let wq = Promise.resolve();
@@ -395,7 +407,7 @@ function fallbackCopy(text, done){
 }
 
 const ACTIONS = {
-  connect, disconnect,
+  connect: () => connect(false), disconnect,          // never pass the clicked button through as "auto"
   reset(){ C = {darts:0, hits:0, miss:0, btn:0, unk:0}; events = []; lastAt = 0; dups = 0; lastCode = '';
     $('seg').textContent = '—'; $('seg').className = 'seg'; $('what').textContent = 'Throw a dart'; render(); },
   copy: copyLog,
