@@ -129,6 +129,81 @@ input[type=range]{width:100%;accent-color:var(--accent);height:34px}
 .cnt button{border:none;background:var(--accent-dark);color:#fff;border-radius:12px;width:52px;height:46px;
   font-size:24px;font-weight:800;cursor:pointer}
 .cnt button.m{background:var(--card2);color:var(--dim);width:42px;font-size:20px}
+/* ---- x01 game (from mock-501.html) ---- */
+.xg{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;
+  padding:calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 12px)}
+.xg .in{max-width:1100px;margin:0 auto}
+.xtop{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.xtop .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xtop b{font-size:18px;font-weight:800}
+.xtop .s{font-size:13px;color:var(--dim)}
+.xb{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:999px;padding:7px 12px;
+  font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.xb:disabled{opacity:.35}
+.gbdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--dim);margin-right:6px;vertical-align:middle}
+.gbdot.on{background:var(--good)} .gbdot.busy{background:var(--warn)} .gbdot.off{background:var(--danger)}
+.gbline{font-size:13px;color:var(--warn);margin:-2px 0 8px}
+.xbody{display:grid;gap:10px}
+@media (min-width:760px){.xg.haspad .xbody{grid-template-columns:1.15fr 1fr;align-items:start}}
+.pl{position:relative;background:#21161b;border:2px solid var(--accent);border-radius:18px;padding:12px 14px 12px 18px;overflow:hidden;min-width:0}
+.pl::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent-dark)}
+.pl.fin{border-color:#1f6b3f;background:#10241a}
+.pl.fin::before{background:#166534}
+.ph{display:flex;align-items:center;gap:8px;min-height:22px}
+.ph .nm{font-weight:800;font-size:16px;color:var(--dim)}
+.badge{margin-left:auto;font-size:12px;font-weight:800;letter-spacing:.6px;border-radius:6px;padding:2px 8px;white-space:nowrap}
+.badge.aw{background:#3a2e08;color:#fde047;border:1px solid #a16207}
+.badge.bust{background:#2a1215;color:var(--danger);border:1px solid #7f1d1d}
+.badge.out{background:#123321;color:var(--good);border:1px solid #1f6b3f}
+.sc{font-size:clamp(80px,min(30vh,34vw),300px);font-weight:900;line-height:1;letter-spacing:-3px;margin:4px 0 10px;
+  font-variant-numeric:tabular-nums;text-align:center}
+.xg.haspad .sc{font-size:clamp(60px,min(15vh,30vw),180px)}
+@media (min-width:760px){.xg.haspad .sc{font-size:clamp(80px,min(26vh,22vw),260px)}}
+.sc.bust{color:var(--danger)} .sc.out{color:var(--good)}
+.slots{display:flex;gap:6px;align-items:center}
+.slot{flex:1;min-width:0;height:clamp(40px,min(8vh,9vw),72px);border-radius:10px;background:var(--card2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(17px,min(3.4vh,4.4vw),32px);
+  font-variant-numeric:tabular-nums;color:var(--text)}
+button.slot{cursor:pointer;font-family:inherit}
+.slot.e{color:var(--line)}
+.slot.T{color:#1a1200;background:var(--warn);border-color:var(--warn)}
+.slot.D{color:#04210f;background:var(--good);border-color:var(--good)}
+.slot.B{color:#fff;background:var(--accent-dark);border-color:var(--accent)}
+.slot.M{color:var(--dim)}
+.slots.old .slot{opacity:.45}
+.tt{min-width:3em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(17px,min(3.2vh,4vw),30px);font-variant-numeric:tabular-nums}
+.ms{display:flex;gap:6px;margin-top:10px}
+.ms div{flex:1;min-width:0;background:var(--card2);border-radius:10px;padding:5px 8px;text-align:center}
+.ms span{display:block;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--dim);text-transform:uppercase}
+.ms b{display:block;font-size:clamp(20px,min(4.4vh,5.5vw),44px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15}
+.ms .lk b::after{content:" 🔒";font-size:.55em}
+.msg{border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
+.msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
+.msg .row{flex-wrap:wrap}
+.rings{display:flex;gap:6px;margin-bottom:6px}
+.rings button{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;padding:10px 0;font-weight:800;font-size:15px;cursor:pointer}
+.rings button.on{background:var(--accent-dark);border-color:var(--accent);color:#fff}
+.nums{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.nums button,.nums3 button{border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;
+  padding:11px 0;font-weight:800;font-size:17px;cursor:pointer;touch-action:manipulation;font-family:inherit}
+.nums.T button{color:var(--warn)} .nums.D button{color:var(--good)}
+.nums3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
+.nums3 small{display:block;font-size:11px;color:var(--dim);font-weight:600}
+.nums3 .miss{color:#fca5a5}
+.nums button:active,.nums3 button:active,.xend:active{transform:scale(.97)}
+.xend{display:block;width:100%;margin-top:8px;border:none;border-radius:12px;padding:15px;font-size:18px;font-weight:800;
+  background:#1e3a5f;color:#dbeafe;cursor:pointer;touch-action:manipulation}
+.sheet .alt{display:flex;gap:6px;margin-top:8px}
+.sheet .alt button{flex:1;border:1px solid var(--line);background:transparent;border-radius:10px;padding:11px 0;font-weight:700;color:var(--dim);cursor:pointer}
+.btab{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:15px;margin-top:6px}
+.btab th{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;font-weight:700;text-align:right;padding:4px 4px}
+.btab td{text-align:right;padding:6px 4px;border-top:1px solid var(--line)}
+.btab th:first-child,.btab td:first-child{text-align:left}
+.btab td b{color:var(--text)} .btab .dim{color:var(--dim)}
+.aw4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px}
+.aw4 div{background:var(--card2);border-radius:10px;padding:8px 4px;text-align:center}
+.aw4 b{display:block;font-size:24px;font-weight:900}
+.aw4 span{font-size:11px;color:var(--dim);font-weight:700;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -146,13 +221,14 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
 const DEFAULTS={volume:1.5,paceSecs:30,countIn:5,ppd:35,mpr:3.5};
 let D=load(DATA_KEY,null);
 function blankD(){return {version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],
-  freeCounters:['Bulls'],plans:{},games:[]}}
+  freeCounters:['Bulls'],plans:{},games:[],x01:[]}}
 function normD(){
   D.settings=Object.assign({},DEFAULTS,D.settings||{});
   if(!Array.isArray(D.drills))D.drills=[];
   if(!Array.isArray(D.sessions))D.sessions=[];
   if(!Array.isArray(D.free))D.free=[];
   if(!Array.isArray(D.games))D.games=[];
+  if(!Array.isArray(D.x01))D.x01=[];
   if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
   if(!D.plans||typeof D.plans!=='object'||Array.isArray(D.plans))D.plans={}}
 if(!D)D=blankD();
@@ -284,9 +360,9 @@ function startBeep(){tone(1245,.15,1);setTimeout(()=>tone(1245,.15,1),190)}
 function winChime(){tone(880,.16,.9);setTimeout(()=>tone(1108,.16,.9),150);setTimeout(()=>tone(1320,.42,1),300)}
 function countBeep(){tone(880,.11,.7)}
 let wakeLock=null;
-async function acquireWake(){try{if('wakeLock' in navigator&&R&&!R.parked)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+async function acquireWake(){try{if('wakeLock' in navigator&&((R&&!R.parked)||(X&&!X.parked)))wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
 function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&R&&!R.parked)acquireWake()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&((R&&!R.parked)||(X&&!X.parked)))acquireWake()});
 
 /* ============ scoring ============ */
 function ladderScore(res,tier){ // res: T S D M
@@ -717,11 +793,12 @@ function navHTML(){return NAV.map(n=>'<button data-a="view" data-v="'+n[0]+'" cl
   '<span class="ico">'+n[2]+'</span>'+n[1]+'</button>').join('')}
 
 function render(){
-  const RS=R&&!R.parked;
-  $('#runwrap').innerHTML = RS?runHTML(): (F?freeHTML():'');
-  $('#nav').style.display = (RS||F)?'none':'flex';
-  document.body.style.overflow=(RS||F)?'hidden':'';
-  if(RS||F)return;
+  const RS=R&&!R.parked,XS=!RS&&X&&!X.parked;
+  $('#runwrap').innerHTML = RS?runHTML(): XS?x01HTML(): (F?freeHTML():'');
+  $('#nav').style.display = (RS||XS||F)?'none':'flex';
+  document.body.style.overflow=(RS||XS||F)?'hidden':'';
+  gKeep(!!XS);   // the 40 Hz keep-awake runs only while a game is on screen
+  if(RS||XS||F)return;
   $('#nav').innerHTML=navHTML();
   let h='';
   if(view==='drills')h=libOpen?libraryHTML():drillsHTML();
@@ -922,6 +999,13 @@ function gamesOf(type){return D.games.filter(g=>g.type===type).sort((a,b)=>a.dat
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function fmtG(type,v){return v==null?'–':type==='501'?v.toFixed(1):v.toFixed(2)}
 function gamesHTML(){
+  if(gStats)return x01StatsHTML();
+  const seg='<div class="row" style="margin-bottom:12px">'+[['play','Play x01'],['log','GranBoard log']].map(o=>
+    '<button class="btn btn-sm '+(gTab===o[0]?'btn-primary':'')+'" data-a="gtab" data-v="'+o[0]+'" style="flex:1">'+o[1]+'</button>').join('')+'</div>';
+  if(gTab==='play'){setHead('Games','Play x01 on the GranBoard, or tap your darts in');return seg+x01PlayHTML()}
+  return seg+gbLogHTML()}
+/* typed rows off GranBoard's own results screen — their own history, never mixed with in-app games */
+function gbLogHTML(){
   setHead('Games','GranBoard · 80% and full game');
   if(!G.date)G.date=today();
   const is501=G.type==='501';
@@ -973,6 +1057,539 @@ function gSpark(games,type){
     line(E,'ln','opacity:.3')+line(F,'ln')+
     '<circle cx="'+sx(F.length-1)+'" cy="'+sy(F[F.length-1])+'" r="4"></circle></svg>'}
 
+/* ============ x01 in the app (solo, played on the GranBoard or by taps) ============
+   Every dart is stored and every stat is computed from the darts — nothing is
+   saved as a number, so a rule change recomputes all history. A dart is a
+   segment code: S20 / D20 / T20, SB (outer bull), DB (inner bull), M (anything
+   worth 0 — a miss, a bounce-out, a dart the board never registered).
+   A game record copies its rules down into itself (rule 6's reason):
+     start 301/501/701 · out 'open' (straight) | 'double' · bull 'fat' (all 50) | 'split' (25/50).
+   Straight in always — no double-in. D.x01 holds finished and stopped games;
+   the live game is X (tm_x01live_v1), so a phone lock never loses it. */
+const SEG_RE=/^(M|SB|DB|[SDT](20|1[0-9]|[1-9]))$/;
+const OUTN={open:'Straight out',double:'Double out'};
+function segVal(s,bull){if(s==='M')return 0;if(s==='DB')return 50;if(s==='SB')return bull==='split'?25:50;
+  const n=+s.slice(1);return s[0]==='T'?n*3:s[0]==='D'?n*2:n}
+const isDbl=s=>s==='DB'||s[0]==='D';   // the inner bull is a double for double out, in either bull mode
+const segLabel=s=>s==='M'?'—':s[0]==='S'&&s!=='SB'?s.slice(1):s;
+const segCls=s=>s==='M'?'M':s==='SB'||s==='DB'?'B':s[0]==='S'?'':s[0];
+function segName(s){if(s==='M')return 'a miss';if(s==='SB')return 'outer bull';if(s==='DB')return 'bull’s-eye';
+  return ({S:'single ',D:'double ',T:'treble '})[s[0]]+s.slice(1)}
+const chirpsOf=s=>s==='M'?0:s[0]==='T'?3:s[0]==='D'?2:1;   // DB 2, SB 1
+const fmt1=x=>x==null||!isFinite(x)?'–':x.toFixed(1);
+
+/* one visit from a given score. n = darts that count (nothing after a bust or the out) */
+function turnEval(start,segs,rl){
+  let s=start;
+  for(let i=0;i<segs.length;i++){const d=segs[i];s-=segVal(d,rl.bull);
+    if(s<0||(rl.out==='double'&&(s===1||(s===0&&!isDbl(d)))))return {end:start,bust:true,out:false,n:i+1};
+    if(s===0)return {end:0,bust:false,out:true,n:i+1}}
+  return {end:s,bust:false,out:false,n:segs.length}}
+/* A bust scores nothing and the score goes back to the visit's start; its darts
+   still count. lock = the visit after which his own 80% stops: the first one that
+   leaves him on 100 or less (personal — the opponent never decides it). */
+function x01Replay(g){
+  const vs=[];let s=g.start;
+  for(const t of g.turns){if(s<=0)break;
+    const e=turnEval(s,t,g),segs=t.slice(0,e.n);
+    vs.push({start:s,end:e.end,darts:e.n,pts:e.bust?0:s-e.end,bust:e.bust,out:e.out,segs:segs});
+    s=e.end}
+  return {vs:vs,fin:s===0,lock:vs.findIndex(v=>v.end<=100)}}
+function x01Stats(g){
+  const r=x01Replay(g),vs=r.vs,S=(a,k)=>a.reduce((x,v)=>x+v[k],0);
+  // a game stopped before his lock counts its 80% over every dart thrown
+  const v80=r.lock>=0?vs.slice(0,r.lock+1):vs,f9=vs.slice(0,3);
+  const o={vs:vs,fin:r.fin,locked:r.lock>=0,darts:S(vs,'darts'),pts:S(vs,'pts'),
+    p80:S(v80,'pts'),d80:S(v80,'darts'),pf9:S(f9,'pts'),df9:S(f9,'darts')};
+  if(r.fin){
+    // closing = everything from 100 or less to the out; a ton+ out scores its finishing visit's darts
+    o.closeDarts=S(vs.filter((v,i)=>v.start<=100||i===vs.length-1),'darts');
+    o.checkout=vs[vs.length-1].start}
+  return o}
+/* NDA awards, one per visit, bigger wins: ton-80 > hat trick > high ton > low ton.
+   A ton+ checkout counts; a bust never does. */
+const AWARD={low:'LOW TON',high:'HIGH TON',ton80:'TON 80',hat:'HAT TRICK'};
+function visitAward(v){if(v.bust)return null;
+  const b=v.segs.filter(s=>s==='SB'||s==='DB').length;
+  return v.pts===180?'ton80':b===3?'hat':v.pts>=151?'high':v.pts>=100?'low':null}
+/* Brackets: where a visit started. 101+ only counts a score 3 darts can actually
+   finish under the game's rules (bogeys come from the rules, never a table). */
+const BRK=[[1,20,'1–20'],[21,29,'21–29'],[30,39,'30s'],[40,49,'40s'],[50,59,'50s'],[60,69,'60s'],
+  [70,79,'70s'],[80,89,'80s'],[90,100,'90–100'],[101,180,'101+']];
+const X01_MK={};
+function x01Makeable(rl){const k=rl.out+rl.bull;if(X01_MK[k])return X01_MK[k];
+  const any=[0],dbl=[50];
+  for(let n=1;n<=20;n++){any.push(n,n*2,n*3);dbl.push(n*2)}
+  any.push(rl.bull==='split'?25:50,50);
+  const last=rl.out==='double'?dbl:any.filter(v=>v>0),s=new Set();
+  any.forEach(a=>any.forEach(b=>last.forEach(c=>s.add(a+b+c))));
+  return X01_MK[k]=s}
+function x01Bracket(s,rl){if(s<=100)return BRK.findIndex(b=>s>=b[0]&&s<=b[1]);
+  return x01Makeable(rl).has(s)?BRK.length-1:-1}
+const x01Sorted=()=>D.x01.slice().sort((a,b)=>(a.at||a.date)<(b.at||b.date)?-1:1);
+/* Everything for one out-mode. Closing and brackets never mix straight and double
+   out (40 left is a different problem in each); they pool across 301/501/701. */
+function x01Agg(mode){
+  const A={byStart:{},close:{n:0,darts:0,best:null},high:0,atDbl:0,outs:0,
+    aw:{low:0,high:0,ton80:0,hat:0},brk:BRK.map(()=>({n:0,out:0,left:0,bust:0,d:0}))};
+  x01Sorted().filter(g=>g.out===mode).forEach(g=>{
+    const s=x01Stats(g),vs=s.vs;
+    (A.byStart[g.start]=A.byStart[g.start]||[]).push({g:g,s:s});
+    vs.forEach(v=>{const k=visitAward(v);if(k)A.aw[k]++});
+    if(mode==='double')vs.forEach(v=>{let r=v.start;
+      v.segs.forEach(d=>{if(r===50||(r<=40&&r%2===0))A.atDbl++;r-=segVal(d,g.bull)})});
+    if(!s.fin)return;   // a stopped game never reached an out: no closing, no brackets
+    A.outs++;A.close.n++;A.close.darts+=s.closeDarts;
+    if(A.close.best==null||s.closeDarts<A.close.best)A.close.best=s.closeDarts;
+    if(s.checkout>A.high)A.high=s.checkout;
+    // each visit logs the darts it then took to go out — the whole rest of the game
+    let left=s.darts;
+    vs.forEach(v=>{const b=x01Bracket(v.start,g);
+      if(b>=0){const B=A.brk[b];B.n++;B.d+=left;if(v.out)B.out++;else if(v.bust)B.bust++;else B.left++}
+      left-=v.darts})});
+  return A}
+
+/* ---- the live game ---- */
+const X_KEY='tm_x01live_v1';
+let X=load(X_KEY,null);
+if(X&&(!Array.isArray(X.turns)||!Array.isArray(X.cur)))X=null;
+function persistX(){if(X)save(X_KEY,X);else localStorage.removeItem(X_KEY)}
+let xRing='S',xPad=null,XF=null,gStats=false,gTab='play',xsMode=null;
+function x01Rules(){const s=D.settings;
+  return {start:[301,501,701].includes(s.x01Start)?s.x01Start:501,out:s.x01Out==='double'?'double':'open',
+    bull:s.x01Bull==='split'?'split':'fat'}}
+function x01New(rl){
+  X={id:uid(),date:today(),start:rl.start,out:rl.out,bull:rl.bull,turns:[],cur:[],snaps:[],sung:-1,
+     saved:null,savedId:null,parked:false};
+  xRing='S';persistX();acquireWake();render()}
+function xState(){let s=X.start;
+  X.turns.forEach(t=>{s=turnEval(s,t,X).end});
+  const e=turnEval(s,X.cur,X);
+  return {start:s,score:e.end,bust:e.bust,out:e.out,n:e.n,full:e.bust||e.out||X.cur.length>=3}}
+function curVisit(){const st=xState(),segs=X.cur.slice(0,st.n);
+  return {bust:st.bust,pts:st.bust?0:st.start-st.score,segs:segs,raw:segs.reduce((a,d)=>a+segVal(d,X.bull),0)}}
+function x01Rec(){
+  const g={id:X.id,date:X.date,at:stamp(),start:X.start,out:X.out,bull:X.bull,turns:X.turns.concat(X.cur.length?[X.cur]:[])};
+  g.turns=x01Replay(g).vs.map(v=>v.segs);   // keep only the darts that counted
+  return g}
+/* The game is in history the moment he goes out. An undo or a fix after that
+   takes it back out (a tombstone if it already synced) and files it again under a
+   new id — records stay immutable, union by id, like tm_games. */
+function x01Settle(){
+  const st=xState(),sig=st.out?JSON.stringify([X.turns,X.cur]):null;
+  if(X.saved&&X.saved!==sig){D.x01=D.x01.filter(g=>g.id!==X.savedId);X.saved=X.savedId=null;X.id=uid();persist()}
+  if(sig&&!X.saved){const g=x01Rec();D.x01.push(g);X.saved=sig;X.savedId=g.id;persist()}}
+function snapX(){X.snaps.push(JSON.stringify({t:X.turns,c:X.cur,s:X.sung}));if(X.snaps.length>30)X.snaps.shift()}
+function x01Undo(){if(!X||!X.snaps.length)return;
+  const o=JSON.parse(X.snaps.pop());X.turns=o.t;X.cur=o.c;X.sung=o.s;
+  x01Settle();persistX();render()}
+/* the award jingle plays once the turn is final — after the last dart's coin, or
+   at the button when a dart never registered — and never holds anything up */
+function x01Award(c){if(X.sung===X.turns.length)return;
+  const k=visitAward(curVisit());if(!k)return;
+  X.sung=X.turns.length;jingle(JINGLES[k],after(c))}
+function x01Dart(seg,fromBoard){
+  if(!X||X.parked)return;
+  const st=xState();
+  if(st.out)return;
+  if(st.full){toast(st.bust?'Bust — end the turn first':'Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
+  snapX();X.cur.push(seg);xRing='S';
+  const s2=xState(),c=chirpsOf(seg);
+  chirp(c);
+  if(s2.out||(X.cur.length===3&&!s2.bust))x01Award(c);
+  x01Settle();persistX();render();
+  if(fromBoard)gbEcho(seg)}
+/* the board button (or End turn). A turn is always 3 darts unless he went out or
+   bust, so any dart that never registered goes in as a 0. On a finished game the
+   button starts the next one. */
+function x01Button(){
+  if(!X||X.parked)return;
+  const st=xState();
+  if(st.out){x01New(X);return}
+  snapX();
+  if(X.cur.length&&!st.bust)x01Award(0);
+  if(!st.bust)while(X.cur.length<3)X.cur.push('M');
+  X.turns.push(X.cur);X.cur=[];
+  x01Settle();persistX();render()}
+function x01Fix(seg){ // seg null = remove the dart
+  if(!X||!XF||X.cur[XF.i]==null)return;
+  snapX();
+  if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
+  XF=null;closeSheet();
+  const st=xState();
+  if(st.out||(X.cur.length===3&&!st.bust))x01Award(0);
+  x01Settle();persistX();render()}
+function x01Leave(keep){ // keep: a stopped game still counts for 80%, first 9 and awards
+  if(keep&&!xState().out&&(X.turns.length||X.cur.length)){D.x01.push(x01Rec());persist()}
+  X=null;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gStats=false;gTab='play';view='games';render()}
+
+/* ---- game screen ---- */
+function x01HTML(){
+  const st=xState(),done=st.out,live=X.cur.length>0,board=!!GB.dev;
+  const showPad=!done&&(xPad!=null?xPad:!board);
+  const closed=x01Replay({start:X.start,out:X.out,bull:X.bull,turns:X.turns}).vs,lastV=closed[closed.length-1];
+  let segs=[],tot='',badge='';
+  if(live){const cv=curVisit(),k=st.full&&visitAward(cv);segs=X.cur;tot=String(cv.raw);
+    badge=st.bust?'<span class="badge bust">BUST</span>':k?'<span class="badge aw">'+AWARD[k]+'</span>':
+      done?'<span class="badge out">OUT</span>':''}
+  else if(lastV){const k=visitAward(lastV);segs=X.turns[X.turns.length-1];tot=lastV.bust?'bust':String(lastV.pts);
+    badge=k?'<span class="badge aw">'+AWARD[k]+'</span>':''}
+  let sl='';
+  for(let k=0;k<3;k++){const s=segs[k];
+    if(s==null){sl+='<div class="slot e">·</div>';continue}
+    sl+=live?'<button class="slot '+segCls(s)+'" data-a="xfix" data-v="'+k+'">'+segLabel(s)+'</button>':
+      '<div class="slot '+segCls(s)+'">'+segLabel(s)+'</div>'}
+  const s=x01Stats({start:X.start,out:X.out,bull:X.bull,turns:X.turns.concat(done?[X.cur]:[])});
+  const ppd=s.darts?s.pts/s.darts:null,p80=s.d80?s.p80/s.d80:null;
+  let h='<div class="xg'+(showPad?' haspad':'')+'"><div class="in"><div class="xtop">'+
+    '<button class="xb" data-a="xleave">'+(done?'✓ Done':'✕')+'</button>'+
+    '<div class="t"><b>'+X.start+'</b> <span class="s">· '+OUTN[X.out].toLowerCase()+(X.bull==='split'?' · split bull':'')+
+      ' · turn '+(X.turns.length+1)+'</span></div>'+
+    (navigator.bluetooth||GB_MOCK?'<button class="xb" data-a="gbconn"><span class="gbdot '+GB.cls+'"></span><span class="gbpill">'+gbPillText()+'</span></button>':'')+
+    '<button class="xb" data-a="xmute" aria-label="Sound on or off">'+(D.settings.gameMute?'🔇':'🔊')+'</button>'+
+    '<button class="xb" data-a="xundo"'+(X.snaps.length?'':' disabled')+'>↶ Undo</button></div>'+
+    '<div class="gbline gbstat"'+(GB.dev&&GB.cls!=='on'?'':' style="display:none"')+'>'+esc(GB.stat)+'</div>'+
+    '<div class="xbody"><div>'+
+    '<div class="pl'+(done?' fin':'')+'"><div class="ph"><span class="nm">'+(done?'Game shot':'You')+'</span>'+badge+'</div>'+
+    '<div class="sc'+(st.bust?' bust':done?' out':'')+'">'+(st.bust?'BUST':done?'OUT':st.score)+'</div>'+
+    '<div class="slots'+(live?'':' old')+'">'+sl+'<span class="tt">'+tot+'</span></div>'+
+    '<div class="ms"><div><span>PPD</span><b>'+fmt1(ppd)+'</b></div>'+
+      '<div'+(s.locked?' class="lk"':'')+'><span>80%</span><b>'+fmt1(p80)+'</b></div>'+
+      '<div><span>Darts</span><b>'+s.darts+'</b></div></div></div>';
+  const how=board?'board button':'End turn';
+  if(done)h+='<div class="msg win" style="margin-top:10px"><div class="row"><span class="grow">Out in '+s.darts+' darts · '+
+      fmt1(ppd)+' PPD · 80% '+fmt1(p80)+' · first 9 '+fmt1(s.df9?s.pf9/s.df9:null)+'</span>'+
+      '<button class="btn btn-sm btn-primary" data-a="xnext">Next game ›</button></div>'+
+      '<div class="hint" style="margin-top:4px;font-weight:600">Tap a dart to fix it'+(board?' · board button = next game':'')+'</div></div>';
+  else if(st.bust)h+='<div class="msg" style="margin-top:10px">Bust — pull your darts and '+(board?'hit the board button.':'tap End turn.')+'</div>';
+  else if(X.cur.length===3)h+='<div class="msg" style="margin-top:10px">Pull your darts · '+how+' for the next turn.</div>';
+  h+='</div>';
+  if(showPad)h+='<div>'+x01PadHTML()+(board?'<button class="btn btn-ghost" data-a="xpad" data-v="0" style="margin-top:8px">Hide the pad</button>':'')+'</div>';
+  else if(!done)h+='<div class="row"><button class="xend grow" data-a="xend" style="margin:0">⏎ End turn</button>'+
+    '<button class="btn btn-sm" data-a="xpad" data-v="1">Tap pad</button></div>';
+  h+='</div>'+gbMockHTML()+'</div></div>';
+  return h}
+function x01PadHTML(){
+  return '<div class="rings">'+[['S','Single'],['D','Double'],['T','Treble']].map(r=>'<button class="'+(xRing===r[0]?'on':'')+
+      '" data-a="xring" data-v="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
+    '<div class="nums '+xRing+'">'+Array.from({length:20},(_,i)=>'<button data-a="xdart" data-v="'+xRing+(i+1)+'">'+
+      (xRing==='S'?'':xRing)+(i+1)+'</button>').join('')+'</div>'+
+    '<div class="nums3"><button data-a="xdart" data-v="SB">Bull '+(X.bull==='split'?25:50)+'<small>outer</small></button>'+
+      '<button data-a="xdart" data-v="DB">Bull 50<small>inner</small></button>'+
+      '<button class="miss" data-a="xdart" data-v="M">Miss<small>0</small></button></div>'+
+    '<button class="xend" data-a="xend">⏎ End turn</button>'}
+/* fix a misread: the segment pad comes first (the common case); bounce-out and
+   remove are secondary. His other darts are never touched. */
+function x01FixSheet(){
+  const seg=X&&XF?X.cur[XF.i]:null;if(seg==null){closeSheet();return}
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet">'+
+    '<h3>Dart '+(XF.i+1)+' — '+(GB.dev?'board said ':'')+esc(segName(seg))+'</h3>'+
+    '<div class="hint" style="margin-bottom:10px">Tap what you actually hit. Your other darts stay as they are.</div>'+
+    '<div class="rings">'+[['S','Single'],['D','Double'],['T','Treble']].map(r=>'<button class="'+(XF.ring===r[0]?'on':'')+
+      '" data-a="xfring" data-v="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
+    '<div class="nums '+XF.ring+'">'+Array.from({length:20},(_,i)=>'<button data-a="xfset" data-v="'+XF.ring+(i+1)+'">'+(i+1)+'</button>').join('')+'</div>'+
+    '<div class="nums3" style="grid-template-columns:1fr 1fr"><button data-a="xfset" data-v="SB">Bull '+(X.bull==='split'?25:50)+'<small>outer</small></button>'+
+      '<button data-a="xfset" data-v="DB">Bull 50<small>inner</small></button></div>'+
+    '<div class="alt"><button data-a="xfset" data-v="M">Bounce-out (0)</button><button data-a="xfrm">Remove dart</button></div>'+
+    '</div></div>'}
+function x01LeaveSheet(){
+  const any=X.turns.length||X.cur.length;
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet"><h3>Leave this '+X.start+'?</h3>'+
+    '<button class="btn btn-primary" data-a="xpark">⏸ Pause — come back to it</button>'+
+    (any?'<button class="btn" data-a="xstopkeep">Stop here and keep it</button>'+
+      '<div class="hint" style="margin-top:6px">A stopped game counts for 80%, first 9 and awards — not for closing or brackets, since it never reached an out.</div>':'')+
+    '<button class="btn btn-danger" data-a="xtoss">Throw it away</button>'+
+    '<button class="btn btn-ghost" data-a="closesheet">Keep playing</button></div></div>'}
+
+/* ---- Games tab: Play ---- */
+function x01PlayHTML(){
+  const rl=x01Rules();let h='';
+  if(X&&X.parked){const st=xState();
+    h+='<button class="tile" data-a="xgo" style="border-color:var(--warn)"><div class="row"><div style="flex:1;min-width:0">'+
+      '<b>⏸ '+X.start+' · on '+st.score+'</b><div class="meta">turn '+(X.turns.length+1)+' · '+OUTN[X.out].toLowerCase()+'</div></div>'+
+      '<span class="pill on">Go back in</span></div></button>'}
+  const opt=(k,v,lbl,on)=>'<button class="btn btn-sm '+(on?'btn-primary':'')+'" data-a="xrule" data-k="'+k+'" data-v="'+v+'" style="flex:1">'+lbl+'</button>';
+  h+='<div class="card"><h3>Play x01</h3>'+
+    '<div class="row">'+[301,501,701].map(n=>opt('x01Start',n,n,rl.start===n)).join('')+'</div>'+
+    '<div class="row" style="margin-top:8px">'+opt('x01Out','open','Straight out',rl.out==='open')+opt('x01Out','double','Double out',rl.out==='double')+'</div>'+
+    '<div class="row" style="margin-top:8px">'+opt('x01Bull','fat','Every bull 50',rl.bull==='fat')+opt('x01Bull','split','Bull 25 / 50',rl.bull==='split')+'</div>'+
+    '<div class="hint" style="margin-top:6px">Straight in. Your league: straight out, every bull 50.</div>';
+  if(navigator.bluetooth||GB_MOCK)h+='<div class="row" style="margin-top:12px"><div class="grow" style="font-weight:700;font-size:15px">'+
+      '<span class="gbdot '+GB.cls+'"></span><span class="gbstat">'+esc(GB.stat||'Board not connected')+'</span></div>'+
+      '<button class="btn btn-sm gbbtn" data-a="gbconn">'+gbBtnText()+'</button></div>'+
+      '<div class="hint" style="margin-top:4px">Close the GranBoard app first — the board talks to one thing at a time.</div>';
+  else h+='<div class="hint" style="margin-top:8px">No Bluetooth in this browser — tap your darts in. The board link works in Chrome on the tablet.</div>';
+  h+='<button class="btn btn-primary" data-a="xstart">▶ Start '+rl.start+'</button></div>';
+  const all=x01Sorted();
+  if(all.length){
+    const lg=all[all.length-1],A=x01Agg(lg.out),arr=A.byStart[lg.start]||[],L=arr.slice(-30),F=L.filter(x=>x.s.fin);
+    const full=F.length?F.reduce((a,x)=>a+x.g.start,0)/F.reduce((a,x)=>a+x.s.darts,0):null;
+    const e80=L.reduce((a,x)=>a+x.s.d80,0)?L.reduce((a,x)=>a+x.s.p80,0)/L.reduce((a,x)=>a+x.s.d80,0):null;
+    h+='<button class="tile" data-a="xstats"><div class="row"><div style="flex:1;min-width:0"><b>'+lg.start+' · '+OUTN[lg.out].toLowerCase()+'</b>'+
+      '<div class="meta">'+(L.length<arr.length?'last 30 of '+arr.length:arr.length+' game'+(arr.length>1?'s':''))+
+      ' · 80% '+fmt1(e80)+(A.close.n?' · closing '+fmt1(A.close.darts/A.close.n)+' darts':'')+' · all stats ›</div></div>'+
+      '<div class="last"><b>'+fmt1(full)+'</b><span>full PPD</span></div></div></button>';
+    h+='<div class="lbl" style="margin-top:14px">Recent games</div>'+all.slice(-12).reverse().map(g=>{const s=x01Stats(g);
+      const line=s.fin?'out in '+s.darts+' darts · '+fmt1(g.start/s.darts)+' PPD':'stopped on '+(g.start-s.pts)+' · '+s.darts+' darts';
+      return '<div class="cnt"><span class="nm">'+g.date+' · '+g.start+(g.out==='double'?' · double out':'')+(g.bull==='split'?' · 25/50':'')+
+        '<div class="hint" style="font-weight:400">'+line+' · 80% '+fmt1(s.d80?s.p80/s.d80:null)+'</div></span>'+
+        '<button class="m" data-a="xdel" data-v="'+g.id+'">✕</button></div>'}).join('')}
+  return h}
+
+/* ---- x01 stats ---- */
+function x01StatsHTML(){
+  setHead('x01 stats','In-app games — every number from the darts','closestats');
+  const all=x01Sorted(),modes=['open','double'].filter(m=>all.some(g=>g.out===m));
+  if(!modes.length)return '<div class="card"><p class="hint">No games yet.</p></div>';
+  if(!modes.includes(xsMode))xsMode=all[all.length-1].out;
+  const A=x01Agg(xsMode);let h='';
+  if(modes.length>1)h+='<div class="row" style="margin-bottom:6px">'+modes.map(m=>'<button class="btn btn-sm '+(xsMode===m?'btn-primary':'')+
+    '" data-a="xsmode" data-v="'+m+'" style="flex:1">'+OUTN[m]+'</button>').join('')+'</div>'+
+    '<div class="hint" style="margin-bottom:12px">Straight and double out are kept apart — never mixed.</div>';
+  const ratio=(L,p,d)=>{const dd=L.reduce((a,x)=>a+x.s[d],0);return dd?L.reduce((a,x)=>a+x.s[p],0)/dd:null};
+  [501,301,701].forEach(start=>{const arr=A.byStart[start];if(!arr)return;
+    const L=arr.slice(-30),F=L.filter(x=>x.s.fin);
+    const full=F.length?F.reduce((a,x)=>a+x.g.start,0)/F.reduce((a,x)=>a+x.s.darts,0):null;
+    const sp=arr.filter(x=>x.s.fin).map(x=>({full:x.g.start/x.s.darts,p80:x.s.d80?x.s.p80/x.s.d80:null}));
+    h+='<div class="card"><div class="row"><div style="flex:1"><h3 style="margin:0">'+start+' · '+OUTN[xsMode].toLowerCase()+'</h3>'+
+      '<div class="hint">'+(L.length<arr.length?'last 30 of '+arr.length:arr.length+' game'+(arr.length>1?'s':''))+
+      ' · '+F.length+' played out</div></div>'+
+      '<div style="text-align:right"><div style="font-size:26px;font-weight:800">'+fmt1(full)+'</div>'+
+      '<div class="hint">full game PPD'+(full!=null?' · '+(full*3).toFixed(1)+' PPR':'')+'</div></div></div>'+
+      '<div class="row" style="margin-top:8px">'+
+        '<div class="grow hint">80%: <b style="color:var(--text)">'+fmt1(ratio(L,'p80','d80'))+'</b></div>'+
+        '<div class="grow hint">First 9: <b style="color:var(--text)">'+fmt1(ratio(L,'pf9','df9'))+'</b></div>'+
+        '<div class="grow hint">League: <b style="color:var(--text)">'+fmt1(LEAGUE['501'])+'</b></div></div>'+
+      gSpark(sp,'501')+
+      '<div class="hint" style="margin-top:4px">solid = full game · faint = 80% · dashed = league · per dart, totals over darts</div></div>'});
+  const tb=A.brk[BRK.length-1];
+  h+='<div class="card"><h3>Closing</h3><div class="hint">From 100 or less to the out. A ton+ out counts its finishing visit’s darts.</div>'+
+    '<div class="row" style="margin-top:8px"><div style="flex:1"><div style="font-size:30px;font-weight:800">'+
+      (A.close.n?fmt1(A.close.darts/A.close.n):'–')+'</div><div class="hint">darts to close, average of '+A.close.n+' game'+(A.close.n===1?'':'s')+'</div></div>'+
+      '<div style="text-align:right" class="hint">best <b style="color:var(--text)">'+(A.close.best==null?'–':A.close.best)+'</b> dart'+(A.close.best===1?'':'s')+'<br>'+
+      'high out <b style="color:var(--text)">'+(A.high||'–')+'</b><br>'+
+      'ton+ outs <b style="color:var(--text)">'+tb.out+'</b> of '+tb.n+'</div></div>'+
+    (xsMode==='double'?'<div class="hint" style="margin-top:8px">Checkout <b style="color:var(--text)">'+
+      (A.atDbl?Math.round(100*A.outs/A.atDbl)+'%':'–')+'</b> — '+A.outs+' out of '+A.atDbl+' darts at a double</div>':'')+'</div>';
+  h+='<div class="card"><h3>Brackets</h3><div class="hint">Every visit started in a bracket, and the darts it then took to go out. '+
+    'Average shows from 10 visits. 101+ = '+(xsMode==='double'?'170':'180')+' and under, finishable in 3.</div>'+
+    '<table class="btab"><tr><th>Left on</th><th>Visits</th><th>Out</th><th>Left</th><th>Bust</th><th>Darts to out</th></tr>'+
+    BRK.map((b,i)=>{const B=A.brk[i];if(!B.n)return '<tr class="dim"><td>'+b[2]+'</td><td colspan="5" class="dim">–</td></tr>';
+      return '<tr><td>'+b[2]+'</td><td><b>'+B.n+'</b></td><td>'+B.out+'</td><td>'+B.left+'</td><td>'+B.bust+'</td>'+
+        '<td><b>'+(B.n>=10?fmt1(B.d/B.n):'<span class="dim">·</span>')+'</b></td></tr>'}).join('')+'</table></div>';
+  const ng=Object.values(A.byStart).reduce((a,x)=>a+x.length,0);
+  h+='<div class="card"><h3>Awards</h3><div class="aw4">'+
+    [['low','Low ton'],['high','High ton'],['ton80','Ton 80'],['hat','Hat trick']].map(a=>'<div><b>'+A.aw[a[0]]+'</b><span>'+a[1]+'</span></div>').join('')+
+    '</div><div class="hint" style="margin-top:6px">'+ng+' game'+(ng===1?'':'s')+' · low 100–150, high 151–179, hat trick = 3 bulls in a turn</div></div>';
+  return h}
+
+/* ============ game sounds (mock-501.html, exactly as Matt picked them) ============
+   Each of his darts chirps like the board — Soft coin, 1 single, 2 double (inner
+   bull too), 3 treble, nothing for a miss. A deliberate exception to rule 4, games
+   only: it answers a dart that just landed. Chain: compressor −16 dB / ratio 5 →
+   1.2×, plus a 40 Hz keep-awake far too quiet to hear, because his speakers
+   clipped the first sound after silence. Shares the drills' AudioContext so the
+   iOS unlock covers both. */
+let GOUT=null,GWARM=0,GKEEP=null;
+function gAudio(){
+  try{if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return null}
+  const AC=audioCtx;
+  if(!GOUT){const comp=AC.createDynamicsCompressor(),vol=AC.createGain();
+    comp.threshold.value=-16;comp.knee.value=6;comp.ratio.value=5;
+    comp.attack.value=.002;comp.release.value=.12;vol.gain.value=1.2;
+    comp.connect(vol);vol.connect(AC.destination);GOUT=comp;
+    GWARM=AC.currentTime+.35}   // the sound card takes a moment to open; nothing before this is heard
+  if(AC.state==='suspended')AC.resume().catch(()=>{});
+  return AC}
+function gKeep(on){
+  if(on&&!GKEEP){const AC=gAudio();if(!AC)return;
+    const k=AC.createOscillator(),kg=AC.createGain();
+    k.frequency.value=40;kg.gain.value=.0004;k.connect(kg);kg.connect(AC.destination);k.start();GKEEP=k}
+  else if(!on&&GKEEP){try{GKEEP.stop()}catch(e){}GKEEP=null}}
+function gTone(t,f,dur,peak,hold){
+  const AC=audioCtx,o=AC.createOscillator(),g=AC.createGain();
+  o.type='triangle';o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(peak,t+.005);
+  g.gain.setValueAtTime(peak,t+.005+hold);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.02)}
+function chirp(n){
+  if(D.settings.gameMute||!n)return;
+  const ac=gAudio();if(!ac)return;
+  if(ac.state!=='running'){ac.resume().then(()=>chirp(n)).catch(()=>{});return}
+  const t0=Math.max(ac.currentTime+.03,GWARM);
+  for(let k=0;k<n;k++){const t=t0+k*.18,f=988*Math.pow(1.12,k);
+    gTone(t,f,.06,.6,.03);gTone(t+.06,f*1.335,.16,.6,.05)}}
+const midi=m=>440*Math.pow(2,(m-69)/12);
+function jnote(t,m,dur,peak){
+  const AC=audioCtx,o=AC.createOscillator(),g=AC.createGain();
+  o.type='triangle';o.frequency.setValueAtTime(midi(m),t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(peak,t+.004);
+  g.gain.setValueAtTime(peak,t+.004+dur*.35);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.02)}
+const PW={};
+function pulse(duty){
+  if(!PW[duty]){const N=64,re=new Float32Array(N),im=new Float32Array(N);
+    for(let n=1;n<N;n++)im[n]=2/(n*Math.PI)*Math.sin(n*Math.PI*duty);
+    PW[duty]=audioCtx.createPeriodicWave(re,im)}
+  return PW[duty]}
+function n8(t,m,dur,peak,wave){
+  const AC=audioCtx,o=AC.createOscillator(),g=AC.createGain();
+  if(wave==='s')o.type='square';else o.setPeriodicWave(pulse(.25));
+  o.frequency.setValueAtTime(midi(m),t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(peak,t+.003);
+  g.gain.setValueAtTime(peak,t+.003+dur*.6);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.02)}
+function jingle(spec,delay){
+  if(D.settings.gameMute)return;
+  const ac=gAudio();if(!ac)return;
+  if(ac.state!=='running'){ac.resume().then(()=>jingle(spec,delay)).catch(()=>{});return}
+  const t0=Math.max(ac.currentTime+(delay||.03),GWARM);
+  for(const [dt,m,dur,pk,w] of spec)(w?n8:jnote)(t0+dt,m,dur,pk||.5,w)}
+/* Final 501 jingles (Matt): the Level-up climb — root, 3rd, 5th, octave on a 25%
+   pulse, 50 ms a note — repeated, each climb a step higher (C, D, E, G, high C),
+   always ending on the climb. Low ton 2, hat trick 3, high ton 4, ton-80 5. */
+const climb=(t0,root,step)=>{step=step||.05;return [0,4,7,12].map((iv,i)=>[t0+i*step,root+iv,step*1.1,.22,'p'])};
+const climbs=n=>[72,74,76,79,84].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
+const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5)};
+const after=c=>c?(c-1)*.18+.22:.03;   // let the last dart's coin finish first
+
+/* ============ GranBoard link (from gb-test.html, proven on his board) ============
+   Web Bluetooth: Chrome on the Galaxy Tab only (iPhone Safari has none — taps
+   there). Darts arrive as ASCII cut on '@'. Run 1: one hit chatters 2–5× within
+   ~0.25 s, so the same code again inside 400 ms is dropped — the button too, or a
+   chatter ends two turns. The board drops the link ~70 s after the last dart, so
+   after a drop the app reconnects on its own: every 3 s for a minute, then every
+   15 s, each try raced against a 10 s timeout (an Android connect can hang), and
+   the status says "Reconnecting…" the whole time. A manual tap takes over. */
+const GB_SVC='442f1570-8a00-9a28-cbe1-e1d4212d53eb';
+// ascii (without '@') -> [number, ring]. 25 = bull. I/O inner/outer single, T, D; bull S 25 / D 50.
+const GB_CODES={
+  '0.0':[13,'I'],'0.1':[4,'I'],'0.2':[13,'T'],'0.3':[4,'T'],'0.4':[13,'O'],'0.5':[4,'O'],'0.6':[4,'D'],
+  '1.0':[6,'I'],'1.1':[6,'T'],'1.2':[18,'I'],'1.3':[6,'O'],'1.4':[18,'T'],'1.5':[18,'O'],'1.6':[18,'D'],
+  '2.0':[10,'I'],'2.1':[10,'T'],'2.2':[10,'O'],'2.3':[1,'I'],'2.4':[1,'T'],'2.5':[1,'O'],'2.6':[1,'D'],
+  '3.0':[15,'I'],'3.1':[15,'T'],'3.2':[15,'O'],'3.3':[20,'I'],'3.4':[20,'T'],'3.5':[20,'O'],'3.6':[20,'D'],
+  '4.0':[25,'D'],'4.2':[15,'D'],'4.3':[10,'D'],'4.4':[6,'D'],'4.5':[13,'D'],'4.6':[5,'D'],
+  '5.0':[12,'I'],'5.1':[5,'I'],'5.2':[5,'T'],'5.3':[12,'T'],'5.4':[5,'O'],'5.5':[12,'O'],'5.6':[12,'D'],
+  '6.0':[19,'T'],'6.1':[19,'I'],'6.2':[8,'I'],'6.3':[19,'O'],'6.4':[8,'T'],'6.5':[8,'O'],'6.6':[8,'D'],
+  '10.0':[17,'T'],'10.1':[17,'I'],'10.2':[17,'O'],'10.3':[14,'I'],'10.4':[14,'T'],'10.5':[14,'O'],'10.6':[14,'D'],
+  '11.0':[16,'I'],'11.1':[7,'I'],'11.2':[7,'T'],'11.3':[16,'T'],'11.4':[7,'O'],'11.5':[16,'O'],'11.6':[16,'D'],
+  '7.0':[3,'T'],'7.1':[3,'I'],'7.2':[3,'O'],'7.3':[11,'I'],'7.4':[11,'T'],'7.5':[11,'O'],'7.6':[11,'D'],
+  '8.0':[25,'S'],'8.2':[2,'D'],'8.3':[17,'D'],'8.4':[3,'D'],'8.5':[19,'D'],'8.6':[7,'D'],
+  '9.0':[2,'T'],'9.1':[2,'I'],'9.2':[2,'O'],'9.3':[9,'I'],'9.4':[9,'T'],'9.5':[9,'O'],'9.6':[9,'D']};
+const GB_LED={0:0,1:28,2:49,3:55,4:34,5:22,6:40,7:1,8:7,9:16,10:43,
+  11:10,12:19,13:37,14:13,15:46,16:4,17:52,18:31,19:58,20:25};
+const GB_DUP_MS=400,GB_MOCK=/[?&]mock\b/.test(location.search);
+const GB={dev:null,nch:null,wch:null,buf:'',userDisc:false,halfDisc:false,retryT:null,retries:0,auto:false,
+  stat:'',cls:'',lastCode:'',lastCodeAt:0};
+function gbSeg(raw){
+  if(raw==='OUT')return 'M';
+  const c=GB_CODES[raw];if(!c)return null;
+  const n=c[0],r=c[1];
+  if(n===25)return r==='D'?'DB':'SB';
+  return (r==='T'?'T':r==='D'?'D':'S')+n}
+function gbNotify(e){const v=e.target.value;gbBytes(new Uint8Array(v.buffer,v.byteOffset,v.byteLength))}
+function gbBytes(bytes){
+  GB.buf+=String.fromCharCode.apply(null,Array.from(bytes));
+  let i;
+  while((i=GB.buf.indexOf('@'))>=0){const raw=GB.buf.slice(0,i);GB.buf=GB.buf.slice(i+1);gbCode(raw)}
+  if(GB.buf.length>16)GB.buf=''}
+function gbCode(raw){
+  const now=Date.now();
+  if(raw===GB.lastCode&&now-GB.lastCodeAt<GB_DUP_MS){GB.lastCodeAt=now;return}   // chatter
+  GB.lastCode=raw;GB.lastCodeAt=now;
+  if(raw==='BTN'){if(X&&!X.parked)x01Button();return}
+  const seg=gbSeg(raw);if(!seg)return;                                         // unknown code: ignore
+  if(!X||X.parked||(R&&!R.parked)){toast('Board: '+segName(seg)+' — start a game to score it');return}
+  x01Dart(seg,true)}
+const gbPillText=()=>GB.cls==='on'?'Board':GB.cls==='busy'?'Reconnecting':GB.dev?'Reconnect':'Connect';
+const gbBtnText=()=>GB.cls==='on'?'Board ⚙':GB.cls==='busy'&&GB.auto?'Reconnect now':GB.dev?'Reconnect':'Connect board';
+function gbStatus(text,cls){
+  const was=GB.cls;GB.stat=text;GB.cls=cls;
+  document.querySelectorAll('.gbdot').forEach(e=>e.className='gbdot '+cls);
+  document.querySelectorAll('.gbstat').forEach(e=>{e.textContent=text||'Board not connected';
+    if(e.classList.contains('gbline'))e.style.display=GB.dev&&cls!=='on'?'':'none'});
+  document.querySelectorAll('.gbpill').forEach(e=>e.textContent=gbPillText());
+  document.querySelectorAll('.gbbtn').forEach(e=>e.textContent=gbBtnText());
+  // the pad hides itself once a board is on; only re-render on that edge, never per retry
+  if(was!=='on'&&cls==='on'&&X&&!X.parked)render()}
+function gbTimeout(pr,ms,what){
+  return Promise.race([pr,new Promise((_,no)=>setTimeout(()=>no(new Error(what+' timed out after '+ms/1000+' s')),ms))])}
+async function gbConnect(auto){
+  if(!navigator.bluetooth)return false;
+  if(!auto){clearTimeout(GB.retryT);GB.auto=false}   // a manual tap takes over from the retry loop
+  try{
+    if(!GB.dev){
+      gbStatus('Pick the board…','busy');
+      GB.dev=await navigator.bluetooth.requestDevice({filters:[{services:[GB_SVC]}]});
+      GB.dev.addEventListener('gattserverdisconnected',()=>{
+        GB.nch=GB.wch=null;
+        if(GB.halfDisc){GB.halfDisc=false;return}         // our own cleanup of a failed try, not a drop
+        if(GB.userDisc){GB.userDisc=false;gbStatus('Disconnected','off');return}
+        if(!GB.auto){GB.retries=0;gbAuto()}})}
+    if(!auto)gbStatus('Connecting…','busy');
+    const server=await gbTimeout(GB.dev.gatt.connect(),10000,'connect');
+    const svc=await gbTimeout(server.getPrimaryService(GB_SVC),10000,'service lookup');
+    const chars=await svc.getCharacteristics();
+    GB.nch=chars.find(c=>c.properties.notify)||null;
+    GB.wch=chars.find(c=>c.properties.writeWithoutResponse||c.properties.write)||null;
+    if(!GB.nch)throw new Error('no notify characteristic');
+    GB.nch.addEventListener('characteristicvaluechanged',gbNotify);   // named, so a reconnect never adds it twice
+    await GB.nch.startNotifications();
+    clearTimeout(GB.retryT);GB.retries=0;GB.auto=false;
+    gbStatus('Connected · '+(GB.dev.name||'GranBoard'),'on');
+    return true}
+  catch(err){
+    try{if(GB.dev&&GB.dev.gatt.connected){GB.halfDisc=true;GB.dev.gatt.disconnect()}}catch(e){}   // drop a half-made link
+    if(!auto){gbStatus(GB.dev?'Disconnected':'Not connected',GB.dev?'off':'');
+      if(err&&err.name!=='NotFoundError')toast('Board: '+String(err&&err.message||err).slice(0,70))}
+    return false}}
+async function gbAuto(){
+  clearTimeout(GB.retryT);
+  if(!GB.dev||GB.dev.gatt.connected)return;
+  GB.auto=true;const n=++GB.retries;
+  gbStatus('Reconnecting… (try '+n+')','busy');
+  if(await gbConnect(true))return;
+  if(!GB.auto)return;                         // he tapped Reconnect meanwhile
+  const wait=GB.retries<20?3:15;
+  gbStatus('Reconnecting… (try '+n+' failed, next in '+wait+' s)','busy');
+  GB.retryT=setTimeout(gbAuto,wait*1000)}
+function gbDisconnect(){clearTimeout(GB.retryT);GB.auto=false;
+  if(GB.dev&&GB.dev.gatt.connected){GB.userDisc=true;GB.dev.gatt.disconnect()}}
+// GATT operations can't overlap, so every LED write goes through one queue
+let gbWq=Promise.resolve();
+function gbSend(bytes){const ch=GB.wch;if(!ch)return;const data=new Uint8Array(bytes);
+  gbWq=gbWq.then(()=>ch.properties.writeWithoutResponse?ch.writeValueWithoutResponse(data):ch.writeValueWithResponse(data))
+    .then(()=>new Promise(r=>setTimeout(r,60))).catch(()=>{})}
+function gbFx(cmd,rgb,pos,dur,flag){const b=new Array(16).fill(0);
+  b[0]=cmd;b[1]=rgb[0];b[2]=rgb[1];b[3]=rgb[2];b[10]=pos;b[12]=dur;b[15]=flag;gbSend(b)}
+/* Flash the hit on the ring: treble yellow, double green, single red, bull light
+   blue. NEVER white — run 2: a full-white ring drops the link 2–3 s later. */
+function gbEcho(seg){
+  if(!D.settings.gbLed||!GB.wch||seg==='M')return;
+  if(seg==='SB'||seg==='DB'){gbFx(0x17,[0,200,255],0,0x0A,1);return}
+  const n=+seg.slice(1),m=seg[0]==='T'?3:seg[0]==='D'?2:1;
+  gbFx(m,m===3?[255,200,0]:m===2?[0,255,0]:[255,0,0],GB_LED[n],0x14,0)}
+function gbSheet(){
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet"><h3>GranBoard</h3>'+
+    '<div style="font-weight:700"><span class="gbdot '+GB.cls+'"></span><span class="gbstat">'+esc(GB.stat)+'</span></div>'+
+    '<button class="btn" data-a="gbled">LED flash on each hit: '+(D.settings.gbLed?'on':'off')+'</button>'+
+    '<div class="hint" style="margin-top:6px">Treble yellow, double green, single red, bull blue. Never white — it drops the board.</div>'+
+    '<button class="btn btn-danger" data-a="gbdisc">Disconnect</button>'+
+    '<button class="btn btn-ghost" data-a="closesheet">Close</button></div></div>'}
+/* ?mock: a fake board fed through the real handler, bytes and all */
+function gbMockHTML(){if(!GB_MOCK)return '';
+  return '<div class="card" style="border-style:dashed;margin-top:10px"><div class="lbl">Fake board (?mock) — goes through the real Bluetooth handler</div>'+
+    '<div class="row" style="flex-wrap:wrap;gap:6px">'+[['T20','3.4@'],['S20','3.3@'],['S1','2.3@'],['S5','5.1@'],['T19','6.0@'],
+      ['D20','3.6@'],['D16','11.6@'],['D10','4.3@'],['D8','6.6@'],['SB','8.0@'],['DB','4.0@'],['Miss','OUT@'],
+      ['Chatter T20','3.4@3.4@'],['Half "3."','3.'],['…"4@"','4@'],['Button','BTN@']].map(b=>
+      '<button class="btn btn-sm" data-a="gbfake" data-c="'+b[1]+'">'+esc(b[0])+'</button>').join('')+'</div></div>'}
+
 function moreHTML(){
   setHead('More','Settings');
   const v=+D.settings.volume;
@@ -983,7 +1600,7 @@ function moreHTML(){
     '<div class="card"><h3>Count-in</h3><div class="hint">Seconds before a drill starts, so you are in your stance.</div>'+
     '<div class="row" style="margin-top:10px">'+[3,5,8,12].map(n=>'<button class="btn btn-sm '+
       (D.settings.countIn===n?'btn-primary':'')+'" data-a="countin" data-v="'+n+'" style="flex:1">'+n+'s</button>').join('')+'</div></div>'+
-    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+D.games.length+' games · '+
+    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+D.x01.length+' in-app x01 · '+D.games.length+' GranBoard rows · '+
     D.drills.length+' drills</div>'+
     '<button class="btn" data-a="backup">Download backup</button>'+
     '<button class="btn btn-ghost" data-a="restore">Restore from file</button></div>'+
@@ -994,7 +1611,7 @@ function moreHTML(){
 /* The sheet always goes up inside its .modal backdrop — without that wrapper it
    is a plain block and falls into the page behind whatever view is showing. */
 function showSheet(){$('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+addHTML()+'</div>'}
-function closeSheet(){$('#modalwrap').innerHTML='';editId=null}
+function closeSheet(){$('#modalwrap').innerHTML='';editId=null;XF=null}
 
 /* ============ events ============ */
 /* A range input must NEVER trigger a re-render: rebuilding the markup mid-drag
@@ -1031,7 +1648,7 @@ document.addEventListener('click',e=>{
   case 'signingo': doSignIn();break;
   case 'syncnow': syncNow(false);break;
   case 'signout': if(confirm('Sign out? Your data stays on this device.')){signOutLocal();render()}break;
-  case 'view': closeSheet();view=v;libOpen=false;render();break;
+  case 'view': closeSheet();view=v;libOpen=false;gStats=false;render();break;
   case 'openlib': view='drills';libOpen=true;render();break;
   case 'closelib': libOpen=false;render();break;
   case 'addtpl': {addTpl=v;editId=null;const t=TPL(v);
@@ -1088,6 +1705,42 @@ document.addEventListener('click',e=>{
   case 'gdel': {const g=D.games.find(x=>x.id===v);
     if(g&&confirm('Remove the '+g.date+' '+(g.type==='501'?'501':'Cricket')+' game?')){
       D.games=D.games.filter(x=>x.id!==v);persist();render()}break}
+  /* ---- x01 ---- */
+  case 'gtab': gTab=v;render();break;
+  case 'xstats': gStats=true;render();window.scrollTo(0,0);break;
+  case 'closestats': gStats=false;render();break;
+  case 'xsmode': xsMode=v;render();break;
+  case 'xrule': {const k=el.getAttribute('data-k');D.settings[k]=k==='x01Start'?+v:v;persist();render();break}
+  case 'xstart': {
+    if(X&&(X.turns.length||X.cur.length)&&!xState().out&&
+       !confirm('Throw away the paused '+X.start+' (on '+xState().score+') and start a new one?'))break;
+    gAudio();x01New(x01Rules());break}
+  case 'xgo': if(X){X.parked=false;persistX();acquireWake();render()}break;
+  case 'xdart': x01Dart(v,false);break;
+  case 'xring': xRing=v;render();break;
+  case 'xend': x01Button();break;
+  case 'xundo': x01Undo();break;
+  case 'xmute': D.settings.gameMute=!D.settings.gameMute;persist();render();break;
+  case 'xpad': xPad=v==='1';render();break;
+  case 'xfix': {const i=+v;if(!X||X.cur[i]==null)break;const s=X.cur[i];
+    XF={i:i,ring:/^[SDT]\d/.test(s)?s[0]:'S'};x01FixSheet();break}
+  case 'xfring': if(XF){XF.ring=v;x01FixSheet()}break;
+  case 'xfset': x01Fix(v);break;
+  case 'xfrm': x01Fix(null);break;
+  case 'xleave': if(!X)break;if(xState().out){x01Leave(false);break}x01LeaveSheet();break;
+  case 'xpark': X.parked=true;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';gStats=false;view='games';render();break;
+  case 'xstopkeep': x01Leave(true);toast('Kept');break;
+  case 'xtoss': if((X.turns.length>2)&&!confirm('Throw this game away? Nothing will be kept.'))break;x01Leave(false);break;
+  case 'xnext': x01New(X);break;
+  case 'xdel': {const g=D.x01.find(x=>x.id===v);
+    if(g&&confirm('Remove the '+g.date+' '+g.start+' game from your history?')){D.x01=D.x01.filter(x=>x.id!==v);persist();render()}break}
+  case 'gbconn': gAudio();   // wake the game audio on the Connect tap
+    if(GB.cls==='on'){gbSheet();break}
+    if(GB.cls==='busy'&&!GB.auto)break;
+    gbConnect(false);break;
+  case 'gbdisc': gbDisconnect();closeSheet();break;
+  case 'gbled': D.settings.gbLed=!D.settings.gbLed;persist();gbSheet();break;
+  case 'gbfake': gbBytes(Array.from(el.getAttribute('data-c')).map(ch=>ch.charCodeAt(0)));break;
   case 'dart': logDart(v);break;
   case 'skip': skipDart();break;
   case 'finishnow': if(R){if(R.tier===1)R.darts=R.visits*DPV(TPL(R.templateKey));endRun()}break;
@@ -1129,7 +1782,7 @@ document.addEventListener('click',e=>{
     inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
       r.onload=()=>{try{const o=JSON.parse(r.result);
         if(!o||!Array.isArray(o.sessions))throw 0;
-        D=Object.assign(blankD(),o);normD();
+        D=Object.assign(blankD(),o);normD();D.x01=D.x01.map(cleanX01).filter(Boolean);
         // forget what the cloud was told, so a restore merges with it rather than
         // reading every record missing from the file as a deletion
         SY.ledger={};SY.cursor=EPOCH;persistSY();
@@ -1149,6 +1802,8 @@ document.addEventListener('pointerdown',e=>{
       aim:d.aim|0,ring:d.ring|0,rounds:d.rounds||5};
     if(navigator.vibrate)navigator.vibrate(30);
     showSheet()},550)});
+// wake the game audio as the finger lands, so it is running by the time the tap's chirp plays
+document.addEventListener('pointerdown',()=>{if(X&&!X.parked)gAudio()},{passive:true});
 document.addEventListener('pointerup',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
 document.addEventListener('pointercancel',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
 document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
@@ -1169,8 +1824,8 @@ document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}
 const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
 const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
 const AUTH_KEY='tm_auth_v1', SYNC_KEY='tm_sync_v1';
-const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings', T_GAME='tm_games';
-const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET,T_GAME];
+const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings', T_GAME='tm_games', T_X01='tm_x01';
+const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET,T_GAME,T_X01];
 const EPOCH='1970-01-01T00:00:00Z';
 let AU=load(AUTH_KEY,null);
 let SY=load(SYNC_KEY,null);
@@ -1216,6 +1871,7 @@ function localRows(){
   m[T_SESS]=D.sessions.map(x=>({id:x.id,sig:1,data:x}));
   m[T_FREE]=D.free.map(x=>({id:x.id,sig:1,data:x}));
   m[T_GAME]=D.games.map(x=>({id:x.id,sig:1,data:x}));
+  m[T_X01]=D.x01.map(x=>({id:x.id,sig:1,data:x}));
   m[T_DRILL]=D.drills.map(x=>({id:x.id,sig:x.at||'-',data:x}));
   m[T_PLAN]=Object.keys(D.plans).filter(k=>D.plans[k].items.length).map(k=>({id:k,sig:D.plans[k].at||'-',data:D.plans[k]}));
   const v={freeCounters:D.freeCounters};SETTINGS_SYNCED.forEach(k=>{if(D.settings[k]!=null)v[k]=D.settings[k]});
@@ -1256,6 +1912,14 @@ function cleanGame(g){
   if(!g||typeof g.id!=='string'||!isDate(g.date)||(g.type!=='501'&&g.type!=='cricket')||!Number.isFinite(+g.full))return null;
   return {id:g.id,date:g.date,type:g.type,full:+g.full,p80:g.p80==null||!Number.isFinite(+g.p80)?null:+g.p80,
     at:typeof g.at==='string'?g.at:''}}
+/* an in-app x01 game: rules and darts only — every stat is recomputed from the darts */
+function cleanX01(g){
+  if(!g||typeof g.id!=='string'||!isDate(g.date)||![301,501,701].includes(+g.start)||!Array.isArray(g.turns))return null;
+  const turns=g.turns.filter(Array.isArray).slice(0,500)
+    .map(t=>t.filter(s=>typeof s==='string'&&SEG_RE.test(s)).slice(0,3)).filter(t=>t.length);
+  if(!turns.length)return null;
+  return {id:g.id,date:g.date,at:typeof g.at==='string'?g.at:'',start:+g.start,
+    out:g.out==='double'?'double':'open',bull:g.bull==='split'?'split':'fat',turns:turns}}
 function cleanDrill(d){
   if(!d||typeof d.id!=='string'||!TPL(d.templateKey))return null;
   return {id:d.id,templateKey:d.templateKey,name:typeof d.name==='string'&&d.name?d.name:TPL(d.templateKey).name,
@@ -1273,11 +1937,11 @@ function cleanPlan(p){
 /* Merge one remote row. Returns true only if local data actually changed. */
 function applyRemote(row){
   const t=row.table_name,id=row.record_id,d=row.data,L=ledgerOf(t);
-  if(t===T_SESS||t===T_FREE||t===T_GAME){
-    const arr=t===T_SESS?'sessions':t===T_FREE?'free':'games';
+  if(t===T_SESS||t===T_FREE||t===T_GAME||t===T_X01){
+    const arr=t===T_SESS?'sessions':t===T_FREE?'free':t===T_GAME?'games':'x01';
     if(row.deleted){const n=D[arr].length;D[arr]=D[arr].filter(x=>x.id!==id);delete L[id];return D[arr].length!==n}
     if(D[arr].some(x=>x.id===id))return false;          // a logged record never changes
-    const x=t===T_SESS?cleanSession(d):t===T_FREE?cleanFree(d):cleanGame(d);if(!x)return false;
+    const x=t===T_SESS?cleanSession(d):t===T_FREE?cleanFree(d):t===T_GAME?cleanGame(d):cleanX01(d);if(!x)return false;
     D[arr].push(x);L[id]=1;return true}
   if(t===T_DRILL){
     if(row.deleted)return false;                          // drills are archived, never deleted
@@ -1332,7 +1996,7 @@ async function syncNow(silent){
     SY.lastSync=stamp();persistSY();save(DATA_KEY,D);   // not persist(): that would schedule another sync
     if(!silent)toast('✓ Synced'+(up?' ↑'+up:'')+(down?' ↓'+down:''));
     // never rebuild a live runner or Free Throw screen just because data arrived
-    if((down||!silent)&&!(R&&!R.parked)&&!F)render();
+    if((down||!silent)&&!(R&&!R.parked)&&!(X&&!X.parked)&&!F)render();
   }catch(e){
     if(!silent)toast('Sync failed — your data is safe on this device');
   }finally{syncing=false}}
@@ -1364,7 +2028,7 @@ window.addEventListener('online',()=>{if(signedIn())syncNow(true)});
 logLeftovers();
 if(R&&R.phase==='countin')R.phase='ready';   // a count-in that survived a reload starts over
 render();
-if(R)acquireWake();
+if(R||X)acquireWake();
 if(signedIn())setTimeout(()=>syncNow(true),1500);
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
 if('serviceWorker' in navigator&&location.protocol==='https:')
