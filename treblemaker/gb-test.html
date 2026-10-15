@@ -128,6 +128,9 @@ label.tog input{width:20px;height:20px}
     <div class="row" style="margin-top:8px">
       <button class="btn btn-sm" data-a="ledRing">Ring green</button>
       <button class="btn btn-sm" data-a="ledBlink">Blink white</button>
+      <button class="btn btn-sm" data-a="ledW50">White 50%</button>
+      <button class="btn btn-sm" data-a="ledW25">White 25%</button>
+      <button class="btn btn-sm" data-a="ledYel">Blink yellow</button>
       <button class="btn btn-sm" data-a="ledWave">Wave</button>
       <button class="btn btn-sm" data-a="ledClear">Clear</button>
     </div>
@@ -399,7 +402,12 @@ const ACTIONS = {
   ledNum(){ const b = new Array(20).fill(0); b[+$('num').value - 1] = 0x05; send(b); },
   ledHit(){ fx(0x03, [255,0,0], LED_POS[+$('num').value], 0x14, 0); },
   ledRing(){ fx(0x14, [0,255,0], 0, 0x14, 1); },
-  ledBlink(){ fx(0x17, [255,255,255], 0, 0x1E, 1); },
+  ledBlink(){ logSys('LED test: full white (all 3 colours at 255) — dropped the link in run 2'); fx(0x17, [255,255,255], 0, 0x1E, 1); },
+  // Run 2: full white drops Bluetooth 2-3 s later; green never did. These find the limit:
+  // dimmer white still failing = the command; dimmer white fine = the board's power budget.
+  ledW50(){ logSys('LED test: white at 50%'); fx(0x17, [128,128,128], 0, 0x1E, 1); },
+  ledW25(){ logSys('LED test: white at 25%'); fx(0x17, [64,64,64], 0, 0x1E, 1); },
+  ledYel(){ logSys('LED test: yellow (red + green, no blue)'); fx(0x17, [255,200,0], 0, 0x1E, 1); },
   ledWave(){ fx(0x11, [255,0,0], 0x10, 0x05, 0, [0,0,255]); },
   ledClear(){ send(new Array(20).fill(0)); },
   fake(el){ onBytes(Array.from(el.dataset.c).map(ch => ch.charCodeAt(0))); }
