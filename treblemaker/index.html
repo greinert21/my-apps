@@ -233,11 +233,12 @@ button.slot{cursor:pointer;font-family:inherit}
 .cur .tt{min-width:0;text-align:center}
 .crwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:12px;margin:8px 0 2px;align-items:start}
 .crb{display:flex;flex-direction:column;gap:4px}
-.crc{display:grid;grid-template-columns:1.1fr 1fr .7fr;align-items:center;background:var(--card2);border:1px solid var(--line);
+.crc{display:grid;grid-template-columns:1.1fr 1fr .7fr;grid-template-rows:minmax(0,1fr);align-items:center;overflow:hidden;background:var(--card2);border:1px solid var(--line);
   border-radius:10px;height:clamp(38px,min(7vh,11vw),78px);padding:0 6px 0 10px;min-width:0}
 .crc b{font-size:clamp(20px,min(4.6vh,6.4vw),50px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-align:left}
-.crc .mk{display:flex;justify-content:center;align-items:center;height:100%;color:var(--text)}
-.crc .mk svg{height:78%;width:auto;max-width:100%}
+.crc .mk{display:flex;justify-content:center;align-items:center;min-width:0;color:var(--text)}
+/* a fixed size that tracks the row height — a % of the row let the svg fall back to its default size and spill out */
+.crc .mk svg{display:block;width:clamp(28px,min(5.2vh,8.2vw),58px);height:clamp(28px,min(5.2vh,8.2vw),58px);max-width:100%}
 .crc i{font-style:normal;font-size:clamp(12px,min(2.2vh,3.4vw),22px);font-weight:800;color:var(--good);text-align:right}
 .crc.on{background:#166534;border-color:var(--good)}
 .crc.on .mk{color:#bbf7d0}
