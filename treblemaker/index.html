@@ -1361,7 +1361,9 @@ function pinIcon(k,ink,base,on){
   const A=c=>on?c:ink;   // accent colours only on an earned pin; greyed pins stay grey
   const T=(x,y,t,sz)=>'<text x="'+x+'" y="'+y+'" text-anchor="middle" font-size="'+sz+'" font-weight="900" fill="'+ink+'">'+t+'</text>';
   const F=' fill="'+ink+'"',S=' fill="none" stroke="'+ink+'" stroke-linecap="round" stroke-linejoin="round"';
-  const hat='<rect x="24" y="70" width="52" height="8" rx="4"'+F+'/><rect x="35" y="34" width="30" height="38" rx="3"'+F+'/><rect x="35" y="59" width="30" height="7" fill="'+(on?'#f43f5e':base)+'"/>';
+  const HF=' fill="'+(on?'#0b0d11':'#1a1e26')+'" stroke="'+(on?'#e5e7eb':ink)+'" stroke-width="2.5"';   // a black top hat (Matt)
+  const hat='<rect x="35" y="33" width="30" height="39" rx="3"'+HF+'/><rect x="36.5" y="59" width="27" height="7" fill="'+(on?'#f43f5e':base)+'"/>'+
+    '<rect x="23" y="69" width="54" height="9" rx="4.5"'+HF+'/>';
   const black='<circle cx="50" cy="56" r="24" fill="'+(on?'#16a34a':base)+'" stroke="'+ink+'" stroke-width="3"/><circle cx="50" cy="56" r="12" fill="#0b0d11"/>'+
     [[45,53],[55,53],[50,61]].map(c=>'<circle cx="'+c[0]+'" cy="'+c[1]+'" r="2.8" fill="'+A('#fff')+'"/>').join('');
   const bed='<rect x="22" y="40" width="7" height="40" rx="2"'+F+'/><rect x="71" y="54" width="7" height="26" rx="2"'+F+'/>'+
@@ -1659,6 +1661,7 @@ function visitPins(v){
   if(v.out){if(v.start>=100)has.tonout=1;if(last==='SB'||last==='DB')has.bullout=1;if(v.start===170&&last==='DB')has.bigfish=1}
   return PINS.filter(p=>has[p[0]]).map(p=>p[0])}
 const topPin=v=>visitPins(v)[0]||null;
+const bullTurn=c=>c.length===3&&c.every(x=>x==='SB'||x==='DB');   // a hat trick's three darts
 const visitAward=v=>visitPins(v).find(k=>JINGLES[k])||null;   // the one whose jingle plays
 const lowDart=(g,s)=>s.fin&&s.darts<=3*Math.round(g.start/100);
 const pinBadge=k=>'<span class="badge aw">'+AWARD[k]+'</span>';
@@ -1760,9 +1763,11 @@ function x01Dart(seg,fromBoard){
   snapX();X.cur.push(seg);xRing='S';
   /* a special sound replaces the dart's own (Matt: on a low ton he wants the jingle,
      not the bull ding and then the jingle) — the out plays award + chime only */
-  const s2=xState();
-  if(s2.out)x01Won(.03);
-  else if(X.cur.length===3){if(!x01Award(.03))dartSound(seg)}
+  /* except a hat trick (Matt, 2026-10-16): the 3rd bull still whistles, then a
+     second's pause, then the jingle — 3 in the Black too, it's three bulls */
+  const s2=xState(),bt=bullTurn(X.cur),pre=bt?dartSound(seg)+1:.03;
+  if(s2.out)x01Won(pre);
+  else if(X.cur.length===3){if(!x01Award(pre)&&!bt)dartSound(seg)}
   else dartSound(seg);
   x01Settle();persistX();render();
   if(fromBoard)gbEcho(seg)}
@@ -1977,9 +1982,10 @@ function crDart(seg,fromBoard){
   if(st.closed)return;
   if(st.full){toast('Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
   snapX();X.cur.push(seg);xRing='S';
-  const s2=crState();   // a special sound replaces the dart's own, as in x01
-  if(s2.closed)crWon(.03);
-  else if(X.cur.length===3){if(!crAward(.03))crSound(seg)}
+  // a special sound replaces the dart's own, as in x01 — a hat trick whistles first, then pauses
+  const s2=crState(),bt=bullTurn(X.cur),pre=bt?crSound(seg)+1:.03;
+  if(s2.closed)crWon(pre);
+  else if(X.cur.length===3){if(!crAward(pre)&&!bt)crSound(seg)}
   else crSound(seg);
   crSettle();persistX();render();
   if(fromBoard)gbEcho(seg)}
