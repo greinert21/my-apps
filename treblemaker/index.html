@@ -231,6 +231,11 @@ button.slot{cursor:pointer;font-family:inherit}
 .cur{display:flex;flex-direction:column;gap:6px;min-width:0}
 .cur .slot{flex:none;width:100%}
 .cur .tt{min-width:0;text-align:center}
+.pinpop{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;pointer-events:none;background:rgba(5,6,9,.55)}
+.pinpop .pp{display:flex;flex-direction:column;align-items:center;gap:8px;background:rgba(15,17,21,.94);border:2px solid #fde047;border-radius:26px;padding:22px 34px 18px}
+.pinpop svg{width:min(48vmin,300px);height:auto;display:block}
+.pinpop b{font-size:clamp(26px,6.4vmin,60px);font-weight:900;color:#fde047;letter-spacing:.5px;text-align:center;line-height:1.1}
+.pinpop span{font-size:clamp(12px,2.2vmin,18px);color:var(--dim);font-weight:800;letter-spacing:2px}
 .crwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:12px;margin:8px 0 2px;align-items:start}
 .crb{display:flex;flex-direction:column;gap:4px}
 .crc{display:grid;grid-template-columns:1.1fr 1fr .7fr;grid-template-rows:minmax(0,1fr);align-items:center;overflow:hidden;background:var(--card2);border:1px solid var(--line);
@@ -1635,8 +1640,8 @@ function x01Stats(g){
     o.checkout=vs[vs.length-1].start}
   return o}
 /* Pins (Matt, 2026-10-16: "yes all pins count"). A turn earns EVERY pin it
-   qualifies for; the badge shows the first in PINS order, and the jingle is the
-   first one that has a jingle. Three kinds:
+   qualifies for; the badge shows the first in PINS order, and each pin pops up
+   with its own jingle (pinShow). Three kinds:
    - score pins (low/high ton, ton-80): never on a bust; a ton+ checkout counts.
    - dart pins (which segments he hit): "any time", so a bust counts too — three
      bull's-eyes are a 3 in the Black whatever the score was.
@@ -1661,8 +1666,6 @@ function visitPins(v){
   if(v.out){if(v.start>=100)has.tonout=1;if(last==='SB'||last==='DB')has.bullout=1;if(v.start===170&&last==='DB')has.bigfish=1}
   return PINS.filter(p=>has[p[0]]).map(p=>p[0])}
 const topPin=v=>visitPins(v)[0]||null;
-const bullTurn=c=>c.length===3&&c.every(x=>x==='SB'||x==='DB');   // a hat trick's three darts
-const visitAward=v=>visitPins(v).find(k=>JINGLES[k])||null;   // the one whose jingle plays
 const lowDart=(g,s)=>s.fin&&s.darts<=3*Math.round(g.start/100);
 const pinBadge=k=>'<span class="badge aw">'+AWARD[k]+'</span>';
 /* Brackets: where a visit started. 101+ only counts a score 3 darts can actually
@@ -1748,12 +1751,34 @@ function x01Undo(){if(!X||!X.snaps.length)return;
   if(X.game==='cricket')crSettle();else x01Settle();persistX();render()}
 /* the award jingle plays once the turn is final — after the last dart's coin, or
    at the button when a dart never registered — and never holds anything up */
-function x01Award(delay){if(X.sung===X.turns.length)return 0;
-  const k=visitAward(curVisit());if(!k)return 0;
-  X.sung=X.turns.length;jingle(JINGLES[k],delay);
-  return delay+Math.max(...JINGLES[k].map(n=>n[0]+n[2]))}   // when it ends, so the win chime can follow
-/* he just went out: the award (a ton+ checkout) first, then the chime */
-function x01Won(delay){gameWon(Math.max(x01Award(delay),delay)+.05)}
+/* ---- pin popups (Matt, 2026-10-16) ----
+   When a turn earns pins, the 3rd dart makes its own sound, then about a second
+   later each pin pops up big in the middle of the screen, one after another, and
+   its jingle (if it has one) plays as it appears. The popup ignores taps, so he
+   can keep throwing or hit the button — it never holds up play. On an out the
+   win chime follows the last pin. */
+let PQ=null;
+const specLen=sp=>sp?Math.max(...sp.map(n=>n[0]+n[2])):0;
+function pinClear(){if(PQ){PQ.forEach(clearTimeout);PQ=null}const e=$('#pinpop');if(e)e.remove()}
+function popShow(it){
+  let e=$('#pinpop');if(!e){e=document.createElement('div');e.id='pinpop';e.className='pinpop';document.body.appendChild(e)}
+  e.innerHTML='<div class="pp">'+pinHex(it.icon,it.fam,true)+'<b>'+esc(it.label)+'</b><span>PIN EARNED</span></div>'}
+/* items: [{icon, fam, label, spec}] — returns when the last one is done, in seconds from now */
+function pinShow(items,delay,then){
+  pinClear();PQ=[];let at=delay;
+  items.forEach(it=>{PQ.push(setTimeout(()=>{popShow(it);if(it.spec)jingle(it.spec,.03)},at*1000));
+    at+=Math.max(1.8,specLen(it.spec)+.6)});
+  PQ.push(setTimeout(()=>{const e=$('#pinpop');if(e)e.remove();PQ=null;if(then)then()},at*1000));
+  return at}
+const PIN_FAM=k=>(PIN_CASE.find(q=>q[0]===k)||[0,0,0,'out'])[3];
+/* x01: every pin the turn earned (plus Low-dart game on the out), each with its own jingle */
+function x01Pins(delay,then){
+  if(X.sung===X.turns.length)return 0;
+  const v=curVisit(),ks=visitPins(v);
+  if(v.out){const g={start:X.start,out:X.out,bull:X.bull,turns:X.turns.concat([X.cur])};if(lowDart(g,x01Stats(g)))ks.push('lowdart')}
+  if(!ks.length)return 0;
+  X.sung=X.turns.length;
+  return pinShow(ks.map(k=>({icon:k,fam:PIN_FAM(k),label:k==='lowdart'?'LOW-DART GAME':AWARD[k],spec:JINGLES[k]||null})),delay,then)}
 function x01Dart(seg,fromBoard){
   if(!X||X.parked)return;
   if(X.game==='cricket')return crDart(seg,fromBoard);
@@ -1761,14 +1786,10 @@ function x01Dart(seg,fromBoard){
   if(st.out)return;
   if(st.full){toast(st.bust?'Bust — end the turn first':'Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
   snapX();X.cur.push(seg);xRing='S';
-  /* a special sound replaces the dart's own (Matt: on a low ton he wants the jingle,
-     not the bull ding and then the jingle) — the out plays award + chime only */
-  /* except a hat trick (Matt, 2026-10-16): the 3rd bull still whistles, then a
-     second's pause, then the jingle — 3 in the Black too, it's three bulls */
-  const s2=xState(),bt=bullTurn(X.cur),pre=bt?dartSound(seg)+1:.03;
-  if(s2.out)x01Won(pre);
-  else if(X.cur.length===3){if(!x01Award(pre)&&!bt)dartSound(seg)}
-  else dartSound(seg);
+  // every dart makes its own sound; any pins pop up about a second later (pinShow)
+  const s2=xState(),dl=dartSound(seg);
+  if(s2.out){if(!x01Pins(dl+1,()=>gameWon(0)))gameWon(dl)}
+  else if(X.cur.length===3)x01Pins(dl+1);
   x01Settle();persistX();render();
   if(fromBoard)gbEcho(seg)}
 /* the board button (or End turn). A turn is always 3 darts unless he went out or
@@ -1780,11 +1801,10 @@ function x01Button(){
   const st=xState();
   if(st.out){x01New(X);turnCue();return}
   snapX();
-  const aw=X.cur.length&&!st.bust?x01Award(.03):0;
+  if(X.cur.length&&!st.bust)x01Pins(.6);   // a turn whose last dart never registered can still earn a pin
   if(!st.bust)while(X.cur.length<3)X.cur.push('M');
   X.turns.push(X.cur);X.cur=[];
-  // his throw again — answered with a sound, since he pressed the button at the board
-  if(aw)setTimeout(turnCue,aw*1000);else turnCue();
+  turnCue();   // his throw again — answered with a sound, since he pressed the button at the board
   x01Settle();persistX();render()}
 function x01Fix(seg){ // seg null = remove the dart
   if(!X||!XF||X.cur[XF.i]==null)return;
@@ -1794,12 +1814,12 @@ function x01Fix(seg){ // seg null = remove the dart
   if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
   XF=null;closeSheet();
   const st=xState();
-  if(st.out&&!wasOut)x01Won(.03);
-  else if(st.out||(X.cur.length===3&&!st.bust))x01Award(.03);
+  if(st.out&&!wasOut){if(!x01Pins(.3,()=>gameWon(0)))gameWon(.03)}
+  else if(st.out||X.cur.length===3)x01Pins(.3);
   x01Settle();persistX();render()}
 function x01Leave(keep){ // keep: a stopped game still counts for 80%, first 9 and awards (Cricket: MPR, 80%, pins)
   if(keep&&!xDone()&&(X.turns.length||X.cur.length)){if(X.game==='cricket')D.cricket.push(crRec());else D.x01.push(x01Rec());persist()}
-  X=null;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render()}
+  pinClear();X=null;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render()}
 
 /* ---- game screen ---- */
 function x01HTML(){
@@ -1933,7 +1953,7 @@ const crSorted=()=>D.cricket.slice().sort((a,b)=>(a.at||a.date)<(b.at||b.date)?-
 /* Cricket pins (Matt): 5–9 mark turns, white horse (trebles on 3 different numbers
    he hadn't opened), hat trick (3 bulls), 3 in a Bed (3 darts in one treble of a
    target), 3 in the Black (3 bull's-eyes). Every pin a turn earns counts; the badge
-   is the first in CR_PINS order, the jingle the first one that has one. 4 marks
+   is the first in CR_PINS order, and each pin pops up with its jingle. 4 marks
    plays the 4-mark run but isn't a pin. */
 const CR_PINS=[['horse','WHITE HORSE'],['bed','3 IN A BED'],['m9','9 MARK'],['black','3 IN THE BLACK'],['m8','8 MARK'],
   ['m7','7 MARK'],['hat','HAT TRICK'],['m6','6 MARK'],['m5','5 MARK']];
@@ -1949,10 +1969,6 @@ function crPins(v){
     if(tre&&new Set(r.map(x=>x[0])).size===3&&r.every(x=>v.pre[x[0]]===0))has.horse=1}
   return CR_PINS.filter(q=>has[q[0]]).map(q=>q[0])}
 const crTopPin=v=>crPins(v)[0]||null;
-function crJingle(v){   // white horse, 3 in a Bed and 9 marks all play the 9-mark run
-  for(const k of crPins(v)){if(k==='horse'||k==='bed'||k==='m9')return marksJingle(9);
-    if(k==='black')return JINGLES.black;if(k==='hat')return JINGLES.hat;if(k[0]==='m')return marksJingle(+k[1])}
-  return v.marks>=4?marksJingle(v.marks):null}
 
 /* ---- the live Cricket game (in X, beside x01) ---- */
 function crNew(){
@@ -1970,11 +1986,16 @@ function crSettle(){
   const st=crState(),sig=st.closed?JSON.stringify([X.turns,X.cur]):null;
   if(X.saved&&X.saved!==sig){D.cricket=D.cricket.filter(g=>g.id!==X.savedId);X.saved=X.savedId=null;X.id=uid();persist()}
   if(sig&&!X.saved){const g=crRec();D.cricket.push(g);X.saved=sig;X.savedId=g.id;persist()}}
-function crAward(delay){if(X.sung===X.turns.length)return 0;
-  const spec=crJingle(crVisit());if(!spec)return 0;
-  X.sung=X.turns.length;jingle(spec,delay);
-  return delay+Math.max(...spec.map(n=>n[0]+n[2]))}
-function crWon(delay){gameWon(Math.max(crAward(delay),delay)+.05)}
+/* Cricket pins pop up the same way, each with its own jingle: n mark the marks run,
+   hat trick / 3 in a Bed / 3 in the Black as in x01, white horse five climbs.
+   A 4-mark turn isn't a pin: it just plays its run at the same moment. */
+function crSpec(k){return k[0]==='m'?marksJingle(+k[1]):k==='horse'?JINGLES.ton80:JINGLES[k]||null}
+function crPinsPop(delay,then){
+  if(X.sung===X.turns.length)return 0;
+  const v=crVisit(),ks=crPins(v);
+  if(!ks.length){if(v.marks===4&&X.cur.length===3){X.sung=X.turns.length;jingle(marksJingle(4),delay);return delay+specLen(marksJingle(4))}return 0}
+  X.sung=X.turns.length;
+  return pinShow(ks.map(k=>({icon:k,fam:'cri',label:CR_AWARD[k],spec:crSpec(k)})),delay,then)}
 /* a dart off the targets is a miss in Cricket, so it's silent, like a miss in x01 */
 const crSound=seg=>crMk(seg)?dartSound(seg):.03;
 function crDart(seg,fromBoard){
@@ -1982,21 +2003,20 @@ function crDart(seg,fromBoard){
   if(st.closed)return;
   if(st.full){toast('Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
   snapX();X.cur.push(seg);xRing='S';
-  // a special sound replaces the dart's own, as in x01 — a hat trick whistles first, then pauses
-  const s2=crState(),bt=bullTurn(X.cur),pre=bt?crSound(seg)+1:.03;
-  if(s2.closed)crWon(pre);
-  else if(X.cur.length===3){if(!crAward(pre)&&!bt)crSound(seg)}
-  else crSound(seg);
+  // every dart makes its own sound; pins pop up about a second later, as in x01
+  const s2=crState(),dl=crSound(seg);
+  if(s2.closed){const t=crPinsPop(dl+1,()=>gameWon(0));if(!t)gameWon(dl)}
+  else if(X.cur.length===3)crPinsPop(dl+1);
   crSettle();persistX();render();
   if(fromBoard)gbEcho(seg)}
 function crButton(){
   const st=crState();
   if(st.closed){crNew();turnCue();return}
   snapX();
-  const aw=X.cur.length?crAward(.03):0;
+  if(X.cur.length)crPinsPop(.6);
   while(X.cur.length<3)X.cur.push('M');
   X.turns.push(X.cur);X.cur=[];
-  if(aw)setTimeout(turnCue,aw*1000);else turnCue();
+  turnCue();
   crSettle();persistX();render()}
 function crFix(seg){
   const was=crState().closed;
@@ -2004,8 +2024,8 @@ function crFix(seg){
   if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
   XF=null;closeSheet();
   const st=crState();
-  if(st.closed&&!was)crWon(.03);
-  else if(st.closed||X.cur.length===3)crAward(.03);
+  if(st.closed&&!was){if(!crPinsPop(.3,()=>gameWon(0)))gameWon(.03)}
+  else if(st.closed||X.cur.length===3)crPinsPop(.3);
   crSettle();persistX();render()}
 
 /* ---- Cricket screen: the marks board is the big thing, read from the oche ---- */
@@ -2530,7 +2550,7 @@ document.addEventListener('click',e=>{
   case 'xfset': x01Fix(v);break;
   case 'xfrm': x01Fix(null);break;
   case 'xleave': if(!X)break;if(xDone()){x01Leave(false);break}x01LeaveSheet();break;
-  case 'xpark': X.parked=true;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render();break;
+  case 'xpark': pinClear();X.parked=true;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render();break;
   case 'xstopkeep': x01Leave(true);toast('Kept');break;
   case 'xtoss': if((X.turns.length>2)&&!confirm('Throw this game away? Nothing will be kept.'))break;x01Leave(false);break;
   case 'xnext': if(X.game==='cricket')crNew();else x01New(X);break;
