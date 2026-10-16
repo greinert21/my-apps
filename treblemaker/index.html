@@ -210,7 +210,14 @@ button.slot{cursor:pointer;font-family:inherit}
 .slot.D{color:#04210f;background:var(--good);border-color:var(--good)}
 .slot.B{color:#fff;background:var(--accent-dark);border-color:var(--accent)}
 .slot.M{color:var(--dim)}
-.slots.old .slot{opacity:.45}
+.slot.nx{border:2px dashed var(--accent);color:var(--accent);font-size:clamp(14px,min(2.6vh,3.4vw),24px)}
+.pl.wait{border-color:var(--warn);background:#221c0c}
+.pl.wait::before{background:#a16207}
+.ph .nm.st{font-size:clamp(16px,min(3vh,4vw),26px);letter-spacing:.4px;text-transform:uppercase}
+.ph .nm.go{color:#fda4af} .ph .nm.wait{color:var(--warn)}
+.lastt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:14px;color:var(--dim);font-weight:700}
+.lastt b{color:var(--text);font-variant-numeric:tabular-nums}
+.msg.wait{border-color:#a16207;background:#221c0c;color:var(--warn)}
 .tt{min-width:3em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(17px,min(3.2vh,4vw),30px);font-variant-numeric:tabular-nums}
 .ms{display:flex;gap:6px;margin-top:10px}
 .ms div{flex:1;min-width:0;background:var(--card2);border-radius:10px;padding:5px 8px;text-align:center}
@@ -284,7 +291,7 @@ const TEMPLATES=[
  tiers:[{n:'L1 · On the number',d:'Any dart in the 20 wedge = 1. Miss = 0.'},
         {n:'L2 · Quality',d:'Treble 3, double 2, single 1. Miss = 0.'},
         {n:'L3 · The A1',d:'Treble +1, single/double 0, miss −1.'}],
- def:{boxSecs:600,paceSecs:30,ladder:0},adj:['boxSecs','paceSecs','ladder'],targetLabel:null},
+ def:{boxSecs:600,paceSecs:30,ladder:0,tier:2},adj:['boxSecs','paceSecs','ladder'],targetLabel:null},
 {key:'doubles',name:'Double Rotation',icon:'\u{1F3B2}',shape:'goal',unit:'doubles',better:'down',
  blurb:'D20 → D16 → D8 → D4 → D2 → D10 → D18 → D12, three darts each, move on whether you hit it or not. Throw until you have hit the target number of doubles. Score is the darts it took.',
  def:{target:10,paceSecs:30},adj:['target','paceSecs'],targetLabel:'doubles to hit'},
@@ -311,9 +318,10 @@ const TEMPLATES=[
  def:{target:10,paceSecs:15,aim:0},adj:['aim','target','paceSecs'],targetLabel:'hits'},
 {key:'pile',name:'9-Dart Pile',icon:'\u{1F9F1}',shape:'rounds',unit:'hits',better:'up',dpv:9,
  paceMin:30,anchors:[[45,'Quick'],[60,'Steady'],[90,'Slow']],
- blurb:'All three sets, one setup, nine darts at the same target before you pull. Grouping and repetition. Hard on flights and barrels — which is why the Clock exists. Score is hits over a fixed number of rounds.',
+ blurb:'All three sets, one setup, nine darts at the same target before you pull. Grouping and repetition. Hard on flights and barrels. Score is hits over a fixed number of rounds.',
  def:{rounds:5,paceSecs:60,aim:0},adj:['aim','rounds','paceSecs'],targetLabel:null},
-{key:'clock9',name:'9-Dart Clock',icon:'\u{1F570}️',shape:'rounds',unit:'hits',better:'up',dpv:9,
+/* hidden 2026-10-16 (Matt: get rid of it) — kept so old drills and sessions still resolve */
+{key:'clock9',name:'9-Dart Clock',icon:'\u{1F570}️',hidden:true,shape:'rounds',unit:'hits',better:'up',dpv:9,
  paceMin:30,anchors:[[45,'Quick'],[60,'Steady'],[90,'Slow']],
  blurb:'Nine darts in a row, one per number, spinning around the board: 20, 1, 18, 4, 13… and the next round picks up where the last one stopped. Same setup as the Pile without shredding the darts. Score is hits over a fixed number of rounds.',
  def:{rounds:5,paceSecs:60,ring:0},adj:['ring','rounds','paceSecs'],targetLabel:null},
@@ -640,6 +648,9 @@ function progHTML(){
   return '<b>'+R.darts+'</b> darts'}
 
 /* ============ run screen ============ */
+function ladderLiveHTML(){
+  if(R.tier===2)return '<div class="bigscore"><div class="n">'+(R.value>0?'+':'')+R.value+'</div><div class="w">score</div></div>';
+  return '<div class="hint" style="text-align:center;margin-bottom:10px;font-size:15px">Keep your own count — you type the score in at the end.</div>'}
 function runHTML(){
   const t=TPL(R.templateKey),d=D.drills.find(x=>x.id===R.drillId)||{name:t.name};
   if(R.phase==='ready'){
@@ -670,7 +681,7 @@ function runHTML(){
   if(R.pausedAt){
     h+='<div class="bigscore" style="margin:30px 0 18px"><div class="n" style="font-size:44px">⏸</div>'+
       '<div class="w">paused</div></div>'+
-      (t.key==='ladder'?'<div class="bigscore"><div class="n">'+(R.value>0?'+':'')+R.value+'</div><div class="w">score</div></div>':'')+
+      (t.key==='ladder'?ladderLiveHTML():'')+
       '<div class="spacer"></div>'+
       '<button class="btn btn-primary" data-a="resume" style="padding:22px;font-size:22px">▶ Resume</button>'+
       '<button class="btn btn-danger" data-a="abandon">Discard this drill</button></div>';
@@ -682,8 +693,8 @@ function runHTML(){
     '<circle id="ringArc" cx="100" cy="100" r="88" stroke="#f43f5e" stroke-width="12" fill="none" '+
     'stroke-linecap="round" stroke-dasharray="'+circ+'" stroke-dashoffset="0"></circle></svg>'+
     '<div class="ringtxt"><div class="n" id="ringN">—</div><div class="w" id="ringW"></div></div></div>';
-  // live number
-  if(t.key==='ladder')h+='<div class="bigscore"><div class="n">'+(R.value>0?'+':'')+R.value+'</div><div class="w">score</div></div>';
+  // live number — only when he taps; tier 1 counts nothing, so a score here would sit on 0 all drill
+  if(t.key==='ladder')h+=ladderLiveHTML();
   // aim display
   if(t.key==='router'){const cur=R.rt.findIndex(m=>m<3);
     const nm=i=>ROUTER_SEQ[Math.min(i,ROUTER_SEQ.length-1)];
@@ -817,7 +828,7 @@ setInterval(()=>{
 },250);
 
 /* ============ views ============ */
-let view='drills',libOpen=false,addTpl=null,addCfg=null,editId=null;
+let view='drills',addTpl=null,addCfg=null;
 function setHead(t,s,back){
   $('#ttl').textContent=t;$('#sub').textContent=s||'';
   const tb=$('#topbar');
@@ -843,7 +854,7 @@ function render(){
   $('#nav').innerHTML=navHTML();
   $('#main').classList.toggle('wide',view==='progress');
   let h='';
-  if(view==='drills')h=libOpen?libraryHTML():drillsHTML();
+  if(view==='drills')h=drillsHTML();
   else if(view==='free')h=freeSetupHTML();
   else if(view==='progress')h=statsHTML();
   else if(view==='games')h=gamesHTML();
@@ -878,47 +889,58 @@ function logDay(date){
 function logLeftovers(){
   return Object.keys(D.plans).reduce((n,k)=>n+(unloggedItems(k).length?logDay(k):0),0)}
 
-function drillTile(d){
-  const t=TPL(d.templateKey);if(!t)return '';
-  const ss=sessionsFor(d.id),last=ss[ss.length-1];
-  return '<button class="tile" data-a="run" data-v="'+d.id+'"><div class="row">'+
-    '<div style="flex:1;min-width:0"><b>'+t.icon+' '+esc(d.name)+'</b>'+
-    '<div class="meta">'+esc(drillLabel(d))+'</div></div>'+
-    (last?'<div class="last"><b>'+(t.key==='ladder'&&last.value>0?'+':'')+last.value+'</b>'+
+/* v10 (2026-10-16): no "My drills" list any more — Matt picks a drill from the one
+   list, checks the options and starts. Instances (rule 2) still exist, but he never
+   manages them: Start finds the instance with exactly these settings, or makes one.
+   So every distinct setup is still its own series (rule 3), and the sheet opens on
+   whatever he threw last time. */
+const CFG_KEYS=['boxSecs','target','paceSecs','ladder','aim','ring','rounds'];
+const hasTier=t=>t.scored!==false&&!t.boardScored;
+function lastOfTpl(key){   // the session he threw most recently with this template
+  let best=null;D.sessions.forEach(s=>{if(s.templateKey===key&&(!best||s.date>=best.date))best=s});return best}
+function lastDrillOf(t){   // the instance the sheet opens on
+  const s=lastOfTpl(t.key),d=s&&D.drills.find(x=>x.id===s.drillId);
+  if(d)return d;
+  return D.drills.filter(x=>x.templateKey===t.key&&!x.archived).sort((a,b)=>(a.createdAt||'')<(b.createdAt||'')?-1:1).pop()||null}
+function cfgOf(t,d){
+  const c=Object.assign({tier:1},t.def);
+  if(d){t.adj.forEach(k=>{if(d[k]!=null)c[k]=d[k]});if(hasTier(t))c.tier=d.tier===2?2:1}
+  return c}
+function sameCfg(t,d,c){
+  return t.adj.every(k=>num(d[k],t.def[k])===num(c[k],t.def[k]))&&(!hasTier(t)||(d.tier===2?2:1)===c.tier)}
+/* the instance for these settings — reused if it exists (even archived), else made */
+function drillFor(key,c){
+  const t=TPL(key),m=D.drills.filter(d=>d.templateKey===key&&sameCfg(t,d,c));
+  let d=m.find(x=>!x.archived)||m[0];
+  if(d){if(d.archived){d.archived=false;d.at=stamp();persist()}return d}
+  d={id:uid(),templateKey:key,name:t.name,tier:hasTier(t)?c.tier:1,createdAt:stamp(),at:stamp(),archived:false};
+  CFG_KEYS.forEach(k=>{if(t.adj.includes(k))d[k]=c[k]});
+  D.drills.push(d);persist();return d}
+
+function drillTile(t){
+  const last=lastOfTpl(t.key);
+  return '<button class="tile" data-a="addtpl" data-v="'+t.key+'" style="padding:11px 14px"><div class="row">'+
+    '<div style="flex:1;min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(t.name)+'</b>'+
+    '<div class="meta">'+esc(t.blurb.split('. ')[0].replace(/\.$/,''))+'.</div></div>'+
+    (last&&t.scored!==false?'<div class="last"><b>'+(t.key==='ladder'&&last.value>0?'+':'')+last.value+'</b>'+
       '<span>'+(t.shape==='goal'?'darts':'last')+'</span></div>':'')+
     '</div></button>'}
 
-/* The Drills tab is home: tap a drill to throw it, long-press to edit it. */
+/* The Drills tab is home: tap a drill, check the options, Start. */
 function drillsHTML(){
-  setHead('TrebleMaker','Tap a drill to throw it · long-press to edit');
-  const act=D.drills.filter(d=>!d.archived);
-  let h=parkedHTML()+'<div class="lbl">My drills</div>';
-  h+=act.length?act.map(drillTile).join(''):
-    '<div class="card"><p class="hint">Nothing set up yet — pick one from the library below.</p></div>';
-  h+='<div class="lbl" style="margin-top:16px">Library — tap one to set it up</div>';
-  h+=TEMPLATES.filter(t=>!t.hidden).map(t=>'<button class="tile" data-a="addtpl" data-v="'+t.key+'" style="padding:11px 14px">'+
-    '<div class="row"><div class="grow" style="min-width:0"><b style="font-size:16px">'+t.icon+' '+esc(t.name)+'</b>'+
-    '<div class="meta">'+esc(t.blurb.split('. ')[0].replace(/\.$/,''))+'.</div></div>'+
-    '<span style="font-size:24px;color:var(--accent)">+</span></div></button>').join('');
-  if(act.length)h+='<button class="btn btn-ghost" data-a="editlist">Edit my drills</button>';
-  return h}
-
-function libraryHTML(){
-  setHead('Library','Pick a drill, set it up, name it','closelib');
-  return TEMPLATES.filter(t=>!t.hidden).map(t=>{
-    const have=D.drills.filter(d=>d.templateKey===t.key&&!d.archived);
-    return '<button class="tile" data-a="addtpl" data-v="'+t.key+'">'+
-      '<b>'+t.icon+' '+esc(t.name)+'</b>'+
-      '<div class="meta" style="margin-top:6px">'+esc(t.blurb)+'</div>'+
-      (have.length?'<div class="meta" style="margin-top:8px;color:var(--warn)">You already have this as '+
-        have.map(d=>'<b>'+esc(d.name)+'</b>').join(', ')+' — a new one charts separately.</div>':'')+
-      '</button>'}).join('')}
+  setHead('TrebleMaker','Tap a drill · check the options · start');
+  return parkedHTML()+TEMPLATES.filter(t=>!t.hidden).map(drillTile).join('')}
 
 function anchorsHTML(v,act,A){
   A=A||[[15,'Fast'],[30,'Practice'],[90,'League']];
   return '<div class="anchors">'+A.map(a=>'<button data-a="'+act+'" data-v="'+a[0]+'" class="'+
     (v===a[0]?'on':'')+'">'+a[1]+'<br>'+fmtPace(a[0])+'</button>').join('')+'</div>'}
 
+function cfgLastHTML(){
+  const t=TPL(addTpl);if(t.scored===false)return '';
+  const d=D.drills.find(x=>x.templateKey===addTpl&&!x.archived&&sameCfg(t,x,addCfg)),s=d&&sessionsFor(d.id).slice(-1)[0];
+  return s?'Last time with these settings: <b style="color:var(--text)">'+esc(drillValTxt(t,s))+'</b> · '+fmtDay(s.date)+'<br>':
+    'First time with these settings — it charts on its own.<br>'}
 function addHTML(){
   const t=TPL(addTpl),c=addCfg;
   let h='<div class="sheet"><h3>'+t.icon+' '+esc(t.name)+'</h3>'+
@@ -949,7 +971,7 @@ function addHTML(){
       '<input type="range" min="'+(t.paceMin||15)+'" max="180" step="'+((t.paceMin||15)<15?1:5)+'" value="'+c.paceSecs+'" data-a="cfgrange" data-k="paceSecs">'+
       '<div id="paceAnchors">'+anchorsHTML(c.paceSecs,'cfgpace',t.anchors)+'</div>'+
       (DPV(t)===9?'<div class="hint" style="margin-top:6px">A visit here is all nine darts, so the pace covers setup, nine throws and the pull.</div>':'')}
-  if(t.scored!==false&&!t.boardScored){
+  if(hasTier(t)){
     h+='<div class="lbl" style="margin-top:14px">Tracking</div>'+
       '<div class="row"><button class="btn btn-sm '+(c.tier===1?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="1" style="flex:1">Just the number</button>'+
       '<button class="btn btn-sm '+(c.tier===2?'btn-primary':'')+'" data-a="cfg" data-k="tier" data-v="2" style="flex:1">'+(DPV(t)===9?'Tap hits each round':'Tap every dart')+'</button></div>'+
@@ -957,10 +979,9 @@ function addHTML(){
         'The app runs the clock and the pace; you enter one number at the end.':
         DPV(t)===9?'After each round of nine, one tap: how many hit.':
         'The app scores for you and keeps the detail. Needs ~20s pace or more to be comfortable.')+'</div>'}
-  h+='<div class="lbl" style="margin-top:14px">Name</div>'+
-    '<input type="text" id="cfgName" value="'+esc(c.name)+'" placeholder="'+esc(t.name)+'">';
-  h+='<button class="btn btn-primary" data-a="addsave">'+(editId?'Save':'Add to my drills')+'</button>'+
-    (editId?'<button class="btn btn-danger" data-a="archive">Remove from my drills</button>':'')+
+  h+='<div class="hint" style="text-align:center;margin-top:14px"><span id="cfgLast">'+cfgLastHTML()+'</span>'+
+      (D.settings.countIn||5)+'s count-in when you tap Start</div>'+
+    '<button class="btn btn-primary" data-a="cfgstart" style="padding:18px;font-size:20px">▶ Start</button>'+
     '<button class="btn btn-ghost" data-a="closesheet">Cancel</button></div>';
   return h}
 
@@ -1542,18 +1563,21 @@ function x01Undo(){if(!X||!X.snaps.length)return;
   x01Settle();persistX();render()}
 /* the award jingle plays once the turn is final — after the last dart's coin, or
    at the button when a dart never registered — and never holds anything up */
-function x01Award(c){if(X.sung===X.turns.length)return;
-  const k=visitAward(curVisit());if(!k)return;
-  X.sung=X.turns.length;jingle(JINGLES[k],after(c))}
+function x01Award(delay){if(X.sung===X.turns.length)return 0;
+  const k=visitAward(curVisit());if(!k)return 0;
+  X.sung=X.turns.length;jingle(JINGLES[k],delay);
+  return delay+Math.max(...JINGLES[k].map(n=>n[0]+n[2]))}   // when it ends, so the win chime can follow
+/* he just went out: the award (a ton+ checkout) first, then the chime */
+function x01Won(delay){gameWon(Math.max(x01Award(delay),delay)+.05)}
 function x01Dart(seg,fromBoard){
   if(!X||X.parked)return;
   const st=xState();
   if(st.out)return;
   if(st.full){toast(st.bust?'Bust — end the turn first':'Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
   snapX();X.cur.push(seg);xRing='S';
-  const s2=xState(),c=chirpsOf(seg);
-  chirp(c);
-  if(s2.out||(X.cur.length===3&&!s2.bust))x01Award(c);
+  const s2=xState(),dl=dartSound(seg);
+  if(s2.out)x01Won(dl);
+  else if(X.cur.length===3&&!s2.bust)x01Award(dl);
   x01Settle();persistX();render();
   if(fromBoard)gbEcho(seg)}
 /* the board button (or End turn). A turn is always 3 darts unless he went out or
@@ -1562,19 +1586,23 @@ function x01Dart(seg,fromBoard){
 function x01Button(){
   if(!X||X.parked)return;
   const st=xState();
-  if(st.out){x01New(X);return}
+  if(st.out){x01New(X);turnCue();return}
   snapX();
-  if(X.cur.length&&!st.bust)x01Award(0);
+  const aw=X.cur.length&&!st.bust?x01Award(.03):0;
   if(!st.bust)while(X.cur.length<3)X.cur.push('M');
   X.turns.push(X.cur);X.cur=[];
+  // his throw again — answered with a sound, since he pressed the button at the board
+  if(aw)setTimeout(turnCue,aw*1000);else turnCue();
   x01Settle();persistX();render()}
 function x01Fix(seg){ // seg null = remove the dart
   if(!X||!XF||X.cur[XF.i]==null)return;
+  const wasOut=xState().out;
   snapX();
   if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
   XF=null;closeSheet();
   const st=xState();
-  if(st.out||(X.cur.length===3&&!st.bust))x01Award(0);
+  if(st.out&&!wasOut)x01Won(.03);
+  else if(st.out||(X.cur.length===3&&!st.bust))x01Award(.03);
   x01Settle();persistX();render()}
 function x01Leave(keep){ // keep: a stopped game still counts for 80%, first 9 and awards
   if(keep&&!xState().out&&(X.turns.length||X.cur.length)){D.x01.push(x01Rec());persist()}
@@ -1585,17 +1613,26 @@ function x01HTML(){
   const st=xState(),done=st.out,live=X.cur.length>0,board=!!GB.dev;
   const showPad=!done&&(xPad!=null?xPad:!board);
   const closed=x01Replay({start:X.start,out:X.out,bull:X.bull,turns:X.turns}).vs,lastV=closed[closed.length-1];
-  let segs=[],tot='',badge='';
-  if(live){const cv=curVisit(),k=st.full&&visitAward(cv);segs=X.cur;tot=String(cv.raw);
+  /* Whose move it is, readable from the oche (Matt: no good way to tell a turn had
+     ended or that he should be throwing). Three states, by colour of the whole panel:
+     throwing (red, "YOUR THROW · dart N"), turn over (amber — 3 darts in or bust,
+     pull them and hit the button), out (green). A new turn starts on empty slots;
+     the last one moves to a small line under them. */
+  const wait=!done&&st.full;
+  let segs=X.cur,tot='',badge='',lastLn='';
+  if(live){const cv=curVisit(),k=st.full&&visitAward(cv);tot=String(cv.raw);
     badge=st.bust?'<span class="badge bust">BUST</span>':k?'<span class="badge aw">'+AWARD[k]+'</span>':
       done?'<span class="badge out">OUT</span>':''}
-  else if(lastV){const k=visitAward(lastV);segs=X.turns[X.turns.length-1];tot=lastV.bust?'bust':String(lastV.pts);
-    badge=k?'<span class="badge aw">'+AWARD[k]+'</span>':''}
+  if(!live&&lastV){const k=visitAward(lastV),ls=X.turns[X.turns.length-1];
+    lastLn='<div class="lastt"><span>Last turn</span><b>'+ls.map(segLabel).join(' · ')+'</b><span>= '+(lastV.bust?'bust':lastV.pts)+'</span>'+
+      (k?'<span class="badge aw" style="margin-left:0">'+AWARD[k]+'</span>':'')+'</div>'}
   let sl='';
   for(let k=0;k<3;k++){const s=segs[k];
-    if(s==null){sl+='<div class="slot e">·</div>';continue}
-    sl+=live?'<button class="slot '+segCls(s)+'" data-a="xfix" data-v="'+k+'">'+segLabel(s)+'</button>':
-      '<div class="slot '+segCls(s)+'">'+segLabel(s)+'</div>'}
+    if(s==null){sl+='<div class="slot e'+(!done&&!wait&&k===segs.length?' nx':'')+'">'+(!done&&!wait&&k===segs.length?k+1:'·')+'</div>';continue}
+    sl+='<button class="slot '+segCls(s)+'" data-a="xfix" data-v="'+k+'">'+segLabel(s)+'</button>'}
+  const who=done?'<span class="nm">Game shot</span>':
+    wait?'<span class="nm st wait">Turn over · pull your darts</span>':
+    '<span class="nm st go">▶ Your throw · dart '+(X.cur.length+1)+'</span>';
   const s=x01Stats({start:X.start,out:X.out,bull:X.bull,turns:X.turns.concat(done?[X.cur]:[])});
   const ppd=s.darts?s.pts/s.darts:null,p80=s.d80?s.p80/s.d80:null;
   let h='<div class="xg'+(showPad?' haspad':'')+'"><div class="in"><div class="xtop">'+
@@ -1607,9 +1644,9 @@ function x01HTML(){
     '<button class="xb" data-a="xundo"'+(X.snaps.length?'':' disabled')+'>↶ Undo</button></div>'+
     '<div class="gbline gbstat"'+(GB.dev&&GB.cls!=='on'?'':' style="display:none"')+'>'+esc(GB.stat)+'</div>'+
     '<div class="xbody"><div>'+
-    '<div class="pl'+(done?' fin':'')+'"><div class="ph"><span class="nm">'+(done?'Game shot':'You')+'</span>'+badge+'</div>'+
+    '<div class="pl'+(done?' fin':wait?' wait':'')+'"><div class="ph">'+who+badge+'</div>'+
     '<div class="sc'+(st.bust?' bust':done?' out':'')+'">'+(st.bust?'BUST':done?'OUT':st.score)+'</div>'+
-    '<div class="slots'+(live?'':' old')+'">'+sl+'<span class="tt">'+tot+'</span></div>'+
+    '<div class="slots">'+sl+'<span class="tt">'+tot+'</span></div>'+lastLn+
     '<div class="ms"><div><span>PPD</span><b>'+fmt1(ppd)+'</b></div>'+
       '<div'+(s.locked?' class="lk"':'')+'><span>80%</span><b>'+fmt1(p80)+'</b></div>'+
       '<div><span>Darts</span><b>'+s.darts+'</b></div></div></div>';
@@ -1618,8 +1655,8 @@ function x01HTML(){
       fmt1(ppd)+' PPD · 80% '+fmt1(p80)+' · first 9 '+fmt1(s.df9?s.pf9/s.df9:null)+'</span>'+
       '<button class="btn btn-sm btn-primary" data-a="xnext">Next game ›</button></div>'+
       '<div class="hint" style="margin-top:4px;font-weight:600">Tap a dart to fix it'+(board?' · board button = next game':'')+'</div></div>';
-  else if(st.bust)h+='<div class="msg" style="margin-top:10px">Bust — pull your darts and '+(board?'hit the board button.':'tap End turn.')+'</div>';
-  else if(X.cur.length===3)h+='<div class="msg" style="margin-top:10px">Pull your darts · '+how+' for the next turn.</div>';
+  else if(st.bust)h+='<div class="msg wait" style="margin-top:10px">Bust — pull your darts and '+(board?'hit the board button.':'tap End turn.')+'</div>';
+  else if(X.cur.length===3)h+='<div class="msg wait" style="margin-top:10px">Pull your darts · '+how+' for the next turn.</div>';
   h+='</div>';
   if(showPad)h+='<div>'+x01PadHTML()+(board?'<button class="btn btn-ghost" data-a="xpad" data-v="0" style="margin-top:8px">Hide the pad</button>':'')+'</div>';
   else if(!done)h+='<div class="row"><button class="xend grow" data-a="xend" style="margin:0">⏎ End turn</button>'+
@@ -1677,6 +1714,8 @@ function x01PlayHTML(){
       '<div class="hint" style="margin-top:4px">Close the GranBoard app first — the board talks to one thing at a time.</div>';
   else h+='<div class="hint" style="margin-top:8px">No Bluetooth in this browser — tap your darts in. The board link works in Chrome on the tablet.</div>';
   h+='<button class="btn btn-primary" data-a="xstart">▶ Start '+rl.start+'</button></div>';
+  h+='<div class="card" style="padding:10px 14px"><div class="hint" style="margin:0"><b style="color:var(--text)">Cricket</b> isn’t playable in the app yet — x01 came first. '+
+    'Until it is, play it on the GranBoard app and log the result under <b style="color:var(--text)">GranBoard log</b>.</div></div>';
   const all=x01Sorted();
   if(all.length){
     const lg=all[all.length-1],A=x01Agg(lg.out),arr=A.byStart[lg.start]||[],L=arr.slice(-30),F=L.filter(x=>x.s.fin);
@@ -1768,6 +1807,34 @@ const climb=(t0,root,step)=>{step=step||.05;return [0,4,7,12].map((iv,i)=>[t0+i*
 const climbs=n=>[72,74,76,79,84].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
 const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5)};
 const after=c=>c?(c-1)*.18+.22:.03;   // let the last dart's coin finish first
+/* Bulls get their own voice (Matt, 2026-10-16: "bulls need different sounds than
+   regular darts, same with double bull"): a sine bell — nothing else in the game
+   is a sine, so it can't be mistaken for a coin. Outer bull one ding, bull's-eye
+   two rising a fifth. */
+function bell(t,f,dur,peak){
+  const AC=audioCtx;
+  [[1,1],[2.76,.28],[5.4,.08]].forEach(p=>{const o=AC.createOscillator(),g=AC.createGain();
+    o.type='sine';o.frequency.setValueAtTime(f*p[0],t);
+    g.gain.setValueAtTime(.0001,t);
+    g.gain.exponentialRampToValueAtTime(peak*p[1],t+.004);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur/(p[0]>1?p[0]*.6:1));
+    o.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.02)})}
+const BELLS={SB:[[0,784,.5]],DB:[[0,784,.32],[.13,1175,.6]]};
+function gSound(fn){   // mute, wake the context, start no earlier than the warm-up
+  if(D.settings.gameMute)return;
+  const ac=gAudio();if(!ac)return;
+  if(ac.state!=='running'){ac.resume().then(()=>gSound(fn)).catch(()=>{});return}
+  fn(Math.max(ac.currentTime+.03,GWARM))}
+/* the sound for one dart; returns how long it lasts, so a jingle waits for it */
+function dartSound(seg){
+  if(BELLS[seg]){gSound(t0=>BELLS[seg].forEach(b=>bell(t0+b[0],b[1],b[2],.55)));return seg==='DB'?.45:.32}
+  const c=chirpsOf(seg);chirp(c);return c?after(c):.03}
+/* game shot: a quick bell run up the major chord, the top note left to ring */
+const WIN_RUN=[[0,1047,.35],[.09,1319,.35],[.18,1568,.35],[.27,2093,1.1]];
+function gameWon(delay){gSound(t0=>WIN_RUN.forEach(b=>bell(t0+(delay||0)+b[0],b[1],b[2],.42)))}
+/* the turn has changed hands — darts pulled, his throw again. Two soft triangle
+   notes, low then up: the board button answered from across the room. */
+function turnCue(){gSound(t0=>{gTone(t0,523,.09,.35,.03);gTone(t0+.09,784,.16,.35,.05)})}
 
 /* ============ GranBoard link (from gb-test.html, proven on his board) ============
    Web Bluetooth: Chrome on the Galaxy Tab only (iPhone Safari has none — taps
@@ -1921,7 +1988,7 @@ function moreHTML(){
 /* The sheet always goes up inside its .modal backdrop — without that wrapper it
    is a plain block and falls into the page behind whatever view is showing. */
 function showSheet(){$('#modalwrap').innerHTML='<div class="modal" data-a="backdrop">'+addHTML()+'</div>'}
-function closeSheet(){$('#modalwrap').innerHTML='';editId=null;XF=null}
+function closeSheet(){$('#modalwrap').innerHTML='';XF=null}
 
 /* ============ events ============ */
 /* A range input must NEVER trigger a re-render: rebuilding the markup mid-drag
@@ -1933,7 +2000,8 @@ function cfgLabel(k,v){
   if(k==='target')el.textContent='Target — '+v+' '+(TPL(addTpl).targetLabel||'');
   if(k==='rounds'){const n=DPV(TPL(addTpl));el.textContent='Rounds — '+v+' × '+n+' = '+(v*n)+' darts'}
   if(k==='paceSecs'){el.textContent='Pace — '+fmtPace(v)+' per visit';
-    const a=$('#paceAnchors');if(a)a.innerHTML=anchorsHTML(v,'cfgpace',TPL(addTpl).anchors)}}
+    const a=$('#paceAnchors');if(a)a.innerHTML=anchorsHTML(v,'cfgpace',TPL(addTpl).anchors)}
+  const l=$('#cfgLast');if(l)l.innerHTML=cfgLastHTML()}
 document.addEventListener('input',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.getAttribute('data-a');
@@ -1950,7 +2018,6 @@ document.addEventListener('input',e=>{
 document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el)return;
   const a=el.getAttribute('data-a'),v=el.getAttribute('data-v');
-  if(lpFired){lpFired=false;return}   // the click that ends a long-press would open the drill behind the sheet
   unlockAudio();
   switch(a){
   case 'backdrop': if(e.target===el){closeSheet();render()}break;
@@ -1958,38 +2025,16 @@ document.addEventListener('click',e=>{
   case 'signingo': doSignIn();break;
   case 'syncnow': syncNow(false);break;
   case 'signout': if(confirm('Sign out? Your data stays on this device.')){signOutLocal();render()}break;
-  case 'view': closeSheet();view=v;libOpen=false;render();window.scrollTo(0,0);break;
-  case 'openlib': view='drills';libOpen=true;render();break;
-  case 'closelib': libOpen=false;render();break;
-  case 'addtpl': {addTpl=v;editId=null;const t=TPL(v);
-    addCfg=Object.assign({tier:1,name:t.name},t.def);
-    if(D.drills.some(d=>d.templateKey===v&&!d.archived))addCfg.name=t.name+' · '+
-      (t.adj.includes('aim')?AIMS[addCfg.aim|0]:fmtPace(t.def.paceSecs||30));
-    showSheet();break}
+  case 'view': closeSheet();view=v;render();window.scrollTo(0,0);break;
+  case 'addtpl': {const t=TPL(v);if(!t)break;
+    addTpl=v;addCfg=cfgOf(t,lastDrillOf(t));showSheet();break}
   case 'cfg': addCfg[el.getAttribute('data-k')]=+v;showSheet();break;
   case 'cfgpace': addCfg.paceSecs=+v;showSheet();break;
-  case 'addsave': {
-    const nm=($('#cfgName')&&$('#cfgName').value.trim())||TPL(addTpl).name;
-    if(editId){const d=D.drills.find(x=>x.id===editId);
-      Object.assign(d,{name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,paceSecs:addCfg.paceSecs,
-        tier:addCfg.tier,ladder:addCfg.ladder,aim:addCfg.aim,ring:addCfg.ring,rounds:addCfg.rounds,at:stamp()});toast('Saved')}
-    else{D.drills.push({id:uid(),templateKey:addTpl,name:nm,boxSecs:addCfg.boxSecs,target:addCfg.target,
-      paceSecs:addCfg.paceSecs,tier:addCfg.tier,ladder:addCfg.ladder,aim:addCfg.aim,ring:addCfg.ring,rounds:addCfg.rounds,
-      createdAt:stamp(),at:stamp(),archived:false});
-      toast('Added')}
-    persist();closeSheet();view='drills';libOpen=false;render();break}
-  case 'archive': {const d=D.drills.find(x=>x.id===editId);if(d){d.archived=true;d.at=stamp();persist()}
-    closeSheet();render();toast('Removed');break}
+  case 'cfgstart': {const d=drillFor(addTpl,addCfg);closeSheet();
+    openRun(d.id);
+    if(R&&R.drillId===d.id&&R.phase==='ready')beginCountIn();   // the sheet was the ready screen
+    break}
   case 'closesheet': closeSheet();render();break;
-  case 'editlist': {
-    $('#modalwrap').innerHTML='<div class="modal"><div class="sheet"><h3>Edit my drills</h3>'+
-      D.drills.filter(d=>!d.archived).map(d=>'<button class="tile" data-a="edit" data-v="'+d.id+'">'+
-      '<b>'+esc(d.name)+'</b><div class="meta">'+esc(drillLabel(d))+'</div></button>').join('')+
-      '<button class="btn btn-ghost" data-a="closesheet">Done</button></div></div>';break}
-  case 'edit': {const d=D.drills.find(x=>x.id===v);editId=d.id;addTpl=d.templateKey;
-    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0,
-      aim:d.aim|0,ring:d.ring|0,rounds:d.rounds||5};
-    showSheet();break}
   case 'run': openRun(v);break;
   case 'begin': if(R&&R.phase==='ready')beginCountIn();break;
   case 'pause': pauseRun();break;
@@ -2107,21 +2152,8 @@ document.addEventListener('click',e=>{
     inp.click();break}
   }
 });
-/* long-press a drill tile to edit it */
-let lpT=null,lpFired=false;
-document.addEventListener('pointerdown',e=>{
-  const el=e.target.closest('[data-a="run"]');if(!el)return;
-  lpT=setTimeout(()=>{lpT=null;lpFired=true;setTimeout(()=>lpFired=false,700);const d=D.drills.find(x=>x.id===el.getAttribute('data-v'));if(!d)return;
-    editId=d.id;addTpl=d.templateKey;
-    addCfg={tier:d.tier||1,name:d.name,boxSecs:d.boxSecs,target:d.target,paceSecs:d.paceSecs,ladder:d.ladder|0,
-      aim:d.aim|0,ring:d.ring|0,rounds:d.rounds||5};
-    if(navigator.vibrate)navigator.vibrate(30);
-    showSheet()},550)});
 // wake the game audio as the finger lands, so it is running by the time the tap's chirp plays
 document.addEventListener('pointerdown',()=>{if(X&&!X.parked)gAudio()},{passive:true});
-document.addEventListener('pointerup',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
-document.addEventListener('pointercancel',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
-document.addEventListener('pointermove',()=>{if(lpT){clearTimeout(lpT);lpT=null}});
 
 /* ============ cloud sync (Supabase) ============
    Same project and same `sync_records` table as StrikeZone and Workout, all on
