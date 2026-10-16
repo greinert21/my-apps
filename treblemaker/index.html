@@ -1616,9 +1616,12 @@ function x01Dart(seg,fromBoard){
   if(st.out)return;
   if(st.full){toast(st.bust?'Bust — end the turn first':'Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
   snapX();X.cur.push(seg);xRing='S';
-  const s2=xState(),dl=dartSound(seg);
-  if(s2.out)x01Won(dl);
-  else if(X.cur.length===3&&!s2.bust)x01Award(dl);
+  /* a special sound replaces the dart's own (Matt: on a low ton he wants the jingle,
+     not the bull ding and then the jingle) — the out plays award + chime only */
+  const s2=xState();
+  if(s2.out)x01Won(.03);
+  else if(X.cur.length===3&&!s2.bust){if(!x01Award(.03))dartSound(seg)}
+  else dartSound(seg);
   x01Settle();persistX();render();
   if(fromBoard)gbEcho(seg)}
 /* the board button (or End turn). A turn is always 3 darts unless he went out or
