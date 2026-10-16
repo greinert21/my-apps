@@ -46,8 +46,8 @@ h1{margin:0;font-size:22px;font-weight:800}
   <h1>Hit Sound Board</h1>
   <div class="sub">Tap each one. A single plays once, a double twice, a treble three times. Round 2 — Coin is #1. Tell Claude the numbers you like.</div>
   <div class="bar"><label for="vol">Volume</label><input id="vol" type="range" min="0.2" max="2.5" step="0.1" value="1.2"><span class="v" id="volv">1.2×</span></div>
-  <h2 style="font-size:19px;margin:18px 0 4px">Bull sounds — round 2, pick one</h2>
-  <div class="sub" style="margin-bottom:10px">Longer and smoother than round 1 (no bleeps, no doorbell). Each has an outer-bull and a bull's-eye sound. Tell Claude the number you like.</div>
+  <h2 style="font-size:19px;margin:18px 0 4px">Bull sounds — round 3, pick one</h2>
+  <div class="sub" style="margin-bottom:10px">Whistles and horns this time, starting with the traffic whistle. Each has an outer-bull and a bull's-eye sound. Tell Claude the number you like — or what's close.</div>
   <div class="grid" id="bgrid"></div>
   <h2 style="font-size:19px;margin:22px 0 4px">Dart hits</h2>
   <div class="grid" id="grid"></div>
@@ -246,7 +246,7 @@ const SET8 = [
 for (const k of ['low', 'high', 'ton80', 'hat']) JINGLES[k] = SET8[0].j[k];
 JINGLES.black = climbs(6);   // 3 in the Black, as live in the app
 
-/* ---------- bull sounds, round 2 (2026-10-16) ----------
+/* ---------- bull sounds, round 2 helpers (vib is still used) ----------
    Round 1 (low coin, thunk, blip, laser, coin drop, pinball) was "too quick and
    bleepy" — Matt: league and GranBoard bulls are a bit longer. So these are
    0.7–1.1 s, soft attacks, no square buzz and no bell. */
@@ -279,21 +279,89 @@ const boom = t => tone(t, 130, .35, .9, {type:'sine', to:55, glide:.3, attack:.0
 const run = (t, notes, step, lastDur, pk = .45) => notes.forEach((m, i) =>
   i === notes.length - 1 ? swell(t + i * step, midi(m), lastDur, pk, {attack:.01}) : jnote(t + i * step, m, step * 1.6, pk));
 const chord = (t, ms, dur, pk) => ms.forEach((m, i) => swell(t, midi(m), dur, pk * (i ? .6 : 1), {attack:.07}));
+/* ---------- bull sounds, round 3 (2026-10-16) ----------
+   Round 2 (swell, whoop, run, chord, wah, boom) didn't land either. Matt asked
+   for a traffic whistle, so round 3 leans that way: whistles and horns, with
+   real breath in them, not synth bleeps. */
+let NZ = null;
+function breath(t, dur, freq, q, pk){            // looping noise through a band-pass: air
+  if (!NZ){ NZ = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+    const d = NZ.getChannelData(0); for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1; }
+  const s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+  s.buffer = NZ; s.loop = true; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + .02);
+  g.gain.setValueAtTime(pk, t + Math.max(.03, dur - .06)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f).connect(g).connect(OUT); s.start(t); s.stop(t + dur + .05);
+}
+function env(g, t, dur, pk, a = .02, r = .07){
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(pk, t + a);
+  g.gain.setValueAtTime(pk, t + Math.max(a, dur - r)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+}
+/* traffic / referee whistle: the pea inside rattles, so the pitch and level warble ~30 times a second */
+function pea(t, dur, f = 2900, pk = .22){
+  const o = AC.createOscillator(), g = AC.createGain(), am = AC.createGain();
+  const l = AC.createOscillator(), lf = AC.createGain(), la = AC.createGain();
+  o.type = 'sine'; o.frequency.value = f;
+  l.frequency.value = 31; lf.gain.value = 170; la.gain.value = .45;
+  l.connect(lf).connect(o.frequency); l.connect(la).connect(am.gain); am.gain.value = .55;
+  env(g, t, dur, pk, .015, .05);
+  o.connect(am).connect(g).connect(OUT); o.start(t); o.stop(t + dur + .05); l.start(t); l.stop(t + dur + .05);
+  breath(t, dur, f, 3, pk * .35);
+}
+/* a pure whistle tone (slide, wolf): sine with a breath of air, pitch path [[time, Hz], …] */
+function whistle(t, path, pk = .3){
+  const o = AC.createOscillator(), g = AC.createGain(), dur = path[path.length - 1][0];
+  o.type = 'sine'; o.frequency.setValueAtTime(path[0][1], t);
+  path.slice(1).forEach(([dt, f]) => o.frequency.exponentialRampToValueAtTime(f, t + dt));
+  vib(o, 6, 12, t, dur);
+  env(g, t, dur, pk, .03, .08);
+  o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + .05);
+  breath(t, dur, 2200, 1.2, pk * .12);
+}
+/* air horn: a detuned saw cluster through a low-pass, a little pitch scoop at the start */
+function horn(t, dur, pk = .16, up = 1){
+  const fl = AC.createBiquadFilter(), g = AC.createGain();
+  fl.type = 'lowpass'; fl.frequency.value = 2400; fl.Q.value = 1;
+  [440, 466, 554, 880].forEach(f => { const o = AC.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f * up * .94, t); o.frequency.exponentialRampToValueAtTime(f * up, t + .05);
+    o.connect(fl); o.start(t); o.stop(t + dur + .05); });
+  env(g, t, dur, pk, .02, .08); fl.connect(g).connect(OUT);
+}
+/* brass stab: a saw chord whose filter snaps open then settles, like a horn section hit */
+function stab(t, ms, dur, pk = .14){
+  const fl = AC.createBiquadFilter(), g = AC.createGain();
+  fl.type = 'lowpass'; fl.Q.value = 2;
+  fl.frequency.setValueAtTime(350, t); fl.frequency.exponentialRampToValueAtTime(3200, t + .06);
+  fl.frequency.exponentialRampToValueAtTime(1100, t + dur);
+  ms.forEach(m => { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = midi(m);
+    o.connect(fl); o.start(t); o.stop(t + dur + .05); });
+  env(g, t, dur, pk, .015, .15); fl.connect(g).connect(OUT);
+}
+/* steam whistle: three sines in a chord, breathy, with a slow wobble */
+function steam(t, dur, up = 1, pk = .16){
+  [660, 831, 990].forEach(f => { const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f * up * .97, t); o.frequency.exponentialRampToValueAtTime(f * up, t + .12);
+    vib(o, 4.5, f * .004, t, dur); env(g, t, dur, pk, .05, .15);
+    o.connect(g).connect(OUT); o.start(t); o.stop(t + dur + .05); });
+  breath(t, dur, 1600, .8, pk * .5);
+}
 const BULLS = [
-  {name:'Warm swell', ds:'One soft tone that eases in and sings with a little vibrato. Bull’s-eye: two, the second a fifth up and longer.',
-   sb:t => swell(t, 523, .75, .5), db:t => { swell(t, 523, .45, .5); swell(t + .32, 784, .85, .5); }},
-  {name:'Whoop', ds:'A smooth slide up that hangs at the top. Bull’s-eye slides higher and holds longer.',
-   sb:t => swell(t, 330, .75, .5, {to:880, glide:.28, attack:.02}),
-   db:t => swell(t, 330, 1.05, .5, {to:1320, glide:.4, attack:.02})},
-  {name:'Rising run', ds:'Soft coin’s voice running up a chord, the top note held. Bull’s-eye runs further and holds longer.',
-   sb:t => run(t, [72, 76, 79, 84], .07, .55), db:t => run(t, [72, 76, 79, 84, 88, 91], .07, .75)},
-  {name:'Chord bloom', ds:'A soft three-note chord that blooms and fades. Bull’s-eye: a second, higher chord blooms out of the first.',
-   sb:t => chord(t, [72, 76, 79], .8, .32), db:t => { chord(t, [72, 76, 79], .5, .32); chord(t + .35, [79, 83, 86], .9, .32); }},
-  {name:'Wah', ds:'Old-arcade “wow”: a warm low tone with a filter that opens and closes. Bull’s-eye: two, the second higher.',
-   sb:t => wah(t, 220, .7, .35), db:t => { wah(t, 220, .5, .35); wah(t + .38, 330, .75, .35); }},
-  {name:'Boom + shimmer', ds:'A deep thump like the dart going in, then a soft high tone floating over it. Bull’s-eye: two tones rising.',
-   sb:t => { boom(t); swell(t + .05, 1047, .7, .3); },
-   db:t => { boom(t); swell(t + .05, 1047, .45, .3); swell(t + .35, 1568, .8, .3); }}
+  {name:'Traffic whistle', ds:'A pea whistle, like a traffic cop or a referee. Outer bull: one blast. Bull’s-eye: tweet, then a long tweeeet.',
+   sb:t => pea(t, .5), db:t => { pea(t, .18); pea(t + .28, .7); }},
+  {name:'Two-tone whistle', ds:'The same whistle, but the bull’s-eye goes up a step on its second blast.',
+   sb:t => pea(t, .45, 2600), db:t => { pea(t, .3, 2600); pea(t + .4, .6, 3300); }},
+  {name:'Slide whistle', ds:'A smooth slide up, like a toy slide whistle. Bull’s-eye slides higher and hangs on.',
+   sb:t => whistle(t, [[0, 520], [.45, 1600], [.6, 1650]]),
+   db:t => whistle(t, [[0, 520], [.4, 1500], [.55, 1300], [.85, 2300], [1.05, 2350]])},
+  {name:'Wolf whistle', ds:'Outer bull: the rising “whit”. Bull’s-eye: the full “whit-whooo”.',
+   sb:t => whistle(t, [[0, 1000], [.24, 2600], [.3, 2650]], .32),
+   db:t => { whistle(t, [[0, 1000], [.24, 2600], [.3, 2650]], .32); whistle(t + .4, [[0, 1500], [.12, 2700], [.5, 1050], [.55, 1000]], .32); }},
+  {name:'Air horn', ds:'A short stadium air horn. Bull’s-eye: two blasts, the second longer.',
+   sb:t => horn(t, .5), db:t => { horn(t, .25); horn(t + .33, .65); }},
+  {name:'Brass stab', ds:'A horn-section hit. Bull’s-eye: a second hit a step higher.',
+   sb:t => stab(t, [60, 64, 67, 72], .55), db:t => { stab(t, [60, 64, 67, 72], .35); stab(t + .38, [65, 69, 72, 77], .7); }},
+  {name:'Steam whistle', ds:'A breathy three-note train whistle. Bull’s-eye: longer, and it rises at the end.',
+   sb:t => steam(t, .65), db:t => { steam(t, .4); steam(t + .45, .75, 1.19); }}
 ];
 function playBull(i, k){
   const ac = audio(); if (!ac) return;
