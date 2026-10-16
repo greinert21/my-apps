@@ -185,21 +185,21 @@ main.wide{max-width:1100px}
 .gbline{font-size:13px;color:var(--warn);margin:-2px 0 8px}
 .xbody{display:grid;gap:10px}
 @media (min-width:760px){.xg.haspad .xbody{grid-template-columns:1.15fr 1fr;align-items:start}}
-.pl{position:relative;background:#21161b;border:2px solid var(--accent);border-radius:18px;padding:12px 14px 12px 18px;overflow:hidden;min-width:0}
-.pl::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--accent-dark)}
-.pl.fin{border-color:#1f6b3f;background:#10241a}
-.pl.fin::before{background:#166534}
+.pl{position:relative;background:#10241a;border:2px solid var(--good);border-radius:18px;padding:12px 14px 12px 18px;overflow:hidden;min-width:0}
+.pl::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:#16a34a}
+.pl.fin{border-color:#eab308;background:#221c0c}
+.pl.fin::before{background:#a16207}
 .ph{display:flex;align-items:center;gap:8px;min-height:22px}
 .ph .nm{font-weight:800;font-size:16px;color:var(--dim)}
 .badge{margin-left:auto;font-size:12px;font-weight:800;letter-spacing:.6px;border-radius:6px;padding:2px 8px;white-space:nowrap}
 .badge.aw{background:#3a2e08;color:#fde047;border:1px solid #a16207}
 .badge.bust{background:#2a1215;color:var(--danger);border:1px solid #7f1d1d}
-.badge.out{background:#123321;color:var(--good);border:1px solid #1f6b3f}
+.badge.out{background:#3a2e08;color:#fde047;border:1px solid #a16207}
 .sc{font-size:clamp(80px,min(30vh,34vw),300px);font-weight:900;line-height:1;letter-spacing:-3px;margin:4px 0 10px;
   font-variant-numeric:tabular-nums;text-align:center}
 .xg.haspad .sc{font-size:clamp(60px,min(15vh,30vw),180px)}
 @media (min-width:760px){.xg.haspad .sc{font-size:clamp(80px,min(26vh,22vw),260px)}}
-.sc.bust{color:var(--danger)} .sc.out{color:var(--good)}
+.sc.bust{color:var(--danger)} .sc.out{color:#fde047}
 .slots{display:flex;gap:6px;align-items:center}
 .slot{flex:1;min-width:0;height:clamp(40px,min(8vh,9vw),72px);border-radius:10px;background:var(--card2);border:1px solid var(--line);
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(17px,min(3.4vh,4.4vw),32px);
@@ -210,14 +210,14 @@ button.slot{cursor:pointer;font-family:inherit}
 .slot.D{color:#04210f;background:var(--good);border-color:var(--good)}
 .slot.B{color:#fff;background:var(--accent-dark);border-color:var(--accent)}
 .slot.M{color:var(--dim)}
-.slot.nx{border:2px dashed var(--accent);color:var(--accent);font-size:clamp(14px,min(2.6vh,3.4vw),24px)}
-.pl.wait{border-color:var(--warn);background:#221c0c}
-.pl.wait::before{background:#a16207}
+.slot.nx{border:2px dashed var(--good);color:var(--good);font-size:clamp(14px,min(2.6vh,3.4vw),24px)}
+.pl.wait{border-color:var(--accent);background:#21161b}
+.pl.wait::before{background:var(--accent-dark)}
 .ph .nm.st{font-size:clamp(16px,min(3vh,4vw),26px);letter-spacing:.4px;text-transform:uppercase}
-.ph .nm.go{color:#fda4af} .ph .nm.wait{color:var(--warn)}
+.ph .nm.go{color:var(--good)} .ph .nm.wait{color:#fda4af} .ph .nm.fin{color:#fde047}
 .lastt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:14px;color:var(--dim);font-weight:700}
 .lastt b{color:var(--text);font-variant-numeric:tabular-nums}
-.msg.wait{border-color:#a16207;background:#221c0c;color:var(--warn)}
+.msg.wait{border-color:var(--accent-dark);background:#21161b;color:#fda4af}
 .tt{min-width:3em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(17px,min(3.2vh,4vw),30px);font-variant-numeric:tabular-nums}
 .ms{display:flex;gap:6px;margin-top:10px}
 .ms div{flex:1;min-width:0;background:var(--card2);border-radius:10px;padding:5px 8px;text-align:center}
@@ -225,7 +225,7 @@ button.slot{cursor:pointer;font-family:inherit}
 .ms b{display:block;font-size:clamp(20px,min(4.4vh,5.5vw),44px);font-weight:900;font-variant-numeric:tabular-nums;line-height:1.15}
 .ms .lk b::after{content:" 🔒";font-size:.55em}
 .msg{border-radius:14px;padding:11px 14px;font-weight:700;font-size:16px;background:var(--card);border:1px solid var(--line)}
-.msg.win{border-color:#1f6b3f;background:#10241a;color:var(--good)}
+.msg.win{border-color:#a16207;background:#221c0c;color:#fde047}
 .msg .row{flex-wrap:wrap}
 .rings{display:flex;gap:6px;margin-bottom:6px}
 .rings button{flex:1;border:1px solid var(--line);background:var(--card2);color:var(--text);border-radius:10px;padding:10px 0;font-weight:800;font-size:15px;cursor:pointer}
@@ -1614,9 +1614,9 @@ function x01HTML(){
   const showPad=!done&&(xPad!=null?xPad:!board);
   const closed=x01Replay({start:X.start,out:X.out,bull:X.bull,turns:X.turns}).vs,lastV=closed[closed.length-1];
   /* Whose move it is, readable from the oche (Matt: no good way to tell a turn had
-     ended or that he should be throwing). Three states, by colour of the whole panel:
-     throwing (red, "YOUR THROW · dart N"), turn over (amber — 3 darts in or bust,
-     pull them and hit the button), out (green). A new turn starts on empty slots;
+     ended or that he should be throwing). Three states, by colour of the whole panel,
+     traffic-light (Matt: "green means go"): throwing green ("YOUR THROW · dart N"),
+     turn over red (3 darts in or bust — stop, pull them, hit the button), out gold. A new turn starts on empty slots;
      the last one moves to a small line under them. */
   const wait=!done&&st.full;
   let segs=X.cur,tot='',badge='',lastLn='';
@@ -1630,7 +1630,7 @@ function x01HTML(){
   for(let k=0;k<3;k++){const s=segs[k];
     if(s==null){sl+='<div class="slot e'+(!done&&!wait&&k===segs.length?' nx':'')+'">'+(!done&&!wait&&k===segs.length?k+1:'·')+'</div>';continue}
     sl+='<button class="slot '+segCls(s)+'" data-a="xfix" data-v="'+k+'">'+segLabel(s)+'</button>'}
-  const who=done?'<span class="nm">Game shot</span>':
+  const who=done?'<span class="nm st fin">Game shot</span>':
     wait?'<span class="nm st wait">Turn over · pull your darts</span>':
     '<span class="nm st go">▶ Your throw · dart '+(X.cur.length+1)+'</span>';
   const s=x01Stats({start:X.start,out:X.out,bull:X.bull,turns:X.turns.concat(done?[X.cur]:[])});

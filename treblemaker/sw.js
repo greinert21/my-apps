@@ -1,5 +1,5 @@
 // Tiny offline cache: network-first so updates land, cache fallback at the board.
-const CACHE = 'treblemaker-v33';
+const CACHE = 'treblemaker-v34';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {
   e.waitUntil(
