@@ -1857,10 +1857,7 @@ const climbs=n=>[72,74,76,79,84,88].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
 // 3 in the Black is the rarest, so the longest: six climbs, the sixth on high E
 const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5),black:climbs(6)};
 const after=c=>c?(c-1)*.18+.22:.03;   // let the last dart's coin finish first
-/* Bulls get their own voice (Matt, 2026-10-16: "bulls need different sounds than
-   regular darts, same with double bull"): a sine bell — nothing else in the game
-   is a sine, so it can't be mistaken for a coin. Outer bull one ding, bull's-eye
-   two rising a fifth. */
+/* a sine bell — now only the win chime's voice (Matt called it a doorbell on the bulls) */
 function bell(t,f,dur,peak){
   const AC=audioCtx;
   [[1,1],[2.76,.28],[5.4,.08]].forEach(p=>{const o=AC.createOscillator(),g=AC.createGain();
@@ -1869,7 +1866,31 @@ function bell(t,f,dur,peak){
     g.gain.exponentialRampToValueAtTime(peak*p[1],t+.004);
     g.gain.exponentialRampToValueAtTime(.0001,t+dur/(p[0]>1?p[0]*.6:1));
     o.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.02)})}
-const BELLS={SB:[[0,784,.5]],DB:[[0,784,.32],[.13,1175,.6]]};
+/* Bulls get their own voice (Matt, 2026-10-16): the traffic whistle — sounds.html
+   round 3 #1, his pick after a bell ("doorbell"), six short ones ("too quick and
+   bleepy") and six smooth ones. A pea whistle: the pea rattles, so pitch and level
+   warble ~31 times a second, plus a breath of air. Outer bull one blast, bull's-eye
+   tweet then a long tweeeet. */
+let GNZ=null;
+function gBreath(t,dur,freq,q,pk){
+  const AC=audioCtx;
+  if(!GNZ){GNZ=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=GNZ.getChannelData(0);for(let k=0;k<d.length;k++)d[k]=Math.random()*2-1}
+  const s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();
+  s.buffer=GNZ;s.loop=true;f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
+  gEnv(g,t,dur,pk,.02,.06);s.connect(f);f.connect(g);g.connect(GOUT);s.start(t);s.stop(t+dur+.05)}
+function gEnv(g,t,dur,pk,a,r){
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(pk,t+a);
+  g.gain.setValueAtTime(pk,t+Math.max(a,dur-r));g.gain.exponentialRampToValueAtTime(.0001,t+dur)}
+function pea(t,dur){
+  const AC=audioCtx,o=AC.createOscillator(),g=AC.createGain(),am=AC.createGain();
+  const l=AC.createOscillator(),lf=AC.createGain(),la=AC.createGain(),f=2900,pk=.22;
+  o.type='sine';o.frequency.value=f;
+  l.frequency.value=31;lf.gain.value=170;la.gain.value=.45;am.gain.value=.55;
+  l.connect(lf);lf.connect(o.frequency);l.connect(la);la.connect(am.gain);
+  gEnv(g,t,dur,pk,.015,.05);
+  o.connect(am);am.connect(g);g.connect(GOUT);o.start(t);o.stop(t+dur+.05);l.start(t);l.stop(t+dur+.05);
+  gBreath(t,dur,f,3,pk*.35)}
+const BULLS={SB:t=>pea(t,.5),DB:t=>{pea(t,.18);pea(t+.28,.7)}};
 function gSound(fn){   // mute, wake the context, start no earlier than the warm-up
   if(D.settings.gameMute)return;
   const ac=gAudio();if(!ac)return;
@@ -1877,7 +1898,7 @@ function gSound(fn){   // mute, wake the context, start no earlier than the warm
   fn(Math.max(ac.currentTime+.03,GWARM))}
 /* the sound for one dart; returns how long it lasts, so a jingle waits for it */
 function dartSound(seg){
-  if(BELLS[seg]){gSound(t0=>BELLS[seg].forEach(b=>bell(t0+b[0],b[1],b[2],.55)));return seg==='DB'?.45:.32}
+  if(BULLS[seg]){gSound(BULLS[seg]);return seg==='DB'?1.0:.55}
   const c=chirpsOf(seg);chirp(c);return c?after(c):.03}
 /* game shot: a quick bell run up the major chord, the top note left to ring */
 const WIN_RUN=[[0,1047,.35],[.09,1319,.35],[.18,1568,.35],[.27,2093,1.1]];
