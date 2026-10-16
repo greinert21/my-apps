@@ -231,6 +231,22 @@ button.slot{cursor:pointer;font-family:inherit}
 .cur{display:flex;flex-direction:column;gap:6px;min-width:0}
 .cur .slot{flex:none;width:100%}
 .cur .tt{min-width:0;text-align:center}
+.crwrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:12px;margin:8px 0 2px;align-items:start}
+.crb{display:flex;flex-direction:column;gap:4px}
+.crc{display:grid;grid-template-columns:1.1fr 1fr .7fr;align-items:center;background:var(--card2);border:1px solid var(--line);
+  border-radius:10px;height:clamp(38px,min(7vh,11vw),78px);padding:0 6px 0 10px;min-width:0}
+.crc b{font-size:clamp(20px,min(4.6vh,6.4vw),50px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums;text-align:left}
+.crc .mk{display:flex;justify-content:center;align-items:center;height:100%;color:var(--text)}
+.crc .mk svg{height:78%;width:auto;max-width:100%}
+.crc i{font-style:normal;font-size:clamp(12px,min(2.2vh,3.4vw),22px);font-weight:800;color:var(--good);text-align:right}
+.crc.on{background:#166534;border-color:var(--good)}
+.crc.on .mk{color:#bbf7d0}
+.crc.on i{color:#bbf7d0}
+.crc.hit{box-shadow:inset 0 0 0 2px #fde047}
+.crside{display:flex;flex-direction:column;gap:10px;min-width:0}
+.crside .hist{justify-content:flex-start;min-height:0}
+.crside .hr{grid-template-columns:1em 1fr 1.5em 2.1em;gap:4px;font-size:clamp(12px,min(2.1vh,3.2vw),20px)}
+.crside .hr .ds i{font-size:.82em;padding:2px 0}
 .msg.wait{border-color:var(--accent-dark);background:#21161b;color:#fda4af}
 .tt{min-width:3em;text-align:right;font-weight:800;color:var(--dim);font-size:clamp(17px,min(3.2vh,4vw),30px);font-variant-numeric:tabular-nums}
 .ms{display:flex;gap:6px;margin-top:10px}
@@ -282,7 +298,7 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}
 const DEFAULTS={volume:1.5,paceSecs:30,countIn:5,ppd:35,mpr:3.5};
 let D=load(DATA_KEY,null);
 function blankD(){return {version:1,settings:Object.assign({},DEFAULTS),drills:[],sessions:[],free:[],
-  freeCounters:['Bulls'],plans:{},games:[],x01:[]}}
+  freeCounters:['Bulls'],plans:{},games:[],x01:[],cricket:[]}}
 function normD(){
   D.settings=Object.assign({},DEFAULTS,D.settings||{});
   if(!Array.isArray(D.drills))D.drills=[];
@@ -290,6 +306,7 @@ function normD(){
   if(!Array.isArray(D.free))D.free=[];
   if(!Array.isArray(D.games))D.games=[];
   if(!Array.isArray(D.x01))D.x01=[];
+  if(!Array.isArray(D.cricket))D.cricket=[];
   if(!Array.isArray(D.freeCounters)||!D.freeCounters.length)D.freeCounters=['Bulls'];
   if(!D.plans||typeof D.plans!=='object'||Array.isArray(D.plans))D.plans={}}
 if(!D)D=blankD();
@@ -1165,6 +1182,7 @@ function practiceDays(){
   const m={},add=(d,n,src)=>{const e=m[d]||(m[d]={d:0,src:{}});e.d+=n;e.src[src]=1};
   D.sessions.forEach(s=>add(s.date,+s.darts||0,'drills'));   // session darts are visits × DPV, set when it was saved
   D.x01.forEach(g=>add(g.date,x01Stats(g).darts,'x01'));
+  D.cricket.forEach(g=>add(g.date,crStats(g).darts,'Cricket'));
   D.free.forEach(f=>add(f.date,0,'Free Throw'));              // no dart count kept: the day just shows as practised
   D.games.forEach(g=>add(g.date,0,'GranBoard'));
   return m}
@@ -1192,14 +1210,46 @@ function streaksOf(m){
 
 /* ---- the screen ---- */
 function statsHTML(){
-  setHead('Stats',{overview:'Everything at a glance',x01:'In-app x01 games — from every dart',drills:'Your drills',log:'Typed GranBoard games'}[ST.sec]);
-  let h='<div class="stabs">'+[['overview','Overview'],['x01','x01'],['drills','Drills'],['log','GranBoard log']].map(o=>
+  setHead('Stats',{overview:'Everything at a glance',x01:'In-app x01 games — from every dart',cricket:'In-app Cricket — from every dart',drills:'Your drills',log:'Typed GranBoard games'}[ST.sec]);
+  let h='<div class="stabs">'+[['overview','Overview'],['x01','x01'],['cricket','Cricket'],['drills','Drills'],['log','GranBoard log']].map(o=>
       '<button class="'+(ST.sec===o[0]?'on':'')+'" data-a="stsec" data-v="'+o[0]+'">'+o[1]+'</button>').join('')+'</div>'+
     '<div class="chips">'+[['last30','Last 30 games'],['month','This month'],['all','All time']].map(o=>
       '<button class="pill'+(ST.range===o[0]?' on':'')+'" data-a="strange" data-v="'+o[0]+'">'+o[1]+'</button>').join('')+
     (ST.sec==='drills'&&ST.range==='last30'?'<span class="hint">· per drill</span>':'')+'</div>';
-  h+=ST.sec==='x01'?statsX01():ST.sec==='drills'?statsDrills():ST.sec==='log'?statsLog():statsOverview();
+  h+=ST.sec==='x01'?statsX01():ST.sec==='cricket'?statsCricket():ST.sec==='drills'?statsDrills():ST.sec==='log'?statsLog():statsOverview();
   return h}
+/* -- Cricket (solo, from every dart) -- */
+function statsCricket(){
+  const all=crSorted();
+  if(!all.length)return emptyCard('Play a Cricket game (Games → Play Cricket) and its MPR, 80%, darts to close and per-number hits chart here.');
+  const gs=inRange(all,g=>g.date),ss=gs.map(crStats);
+  if(!gs.length)return emptyCard('No Cricket games '+RANGE_LBL[ST.range]+'. Try All time.');
+  const sum=k=>ss.reduce((a,x)=>a+x[k],0);
+  const mpr=mprOf(sum('marks'),sum('rounds')),m80=mprOf(sum('m80'),sum('r80')),mC=mprOf(sum('mC'),sum('rC'));
+  const fi=ss.map((x,i)=>i).filter(i=>ss[i].fin),dc=fi.length?fi.reduce((a,i)=>a+ss[i].darts,0)/fi.length:null,best=fi.length?Math.min(...fi.map(i=>ss[i].darts)):null;
+  let h='<div class="sgrid">';
+  h+='<div class="card span2"><div class="row" style="align-items:flex-end;flex-wrap:wrap">'+bigNum(fmt2(mpr),'MPR')+bigNum(fmt2(m80),'80%',{sm:1})+bigNum(fmt2(mC),'closing',{sm:1})+
+    '<div class="hint" style="margin-left:auto;text-align:right">solo · '+gs.length+' game'+(gs.length===1?'':'s')+' · '+RANGE_LBL[ST.range]+'</div></div>'+
+    lineChart({series:[{name:'MPR',c:VZ.s1,v:ss.map(x=>mprOf(x.marks,x.rounds))},{name:'80%',c:VZ.s2,v:ss.map(x=>mprOf(x.m80,x.r80))},
+      {name:'Closing',c:VZ.s3,v:ss.map(x=>x.rC?mprOf(x.mC,x.rC):null)}],ref:{v:LEAGUE.cricket,label:'2.94',name:'League 2.94'},
+      fmt:fmt2,xl:gs.map(g=>fmtDay(g.date)),w:vzW('full'),aria:'MPR per game'})+
+    '<div class="hint" style="margin-top:6px">MPR = marks per turn, totalled over the games (not an average of averages). 80% stops at the turn you have 6 of the 7 closed; closing is everything after. Solo, every mark on a target counts.</div></div>';
+  h+='<div class="card"><div class="row" style="align-items:flex-end">'+bigNum(dc==null?'–':fmt1(dc),'darts to close')+bigNum(best==null?'–':best,'best',{sm:1})+'</div>'+
+    lineChart({series:[{name:'Darts to close',c:VZ.s1,v:fi.map(i=>ss[i].darts)}],xl:fi.map(i=>fmtDay(gs[i].date)),fmt:x=>String(Math.round(x)),
+      w:vzW('half'),h:130,aria:'Darts to close per game',empty:fi.length?'One closed game so far — the line starts at two.':'Close a game and it charts here.'})+
+    '<div class="hint">Lower is better. Games you stopped before closing don’t count here.</div></div>';
+  const mk=Array(10).fill(0);ss.forEach(x=>x.vs.forEach(v=>mk[Math.min(9,v.marks)]++));
+  h+='<div class="card"><h3>Marks per turn</h3>'+colChart(mk.map((n,i)=>({label:String(i),n:n})),{unit:'turns',w:vzW('half'),h:150})+
+    '<div class="hint">How often each turn scored 0–9 marks.</div></div>';
+  // where the darts landed, per target (treble / double / single), and how many missed the targets
+  const by=CR_T.map(()=>({T:0,D:0,S:0})),dd={n:0,off:0};
+  ss.forEach(x=>x.vs.forEach(v=>v.segs.forEach(sg=>{dd.n++;const r=crMk(sg);if(!r){dd.off++;return}
+    by[r[0]][sg==='DB'?'D':sg==='SB'?'S':sg[0]]++})));
+  h+='<div class="card span2"><h3>Hits per number</h3><table class="btab"><tr><th></th>'+CR_LBL.map(l=>'<th>'+l+'</th>').join('')+'</tr>'+
+    [['T','Treble'],['D','Double'],['S','Single']].map(r=>'<tr><td>'+r[1]+'</td>'+by.map((b,i)=>'<td><b>'+(i===6&&r[0]==='T'?'–':b[r[0]])+'</b></td>').join('')+'</tr>').join('')+
+    '<tr><td>Marks</td>'+by.map(b=>'<td><b>'+(b.T*3+b.D*2+b.S)+'</b></td>').join('')+'</tr></table>'+
+    '<div class="hint" style="margin-top:6px">'+dd.n+' darts · '+(dd.n?Math.round(100*dd.off/dd.n):0)+'% off the targets. Bull: outer bull in Single, bull’s-eye in Double.</div></div>';
+  return h+'</div>'}
 const emptyCard=t=>'<div class="card"><p class="hint" style="margin:0">'+t+'</p></div>';
 const bigNum=(v,l,o)=>'<div class="bn'+(o&&o.sm?' sm':'')+'"><b>'+v+'</b><span>'+esc(l)+'</span></div>';
 
@@ -1207,7 +1257,7 @@ const bigNum=(v,l,o)=>'<div class="bn'+(o&&o.sm?' sm':'')+'"><b>'+v+'</b><span>'
 function statsOverview(){
   return '<div class="sgrid">'+ppdMprCard()+calCard()+totalsCard()+bestsCard()+pinsCard()+'</div>'}
 function ppdMprCard(){
-  const hasApp=D.x01.length>0,hasLog=D.games.length>0;
+  const hasApp=D.x01.length>0||D.cricket.length>0,hasLog=D.games.length>0;
   if(!hasApp&&!hasLog)return '<div class="card span2"><h3>PPD and MPR</h3><p class="hint" style="margin:0">Play an x01 game (Games → Play x01) or log a GranBoard game and your averages chart here.</p></div>';
   if(!ST.src||(ST.src==='app'&&!hasApp)||(ST.src==='log'&&!hasLog))ST.src=hasApp?'app':'log';
   let h='<div class="card span2"><div class="row" style="flex-wrap:wrap"><h3 style="margin:0;flex:1">PPD and MPR</h3>'+
@@ -1215,15 +1265,24 @@ function ppdMprCard(){
     '<div class="hint" style="margin:2px 0 8px">'+(ST.src==='app'?'Games played in TrebleMaker, from every dart':'Numbers typed off GranBoard’s results screen')+
     ' — the two are kept apart, never one line.</div><div class="duo">';
   if(ST.src==='app'){
-    const p=x01Pick(),gs=inRange(x01Sorted().filter(g=>g.out===p.mode&&g.start===p.start),g=>g.date),ss=gs.map(g=>x01Stats(g));
+    const p=x01Pick();
+    if(!p)h+='</div><p class="hint">No in-app x01 games yet — Games → Play x01.</p><div>';
+    else{const gs=inRange(x01Sorted().filter(g=>g.out===p.mode&&g.start===p.start),g=>g.date),ss=gs.map(g=>x01Stats(g));
     const fullV=ratioOf(gs.map((g,i)=>({p:ss[i].fin?g.start:0,d:ss[i].fin?ss[i].darts:0})),'p','d');
     h+='</div><div class="row" style="align-items:flex-end">'+bigNum(fmt1(fullV),'full PPD')+bigNum(fmt1(ratioOf(ss,'p80','d80')),'80%',{sm:1})+
       '<div class="hint" style="margin-left:auto;text-align:right">'+p.start+' · '+OUTN[p.mode].toLowerCase()+'<br>'+gs.length+' game'+(gs.length===1?'':'s')+' · '+RANGE_LBL[ST.range]+'</div></div>'+
       lineChart({series:[{name:'Full game',c:VZ.s1,v:ss.map((s,i)=>s.fin?gs[i].start/s.darts:null)},
         {name:'80%',c:VZ.s2,v:ss.map(s=>s.d80?s.p80/s.d80:null)}],ref:{v:LEAGUE['501'],label:'29',name:'League 29'},
         xl:gs.map(g=>fmtDay(g.date)),w:vzW('full'),aria:'PPD per game'})+
-      '<div class="hint" style="margin-top:8px"><b style="color:var(--text)">MPR:</b> Cricket isn’t in the app yet. '+
-      (hasLog?'Switch to <b>GranBoard log</b> for your typed MPR.':'Log a GranBoard Cricket game to see MPR there.')+'</div><div>'}
+      '<div>'}
+    const cg=inRange(crSorted(),g=>g.date),cs=cg.map(crStats),sm=k=>cs.reduce((a,x)=>a+x[k],0);
+    h+='</div><div style="margin-top:12px">';
+    if(!cg.length)h+='<p class="hint">'+(D.cricket.length?'No in-app Cricket '+RANGE_LBL[ST.range]+'.':'No in-app Cricket yet — Games → Play Cricket.')+'</p>';
+    else h+='<div class="row" style="align-items:flex-end">'+bigNum(fmt2(mprOf(sm('marks'),sm('rounds'))),'MPR')+bigNum(fmt2(mprOf(sm('m80'),sm('r80'))),'80%',{sm:1})+
+      '<div class="hint" style="margin-left:auto;text-align:right">Cricket · solo<br>'+cg.length+' game'+(cg.length===1?'':'s')+' · '+RANGE_LBL[ST.range]+'</div></div>'+
+      lineChart({series:[{name:'MPR',c:VZ.s1,v:cs.map(x=>mprOf(x.marks,x.rounds))},{name:'80%',c:VZ.s2,v:cs.map(x=>mprOf(x.m80,x.r80))}],
+        ref:{v:LEAGUE.cricket,label:'2.94',name:'League 2.94'},fmt:fmt2,xl:cg.map(g=>fmtDay(g.date)),w:vzW('full'),aria:'MPR per game'});
+    h+='</div><div>'}
   else{
     ['501','cricket'].forEach(type=>{const rows=inRange(gamesOf(type),g=>g.date),u=type==='501'?'PPD':'MPR';
       if(!rows.length){h+='<div><div class="row">'+bigNum('–',u)+'</div><p class="hint">No '+(type==='501'?'501':'Cricket')+' rows logged '+(ST.range==='all'?'yet':RANGE_LBL[ST.range])+'.</p></div>';return}
@@ -1237,7 +1296,7 @@ function calCard(){
   const m=practiceDays(),s=streaksOf(m);
   return '<div class="card"><div class="row"><h3 style="margin:0;flex:1">Practice</h3>'+
     bigNum(s.cur,'day streak')+bigNum(s.best,'longest',{sm:1})+'</div>'+
-    '<div class="hint" style="margin:2px 0 8px">Any drill, Free Throw, x01 game or GranBoard row counts. Last 26 weeks, shaded by darts thrown.</div>'+
+    '<div class="hint" style="margin:2px 0 8px">Any drill, Free Throw, x01 or Cricket game, or GranBoard row counts. Last 26 weeks, shaded by darts thrown.</div>'+
     calSVG(m)+'<div class="row" style="justify-content:space-between;flex-wrap:wrap">'+rampLegend('None','400+ darts')+
     '<span class="hint">practised, no count = darkest blue</span></div></div>'}
 function totalsCard(){
@@ -1245,11 +1304,12 @@ function totalsCard(){
   const per=from=>{let darts=0,games=0,sess=0;
     D.sessions.forEach(s=>{if(s.date>=from){darts+=+s.darts||0;sess++}});
     D.x01.forEach(g=>{if(g.date>=from){darts+=x01Stats(g).darts;games++}});
-    return [darts,games,sess]};
+    let cg=0;D.cricket.forEach(g=>{if(g.date>=from){darts+=crStats(g).darts;cg++}});
+    return [darts,games,sess,cg]};
   const c=[per(ws),per(ms),per('0000')],fmtN=n=>n>=10000?(n/1000).toFixed(1)+'K':n.toLocaleString();
   return '<div class="card"><h3>Totals</h3><table class="btab"><tr><th></th><th>This week</th><th>This month</th><th>All time</th></tr>'+
-    [['Darts thrown',0],['x01 games',1],['Drill sessions',2]].map(r=>'<tr><td>'+r[0]+'</td>'+c.map(x=>'<td><b>'+fmtN(x[r[1]])+'</b></td>').join('')+'</tr>').join('')+
-    '</table><div class="hint" style="margin-top:6px">Darts = drill darts + x01 darts. Free Throw and GranBoard rows keep no dart count. Weeks start Monday.</div></div>'}
+    [['Darts thrown',0],['x01 games',1],['Cricket games',3],['Drill sessions',2]].map(r=>'<tr><td>'+r[0]+'</td>'+c.map(x=>'<td><b>'+fmtN(x[r[1]])+'</b></td>').join('')+'</tr>').join('')+
+    '</table><div class="hint" style="margin-top:6px">Darts = drill darts + x01 and Cricket darts. Free Throw and GranBoard rows keep no dart count. Weeks start Monday.</div></div>'}
 /* a drill's best: goal and rounds drills by value in their own direction; timed
    drills by points per dart, since a score at a different pace isn't comparable (rule 3) */
 function drillBest(t,ss){
@@ -1271,6 +1331,10 @@ function bestsCard(){
   const ho=top(fin,x=>x.s.checkout);if(ho)rows.push(['High out',ho.s.checkout,ho.g.date]);
   const tons=x=>x.s.vs.filter(v=>!v.bust&&v.pts>=100).length,mt=top(all,tons);if(mt&&tons(mt))rows.push(['Most tons in a game',tons(mt),mt.g.date]);
   const f9=top(all.filter(x=>x.s.df9===9),x=>x.s.pf9);if(f9)rows.push(['Best first 9',fmt1(f9.s.pf9/9)+' ('+f9.s.pf9+')',f9.g.date]);
+  const cg=inRange(crSorted(),g=>g.date).map(g=>({g:g,s:crStats(g)})),cf=cg.filter(x=>x.s.fin);
+  const fc=cf.reduce((b,x)=>!b||x.s.darts<b.s.darts?x:b,null);if(fc)rows.push(['Cricket: fewest darts to close',fc.s.darts,fc.g.date]);
+  const bm=top(cf,x=>x.s.marks/x.s.rounds);if(bm)rows.push(['Cricket: best MPR game',fmt2(bm.s.marks/bm.s.rounds),bm.g.date]);
+  const mm=top(cg.flatMap(x=>x.s.vs.map(v=>({v:v,g:x.g}))),x=>x.v.marks);if(mm&&mm.v.marks>=5)rows.push(['Cricket: most marks in a turn',mm.v.marks,mm.g.date]);
   D.drills.filter(d=>!d.archived).forEach(d=>{const t=TPL(d.templateKey);if(!t)return;
     const b=drillBest(t,inRange(sessionsFor(d.id),s=>s.date));if(b)rows.push([d.name,drillValTxt(t,b),b.date])});
   if(!rows.length)return '<div class="card"><h3>Personal bests</h3><p class="hint" style="margin:0">Nothing '+(ST.range==='all'?'yet':RANGE_LBL[ST.range])+
@@ -1330,11 +1394,12 @@ function pinsCard(){
   const aw={};
   inRange(x01Sorted(),g=>g.date).forEach(g=>{const s=x01Stats(g);
     s.vs.forEach(v=>visitPins(v).forEach(k=>aw[k]=(aw[k]||0)+1));if(lowDart(g,s))aw.lowdart=(aw.lowdart||0)+1});
+  const ca={};inRange(crSorted(),g=>g.date).forEach(g=>crStats(g).vs.forEach(v=>crPins(v).forEach(k=>ca[k]=(ca[k]||0)+1)));
   const pin=(k,fam,l,tip,n)=>'<div class="pin'+(n?'':' off')+'" data-tip="'+esc(l+' — '+tip+(n?' · ×'+n:''))+'">'+pinHex(k,fam,!!n)+
     (n?'<i>'+n+'</i>':'')+'<span>'+esc(l)+'</span></div>';
   return '<div class="card"><h3>Pin case</h3><div class="pins">'+PIN_CASE.map(p=>pin(p[0],p[3],p[1],p[2],aw[p[0]]||0)).join('')+'</div>'+
-    '<div class="lbl" style="margin-top:12px">Cricket</div><div class="pins">'+CRI_CASE.map(p=>pin(p[0],'cri',p[1],p[2],0)).join('')+'</div>'+
-    '<div class="hint" style="margin-top:8px">x01 pins, '+RANGE_LBL[ST.range]+' — every pin a turn earns counts. Tap a pin for what it takes. The Cricket pins fill in when Cricket arrives.</div></div>'}
+    '<div class="lbl" style="margin-top:12px">Cricket</div><div class="pins">'+CRI_CASE.map(p=>pin(p[0],'cri',p[1],p[2],ca[p[0]]||0)).join('')+'</div>'+
+    '<div class="hint" style="margin-top:8px">'+RANGE_LBL[ST.range].replace(/^./,c=>c.toUpperCase())+' — every pin a turn earns counts. Tap a pin for what it takes.</div></div>'}
 
 /* -- x01 -- */
 function statsX01(){
@@ -1485,9 +1550,9 @@ function gamesOf(type){return D.games.filter(g=>g.type===type).sort((a,b)=>a.dat
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 function fmtG(type,v){return v==null?'–':type==='501'?v.toFixed(1):v.toFixed(2)}
 function gamesHTML(){
-  const seg='<div class="row" style="margin-bottom:12px">'+[['play','Play x01'],['log','GranBoard log']].map(o=>
+  const seg='<div class="row" style="margin-bottom:12px">'+[['play','Play'],['log','GranBoard log']].map(o=>
     '<button class="btn btn-sm '+(gTab===o[0]?'btn-primary':'')+'" data-a="gtab" data-v="'+o[0]+'" style="flex:1">'+o[1]+'</button>').join('')+'</div>';
-  if(gTab==='play'){setHead('Games','Play x01 on the GranBoard, or tap your darts in');return seg+x01PlayHTML()}
+  if(gTab==='play'){setHead('Games','Play x01 or Cricket on the GranBoard, or tap your darts in');return seg+x01PlayHTML()}
   return seg+gbLogHTML()}
 /* typed rows off GranBoard's own results screen — their own history, never mixed with in-app games */
 function gbLogHTML(){
@@ -1676,7 +1741,7 @@ function x01Settle(){
 function snapX(){X.snaps.push(JSON.stringify({t:X.turns,c:X.cur,s:X.sung}));if(X.snaps.length>30)X.snaps.shift()}
 function x01Undo(){if(!X||!X.snaps.length)return;
   const o=JSON.parse(X.snaps.pop());X.turns=o.t;X.cur=o.c;X.sung=o.s;
-  x01Settle();persistX();render()}
+  if(X.game==='cricket')crSettle();else x01Settle();persistX();render()}
 /* the award jingle plays once the turn is final — after the last dart's coin, or
    at the button when a dart never registered — and never holds anything up */
 function x01Award(delay){if(X.sung===X.turns.length)return 0;
@@ -1687,6 +1752,7 @@ function x01Award(delay){if(X.sung===X.turns.length)return 0;
 function x01Won(delay){gameWon(Math.max(x01Award(delay),delay)+.05)}
 function x01Dart(seg,fromBoard){
   if(!X||X.parked)return;
+  if(X.game==='cricket')return crDart(seg,fromBoard);
   const st=xState();
   if(st.out)return;
   if(st.full){toast(st.bust?'Bust — end the turn first':'Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
@@ -1704,6 +1770,7 @@ function x01Dart(seg,fromBoard){
    button starts the next one. */
 function x01Button(){
   if(!X||X.parked)return;
+  if(X.game==='cricket')return crButton();
   const st=xState();
   if(st.out){x01New(X);turnCue();return}
   snapX();
@@ -1715,6 +1782,7 @@ function x01Button(){
   x01Settle();persistX();render()}
 function x01Fix(seg){ // seg null = remove the dart
   if(!X||!XF||X.cur[XF.i]==null)return;
+  if(X.game==='cricket')return crFix(seg);
   const wasOut=xState().out;
   snapX();
   if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
@@ -1723,12 +1791,13 @@ function x01Fix(seg){ // seg null = remove the dart
   if(st.out&&!wasOut)x01Won(.03);
   else if(st.out||(X.cur.length===3&&!st.bust))x01Award(.03);
   x01Settle();persistX();render()}
-function x01Leave(keep){ // keep: a stopped game still counts for 80%, first 9 and awards
-  if(keep&&!xState().out&&(X.turns.length||X.cur.length)){D.x01.push(x01Rec());persist()}
+function x01Leave(keep){ // keep: a stopped game still counts for 80%, first 9 and awards (Cricket: MPR, 80%, pins)
+  if(keep&&!xDone()&&(X.turns.length||X.cur.length)){if(X.game==='cricket')D.cricket.push(crRec());else D.x01.push(x01Rec());persist()}
   X=null;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render()}
 
 /* ---- game screen ---- */
 function x01HTML(){
+  if(X.game==='cricket')return crHTML();
   const st=xState(),done=st.out,live=X.cur.length>0,board=!!GB.dev;
   const showPad=!done&&(xPad!=null?xPad:!board);
   const closed=x01Replay({start:X.start,out:X.out,bull:X.bull,turns:X.turns}).vs;
@@ -1807,41 +1876,238 @@ function x01FixSheet(){
     '<div class="rings">'+[['S','Single'],['D','Double'],['T','Treble']].map(r=>'<button class="'+(XF.ring===r[0]?'on':'')+
       '" data-a="xfring" data-v="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
     '<div class="nums '+XF.ring+'">'+Array.from({length:20},(_,i)=>'<button data-a="xfset" data-v="'+XF.ring+(i+1)+'">'+(i+1)+'</button>').join('')+'</div>'+
-    '<div class="nums3" style="grid-template-columns:1fr 1fr"><button data-a="xfset" data-v="SB">Bull '+(X.bull==='split'?25:50)+'<small>outer</small></button>'+
-      '<button data-a="xfset" data-v="DB">Bull 50<small>inner</small></button></div>'+
+    '<div class="nums3" style="grid-template-columns:1fr 1fr"><button data-a="xfset" data-v="SB">'+(X.game==='cricket'?'Outer bull<small>1 mark</small>':'Bull '+(X.bull==='split'?25:50)+'<small>outer</small>')+'</button>'+
+      '<button data-a="xfset" data-v="DB">'+(X.game==='cricket'?'Bull’s-eye<small>2 marks</small>':'Bull 50<small>inner</small>')+'</button></div>'+
     '<div class="alt"><button data-a="xfset" data-v="M">Bounce-out (0)</button><button data-a="xfrm">Remove dart</button></div>'+
     '</div></div>'}
 function x01LeaveSheet(){
   const any=X.turns.length||X.cur.length;
-  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet"><h3>Leave this '+X.start+'?</h3>'+
+  const cr=X.game==='cricket';
+  $('#modalwrap').innerHTML='<div class="modal" data-a="backdrop"><div class="sheet"><h3>Leave this '+(cr?'Cricket game':X.start)+'?</h3>'+
     '<button class="btn btn-primary" data-a="xpark">⏸ Pause — come back to it</button>'+
     (any?'<button class="btn" data-a="xstopkeep">Stop here and keep it</button>'+
-      '<div class="hint" style="margin-top:6px">A stopped game counts for 80%, first 9 and awards — not for closing or brackets, since it never reached an out.</div>':'')+
+      '<div class="hint" style="margin-top:6px">'+(cr?'A stopped game counts for MPR, 80% and pins — not for darts to close, since it never closed.':
+        'A stopped game counts for 80%, first 9 and awards — not for closing or brackets, since it never reached an out.')+'</div>':'')+
     '<button class="btn btn-danger" data-a="xtoss">Throw it away</button>'+
     '<button class="btn btn-ghost" data-a="closesheet">Keep playing</button></div></div>'}
+
+/* ============ Cricket in the app (solo, stage 1 — 2026-10-16) ============
+   Built from the design in CLAUDE.md. Targets 20–15 and the bull; the outer bull
+   is 1 mark, the bull's-eye 2. Solo is a race to close all seven. With no opponent
+   no number is ever dead, so every mark on a target counts toward MPR (the
+   design's "live marks" rule — there's nobody to kill a number). Points mean
+   nothing solo and aren't shown. The game shares the live-game slot X with x01
+   (X.game==='cricket'), so the board link, undo, pause and keep-awake are the
+   same code. D.cricket[] = {id, date, at, mode:'solo', turns:[[seg,…],…]} —
+   every dart, nothing else; every stat is recomputed (crReplay → crStats).
+   80% (personal, like 501): locks at the end of the turn in which he has 3 marks
+   on 6 of the 7 targets. MPR = marks per turn, league/GranBoard style. */
+const CR_T=[20,19,18,17,16,15,25],CR_LBL=['20','19','18','17','16','15','B'];
+function crMk(seg){   // [target index, marks] or null for a dart off the targets
+  if(seg==='SB')return [6,1];if(seg==='DB')return [6,2];if(seg==='M')return null;
+  const i=CR_T.indexOf(+seg.slice(1));return i<0?null:[i,seg[0]==='T'?3:seg[0]==='D'?2:1]}
+function crTurn(pre,segs){   // darts after the last number closes don't count
+  const m=pre.slice();let marks=0,n=0,closed=false;
+  for(const sg of segs){n++;const r=crMk(sg);if(r){m[r[0]]+=r[1];marks+=r[1]}
+    if(m.every(x=>x>=3)){closed=true;break}}
+  return {m:m,marks:marks,n:n,closed:closed}}
+function crReplay(g){
+  let m=[0,0,0,0,0,0,0],closed=false;const vs=[];
+  for(const t of g.turns){if(closed)break;
+    const e=crTurn(m,t);vs.push({segs:t.slice(0,e.n),marks:e.marks,pre:m,post:e.m,out:e.closed});m=e.m;closed=e.closed}
+  return {vs:vs,fin:closed,m:m,lock:vs.findIndex(v=>v.post.filter(x=>x>=3).length>=6)}}
+function crStats(g){
+  const r=crReplay(g),vs=r.vs,S=a=>a.reduce((x,v)=>x+v.marks,0);
+  const v80=r.lock>=0?vs.slice(0,r.lock+1):vs,vC=r.lock>=0?vs.slice(r.lock+1):[];
+  return {vs:vs,fin:r.fin,m:r.m,locked:r.lock>=0,lock:r.lock,darts:vs.reduce((a,v)=>a+v.segs.length,0),
+    marks:S(vs),rounds:vs.length,m80:S(v80),r80:v80.length,mC:S(vC),rC:vC.length}}
+const mprOf=(m,r)=>r?m/r:null;
+const fmt2=x=>x==null||!isFinite(x)?'–':x.toFixed(2);
+const crSorted=()=>D.cricket.slice().sort((a,b)=>(a.at||a.date)<(b.at||b.date)?-1:1);
+/* Cricket pins (Matt): 5–9 mark turns, white horse (trebles on 3 different numbers
+   he hadn't opened), hat trick (3 bulls), 3 in a Bed (3 darts in one treble of a
+   target), 3 in the Black (3 bull's-eyes). Every pin a turn earns counts; the badge
+   is the first in CR_PINS order, the jingle the first one that has one. 4 marks
+   plays the 4-mark run but isn't a pin. */
+const CR_PINS=[['horse','WHITE HORSE'],['bed','3 IN A BED'],['m9','9 MARK'],['black','3 IN THE BLACK'],['m8','8 MARK'],
+  ['m7','7 MARK'],['hat','HAT TRICK'],['m6','6 MARK'],['m5','5 MARK']];
+const CR_AWARD=Object.fromEntries(CR_PINS);
+function crPins(v){
+  const g=v.segs,has={},n=Math.min(9,v.marks);
+  if(n>=5)has['m'+n]=1;
+  if(g.length===3){
+    if(g.every(x=>x==='SB'||x==='DB'))has.hat=1;
+    if(g.every(x=>x==='DB'))has.black=1;
+    const r=g.map(crMk),tre=r.every(x=>x&&x[1]===3);
+    if(tre&&g.every(x=>x===g[0]))has.bed=1;
+    if(tre&&new Set(r.map(x=>x[0])).size===3&&r.every(x=>v.pre[x[0]]===0))has.horse=1}
+  return CR_PINS.filter(q=>has[q[0]]).map(q=>q[0])}
+const crTopPin=v=>crPins(v)[0]||null;
+function crJingle(v){   // white horse, 3 in a Bed and 9 marks all play the 9-mark run
+  for(const k of crPins(v)){if(k==='horse'||k==='bed'||k==='m9')return marksJingle(9);
+    if(k==='black')return JINGLES.black;if(k==='hat')return JINGLES.hat;if(k[0]==='m')return marksJingle(+k[1])}
+  return v.marks>=4?marksJingle(v.marks):null}
+
+/* ---- the live Cricket game (in X, beside x01) ---- */
+function crNew(){
+  X={id:uid(),date:today(),game:'cricket',turns:[],cur:[],snaps:[],sung:-1,saved:null,savedId:null,parked:false};
+  xRing='S';persistX();acquireWake();render()}
+function crState(){
+  const r=crReplay({turns:X.turns}),e=crTurn(r.m,X.cur);
+  return {pre:r.m,m:e.m,marks:e.marks,n:e.n,closed:r.fin||e.closed,full:r.fin||e.closed||X.cur.length>=3}}
+function crVisit(){const st=crState();return {segs:X.cur.slice(0,st.n),marks:st.marks,pre:st.pre,post:st.m,out:st.closed}}
+function crRec(){
+  const g={id:X.id,date:X.date,at:stamp(),mode:'solo',turns:X.turns.concat(X.cur.length?[X.cur]:[])};
+  g.turns=crReplay(g).vs.map(v=>v.segs);return g}
+/* filed the moment the last number closes; an undo or fix after that re-files it under a new id (as x01) */
+function crSettle(){
+  const st=crState(),sig=st.closed?JSON.stringify([X.turns,X.cur]):null;
+  if(X.saved&&X.saved!==sig){D.cricket=D.cricket.filter(g=>g.id!==X.savedId);X.saved=X.savedId=null;X.id=uid();persist()}
+  if(sig&&!X.saved){const g=crRec();D.cricket.push(g);X.saved=sig;X.savedId=g.id;persist()}}
+function crAward(delay){if(X.sung===X.turns.length)return 0;
+  const spec=crJingle(crVisit());if(!spec)return 0;
+  X.sung=X.turns.length;jingle(spec,delay);
+  return delay+Math.max(...spec.map(n=>n[0]+n[2]))}
+function crWon(delay){gameWon(Math.max(crAward(delay),delay)+.05)}
+/* a dart off the targets is a miss in Cricket, so it's silent, like a miss in x01 */
+const crSound=seg=>crMk(seg)?dartSound(seg):.03;
+function crDart(seg,fromBoard){
+  const st=crState();
+  if(st.closed)return;
+  if(st.full){toast('Three darts in — '+(GB.dev?'board button':'End turn')+' first');return}
+  snapX();X.cur.push(seg);xRing='S';
+  const s2=crState();   // a special sound replaces the dart's own, as in x01
+  if(s2.closed)crWon(.03);
+  else if(X.cur.length===3){if(!crAward(.03))crSound(seg)}
+  else crSound(seg);
+  crSettle();persistX();render();
+  if(fromBoard)gbEcho(seg)}
+function crButton(){
+  const st=crState();
+  if(st.closed){crNew();turnCue();return}
+  snapX();
+  const aw=X.cur.length?crAward(.03):0;
+  while(X.cur.length<3)X.cur.push('M');
+  X.turns.push(X.cur);X.cur=[];
+  if(aw)setTimeout(turnCue,aw*1000);else turnCue();
+  crSettle();persistX();render()}
+function crFix(seg){
+  const was=crState().closed;
+  snapX();
+  if(seg==null)X.cur.splice(XF.i,1);else X.cur[XF.i]=seg;
+  XF=null;closeSheet();
+  const st=crState();
+  if(st.closed&&!was)crWon(.03);
+  else if(st.closed||X.cur.length===3)crAward(.03);
+  crSettle();persistX();render()}
+
+/* ---- Cricket screen: the marks board is the big thing, read from the oche ---- */
+function markSVG(n){
+  if(!n)return '';
+  const k='stroke="currentColor" stroke-width="7" stroke-linecap="round" fill="none"';
+  let o='<svg viewBox="0 0 60 60" aria-hidden="true"><line x1="16" y1="44" x2="44" y2="16" '+k+'/>';
+  if(n>=2)o+='<line x1="16" y1="16" x2="44" y2="44" '+k+'/>';
+  if(n>=3)o+='<circle cx="30" cy="30" r="25" '+k.replace('7','5')+'/>';
+  return o+'</svg>'}
+function crHTML(){
+  const st=crState(),done=st.closed,live=X.cur.length>0,board=!!GB.dev,wait=!done&&st.full;
+  const showPad=!done&&(xPad!=null?xPad:!board);
+  const closedVs=crReplay({turns:X.turns}).vs;
+  // Matt: "I like my cricket numbers up and down, vertical" — a scoreboard, 20 at the top
+  // down to the bull, marks beside each; green once he has it closed (his colour for "opened")
+  const hitNow={};X.cur.slice(0,st.n).forEach(x=>{const r=crMk(x);if(r)hitNow[r[0]]=1});
+  const mb='<div class="crb">'+CR_T.map((t,i)=>{const n=st.m[i];
+    return '<div class="crc'+(n>=3?' on':'')+(hitNow[i]?' hit':'')+'"><b>'+CR_LBL[i]+'</b><span class="mk">'+markSVG(Math.min(3,n))+'</span>'+
+      '<i>'+(n>3?'+'+(n-3):'')+'</i></div>'}).join('')+'</div>';
+  let tot='',badge='';
+  if(live){const v=crVisit(),k=st.full&&crTopPin(v);tot=v.marks+(v.marks===1?' mark':' marks');
+    badge=k?'<span class="badge aw">'+CR_AWARD[k]+'</span>':done?'<span class="badge out">CLOSED</span>':''}
+  const n0=Math.max(0,closedVs.length-5);
+  const hist=closedVs.length?closedVs.slice(n0).map((v,j)=>{const k=crTopPin(v);
+      return '<div class="hr"><span class="n">'+(n0+j+1)+'</span><span class="ds">'+
+        v.segs.map(d=>'<i class="'+segCls(d)+'">'+segLabel(d)+'</i>').join('')+'</span>'+
+        '<b class="p'+(k?' aw':'')+'">'+v.marks+'</b><span class="l">'+v.post.filter(x=>x>=3).length+'/7</span></div>'}).join(''):
+    '<div class="none">Your turns show here.</div>';
+  let sl='';
+  for(let k=0;k<3;k++){const x=X.cur[k];
+    if(x==null){sl+='<div class="slot e'+(!done&&!wait&&k===X.cur.length?' nx':'')+'">'+(!done&&!wait&&k===X.cur.length?'–':'·')+'</div>';continue}
+    sl+='<button class="slot '+segCls(x)+'" data-a="xfix" data-v="'+k+'">'+segLabel(x)+'</button>'}
+  const who=done?'<span class="nm st fin">Game shot</span>':
+    wait?'<span class="nm st wait">Turn over · pull your darts</span>':
+    '<span class="nm st go">▶ Your throw · dart '+(X.cur.length+1)+'</span>';
+  const s=crStats({turns:X.turns.concat(done?[X.cur]:[])}),mpr=mprOf(s.marks,s.rounds),m80=mprOf(s.m80,s.r80);
+  let h='<div class="xg'+(showPad?' haspad':'')+'"><div class="in"><div class="xtop">'+
+    '<button class="xb" data-a="xleave">'+(done?'✓ Done':'✕')+'</button>'+
+    '<div class="t"><b>Cricket</b> <span class="s">· solo · turn '+(X.turns.length+1)+'</span></div>'+
+    (navigator.bluetooth||GB_MOCK?'<button class="xb" data-a="gbconn"><span class="gbdot '+GB.cls+'"></span><span class="gbpill">'+gbPillText()+'</span></button>':'')+
+    '<button class="xb" data-a="xmute" aria-label="Sound on or off">'+(D.settings.gameMute?'🔇':'🔊')+'</button>'+
+    '<button class="xb" data-a="xundo"'+(X.snaps.length?'':' disabled')+'>↶ Undo</button></div>'+
+    '<div class="gbline gbstat"'+(GB.dev&&GB.cls!=='on'?'':' style="display:none"')+'>'+esc(GB.stat)+'</div>'+
+    '<div class="xbody"><div>'+
+    '<div class="pl'+(done?' fin':wait?' wait':'')+'"><div class="ph">'+who+badge+'</div>'+
+    '<div class="crwrap">'+mb+'<div class="crside"><div class="cur">'+sl+'<span class="tt">'+tot+'</span></div>'+
+      '<div class="hist">'+hist+'</div></div></div>'+
+    '<div class="ms"><div><span>MPR</span><b>'+fmt2(mpr)+'</b></div>'+
+      '<div'+(s.locked?' class="lk"':'')+'><span>80%</span><b>'+fmt2(m80)+'</b></div>'+
+      '<div><span>Turns</span><b>'+s.rounds+'</b></div></div></div>';
+  const how=board?'board button':'End turn';
+  if(done){const pins=crPins(crVisit());
+    h+='<div class="msg win" style="margin-top:10px">'+(pins.length?'<div class="row" style="gap:6px;margin-bottom:6px">'+
+        pins.map(k=>'<span class="badge aw" style="margin-left:0">'+CR_AWARD[k]+'</span>').join('')+'</div>':'')+
+      '<div class="row"><span class="grow">Closed in '+s.darts+' darts · MPR '+fmt2(mpr)+' · 80% '+fmt2(m80)+'</span>'+
+      '<button class="btn btn-sm btn-primary" data-a="xnext">Next game ›</button></div>'+
+      '<div class="hint" style="margin-top:4px;font-weight:600">Tap a dart to fix it'+(board?' · board button = next game':'')+'</div></div>'}
+  else if(X.cur.length===3)h+='<div class="msg wait" style="margin-top:10px">Pull your darts · '+how+' for the next turn.</div>';
+  h+='</div>';
+  if(showPad)h+='<div>'+crPadHTML()+(board?'<button class="btn btn-ghost" data-a="xpad" data-v="0" style="margin-top:8px">Hide the pad</button>':'')+'</div>';
+  else if(!done)h+='<div class="row"><button class="xend grow" data-a="xend" style="margin:0">⏎ End turn</button>'+
+    '<button class="btn btn-sm" data-a="xpad" data-v="1">Tap pad</button></div>';
+  h+='</div>'+gbMockHTML()+'</div></div>';
+  return h}
+/* the tap pad only needs the targets: anything else is a miss (the board still
+   sends the real segment, which is kept) */
+function crPadHTML(){
+  return '<div class="rings">'+[['S','Single'],['D','Double'],['T','Treble']].map(r=>'<button class="'+(xRing===r[0]?'on':'')+
+      '" data-a="xring" data-v="'+r[0]+'">'+r[1]+'</button>').join('')+'</div>'+
+    '<div class="nums '+xRing+'" style="grid-template-columns:repeat(3,1fr)">'+CR_T.slice(0,6).map(n=>'<button data-a="xdart" data-v="'+xRing+n+'" style="padding:16px 0;font-size:22px">'+
+      (xRing==='S'?'':xRing)+n+'</button>').join('')+'</div>'+
+    '<div class="nums3"><button data-a="xdart" data-v="SB">Outer bull<small>1 mark</small></button>'+
+      '<button data-a="xdart" data-v="DB">Bull’s-eye<small>2 marks</small></button>'+
+      '<button class="miss" data-a="xdart" data-v="M">Miss<small>off the targets</small></button></div>'+
+    '<button class="xend" data-a="xend">⏎ End turn</button>'}
+const xDone=()=>X.game==='cricket'?crState().closed:xState().out;
+const xName=()=>X.game==='cricket'?'Cricket game ('+crState().m.filter(x=>x>=3).length+' of 7 closed)':X.start+' (on '+xState().score+')';
 
 /* ---- Games tab: Play ---- */
 function x01PlayHTML(){
   const rl=x01Rules();let h='';
-  if(X&&X.parked){const st=xState();
+  if(X&&X.parked){const cr=X.game==='cricket',st=cr?crState():xState();
     h+='<button class="tile" data-a="xgo" style="border-color:var(--warn)"><div class="row"><div style="flex:1;min-width:0">'+
-      '<b>⏸ '+X.start+' · on '+st.score+'</b><div class="meta">turn '+(X.turns.length+1)+' · '+OUTN[X.out].toLowerCase()+'</div></div>'+
+      '<b>⏸ '+(cr?'Cricket · '+st.m.filter(x=>x>=3).length+' of 7 closed':X.start+' · on '+st.score)+'</b><div class="meta">turn '+(X.turns.length+1)+' · '+
+      (cr?'solo':OUTN[X.out].toLowerCase())+'</div></div>'+
       '<span class="pill on">Go back in</span></div></button>'}
+  if(navigator.bluetooth||GB_MOCK)h+='<div class="card"><div class="row"><div class="grow" style="font-weight:700;font-size:15px">'+
+      '<span class="gbdot '+GB.cls+'"></span><span class="gbstat">'+esc(GB.stat||'Board not connected')+'</span></div>'+
+      '<button class="btn btn-sm gbbtn" data-a="gbconn">'+gbBtnText()+'</button></div>'+
+      '<div class="hint" style="margin-top:4px">Close the GranBoard app first — the board talks to one thing at a time.</div></div>';
+  else h+='<div class="card" style="padding:10px 14px"><div class="hint" style="margin:0">No Bluetooth in this browser — tap your darts in. The board link works in Chrome on the tablet.</div></div>';
   const opt=(k,v,lbl,on)=>'<button class="btn btn-sm '+(on?'btn-primary':'')+'" data-a="xrule" data-k="'+k+'" data-v="'+v+'" style="flex:1">'+lbl+'</button>';
   h+='<div class="card"><h3>Play x01</h3>'+
     '<div class="row">'+[301,501,701].map(n=>opt('x01Start',n,n,rl.start===n)).join('')+'</div>'+
     '<div class="row" style="margin-top:8px">'+opt('x01Out','open','Straight out',rl.out==='open')+opt('x01Out','double','Double out',rl.out==='double')+'</div>'+
     '<div class="row" style="margin-top:8px">'+opt('x01Bull','fat','Every bull 50',rl.bull==='fat')+opt('x01Bull','split','Bull 25 / 50',rl.bull==='split')+'</div>'+
-    '<div class="hint" style="margin-top:6px">Straight in. Your league: straight out, every bull 50.</div>';
-  if(navigator.bluetooth||GB_MOCK)h+='<div class="row" style="margin-top:12px"><div class="grow" style="font-weight:700;font-size:15px">'+
-      '<span class="gbdot '+GB.cls+'"></span><span class="gbstat">'+esc(GB.stat||'Board not connected')+'</span></div>'+
-      '<button class="btn btn-sm gbbtn" data-a="gbconn">'+gbBtnText()+'</button></div>'+
-      '<div class="hint" style="margin-top:4px">Close the GranBoard app first — the board talks to one thing at a time.</div>';
-  else h+='<div class="hint" style="margin-top:8px">No Bluetooth in this browser — tap your darts in. The board link works in Chrome on the tablet.</div>';
-  h+='<button class="btn btn-primary" data-a="xstart">▶ Start '+rl.start+'</button></div>';
-  h+='<div class="card" style="padding:10px 14px"><div class="hint" style="margin:0"><b style="color:var(--text)">Cricket</b> isn’t playable in the app yet — x01 came first. '+
-    'Until it is, play it on the GranBoard app and log the result under <b style="color:var(--text)">GranBoard log</b>.</div></div>';
-  const all=x01Sorted();
+    '<div class="hint" style="margin-top:6px">Straight in. Your league: straight out, every bull 50.</div>'+
+    '<button class="btn btn-primary" data-a="xstart">▶ Start '+rl.start+'</button></div>';
+  h+='<div class="card"><h3>Play Cricket</h3>'+
+    '<div class="hint">Solo: close 20 down to 15 and the bull in as few darts as you can. Outer bull 1 mark, bull’s-eye 2. Your MPR, 80% and pins come from every dart.</div>'+
+    '<button class="btn btn-primary" data-a="crstart" style="margin-top:10px">▶ Start Cricket</button></div>';
+  const all=x01Sorted(),ca=crSorted();
+  if(ca.length){const L=ca.slice(-30),S=L.map(crStats),F=S.filter(x=>x.fin);
+    const sm=k=>S.reduce((a,x)=>a+x[k],0);
+    h+='<button class="tile" data-a="gostats" data-v="cricket"><div class="row"><div style="flex:1;min-width:0"><b>Cricket · solo</b>'+
+      '<div class="meta">'+(L.length<ca.length?'last 30 of '+ca.length:ca.length+' game'+(ca.length>1?'s':''))+' · 80% '+fmt2(mprOf(sm('m80'),sm('r80')))+
+      (F.length?' · '+fmt1(F.reduce((a,x)=>a+x.darts,0)/F.length)+' darts to close':'')+' · all stats ›</div></div>'+
+      '<div class="last"><b>'+fmt2(mprOf(sm('marks'),sm('rounds')))+'</b><span>MPR</span></div></div></button>'}
   if(all.length){
     const lg=all[all.length-1],A=x01Agg(lg.out),arr=A.byStart[lg.start]||[],L=arr.slice(-30),F=L.filter(x=>x.s.fin);
     const full=F.length?F.reduce((a,x)=>a+x.g.start,0)/F.reduce((a,x)=>a+x.s.darts,0):null;
@@ -1850,11 +2116,19 @@ function x01PlayHTML(){
       '<div class="meta">'+(L.length<arr.length?'last 30 of '+arr.length:arr.length+' game'+(arr.length>1?'s':''))+
       ' · 80% '+fmt1(e80)+(A.close.n?' · closing '+fmt1(A.close.darts/A.close.n)+' darts':'')+' · all stats ›</div></div>'+
       '<div class="last"><b>'+fmt1(full)+'</b><span>full PPD</span></div></div></button>';
-    h+='<div class="lbl" style="margin-top:14px">Recent games</div>'+all.slice(-12).reverse().map(g=>{const s=x01Stats(g);
-      const line=s.fin?'out in '+s.darts+' darts · '+fmt1(g.start/s.darts)+' PPD':'stopped on '+(g.start-s.pts)+' · '+s.darts+' darts';
-      return '<div class="cnt"><span class="nm">'+g.date+' · '+g.start+(g.out==='double'?' · double out':'')+(g.bull==='split'?' · 25/50':'')+
-        '<div class="hint" style="font-weight:400">'+line+' · 80% '+fmt1(s.d80?s.p80/s.d80:null)+'</div></span>'+
-        '<button class="m" data-a="xdel" data-v="'+g.id+'">✕</button></div>'}).join('')}
+  }
+  // recent games, x01 and Cricket together, newest first
+  const rec=all.map(g=>({g:g,cr:0})).concat(ca.map(g=>({g:g,cr:1}))).sort((a,b)=>(a.g.at||a.g.date)<(b.g.at||b.g.date)?1:-1).slice(0,12);
+  if(rec.length)h+='<div class="lbl" style="margin-top:14px">Recent games</div>'+rec.map(({g,cr})=>{
+    if(cr){const s=crStats(g);
+      return '<div class="cnt"><span class="nm">'+g.date+' · Cricket<div class="hint" style="font-weight:400">'+
+        (s.fin?'closed in '+s.darts+' darts':'stopped · '+s.m.filter(x=>x>=3).length+' of 7 closed')+' · MPR '+fmt2(mprOf(s.marks,s.rounds))+'</div></span>'+
+        '<button class="m" data-a="crdel" data-v="'+g.id+'">✕</button></div>'}
+    const s=x01Stats(g);
+    const line=s.fin?'out in '+s.darts+' darts · '+fmt1(g.start/s.darts)+' PPD':'stopped on '+(g.start-s.pts)+' · '+s.darts+' darts';
+    return '<div class="cnt"><span class="nm">'+g.date+' · '+g.start+(g.out==='double'?' · double out':'')+(g.bull==='split'?' · 25/50':'')+
+      '<div class="hint" style="font-weight:400">'+line+' · 80% '+fmt1(s.d80?s.p80/s.d80:null)+'</div></span>'+
+      '<button class="m" data-a="xdel" data-v="'+g.id+'">✕</button></div>'}).join('');
   return h}
 
 /* ============ game sounds (mock-501.html, exactly as Matt picked them) ============
@@ -1933,6 +2207,16 @@ const climbs=n=>[72,74,76,79,84,88].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
 // 3 in the Black is the rarest, so the longest: six climbs, the sixth on high E
 const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5),black:climbs(6),bed:climbs(4),shanghai:climbs(3)};
 const after=c=>c?(c-1)*.18+.22:.03;   // let the last dart's coin finish first
+/* Cricket marks (Matt's final, sounds.html): 4 marks = a 3-note run in Soft coin's
+   voice, one note longer per mark; 9 marks = the six-note run three times with a
+   short breath between — no level-up climbs. */
+function marksJingle(n){
+  const sc=[76,80,83,88,92,95,100],c=Math.max(3,Math.min(7,n-1)),out=[];
+  if(n>=9){const period=(c-1)*.065+.12;
+    for(let r=0;r<3;r++)for(let i=0;i<c-1;i++)out.push([r*period+i*.065,sc[i],.08]);
+    return out}
+  for(let i=0;i<c;i++)out.push([i*.065,sc[i],i===c-1?.3:.08]);
+  return out}
 /* a sine bell — now only the win chime's voice (Matt called it a doorbell on the bulls) */
 function bell(t,f,dur,peak){
   const AC=audioCtx;
@@ -2124,7 +2408,7 @@ function moreHTML(){
     '<div class="card"><h3>Count-in</h3><div class="hint">Seconds before a drill starts, so you are in your stance.</div>'+
     '<div class="row" style="margin-top:10px">'+[3,5,8,12].map(n=>'<button class="btn btn-sm '+
       (D.settings.countIn===n?'btn-primary':'')+'" data-a="countin" data-v="'+n+'" style="flex:1">'+n+'s</button>').join('')+'</div></div>'+
-    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+D.x01.length+' in-app x01 · '+D.games.length+' GranBoard rows · '+
+    '<div class="card"><h3>Data</h3><div class="hint">'+D.sessions.length+' drill sessions · '+D.free.length+' free throws · '+D.x01.length+' in-app x01 · '+D.cricket.length+' in-app Cricket · '+D.games.length+' GranBoard rows · '+
     D.drills.length+' drills</div>'+
     '<button class="btn" data-a="backup">Download backup</button>'+
     '<button class="btn btn-ghost" data-a="restore">Restore from file</button></div>'+
@@ -2219,9 +2503,13 @@ document.addEventListener('click',e=>{
   case 'ststart': ST.start=+v;render();break;
   case 'xrule': {const k=el.getAttribute('data-k');D.settings[k]=k==='x01Start'?+v:v;persist();render();break}
   case 'xstart': {
-    if(X&&(X.turns.length||X.cur.length)&&!xState().out&&
-       !confirm('Throw away the paused '+X.start+' (on '+xState().score+') and start a new one?'))break;
+    if(X&&(X.turns.length||X.cur.length)&&!xDone()&&!confirm('Throw away the paused '+xName()+' and start a new one?'))break;
     gAudio();x01New(x01Rules());break}
+  case 'crstart': {
+    if(X&&(X.turns.length||X.cur.length)&&!xDone()&&!confirm('Throw away the paused '+xName()+' and start a new one?'))break;
+    gAudio();crNew();break}
+  case 'crdel': {const g=D.cricket.find(x=>x.id===v);
+    if(g&&confirm('Remove the '+g.date+' Cricket game from your history?')){D.cricket=D.cricket.filter(x=>x.id!==v);persist();render()}break}
   case 'xgo': if(X){X.parked=false;persistX();acquireWake();render()}break;
   case 'xdart': x01Dart(v,false);break;
   case 'xring': xRing=v;render();break;
@@ -2234,11 +2522,11 @@ document.addEventListener('click',e=>{
   case 'xfring': if(XF){XF.ring=v;x01FixSheet()}break;
   case 'xfset': x01Fix(v);break;
   case 'xfrm': x01Fix(null);break;
-  case 'xleave': if(!X)break;if(xState().out){x01Leave(false);break}x01LeaveSheet();break;
+  case 'xleave': if(!X)break;if(xDone()){x01Leave(false);break}x01LeaveSheet();break;
   case 'xpark': X.parked=true;persistX();closeSheet();if(!(R&&!R.parked))releaseWake();gTab='play';view='games';render();break;
   case 'xstopkeep': x01Leave(true);toast('Kept');break;
   case 'xtoss': if((X.turns.length>2)&&!confirm('Throw this game away? Nothing will be kept.'))break;x01Leave(false);break;
-  case 'xnext': x01New(X);break;
+  case 'xnext': if(X.game==='cricket')crNew();else x01New(X);break;
   case 'xdel': {const g=D.x01.find(x=>x.id===v);
     if(g&&confirm('Remove the '+g.date+' '+g.start+' game from your history?')){D.x01=D.x01.filter(x=>x.id!==v);persist();render()}break}
   case 'gbconn': gAudio();   // wake the game audio on the Connect tap
@@ -2289,7 +2577,7 @@ document.addEventListener('click',e=>{
     inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();
       r.onload=()=>{try{const o=JSON.parse(r.result);
         if(!o||!Array.isArray(o.sessions))throw 0;
-        D=Object.assign(blankD(),o);normD();D.x01=D.x01.map(cleanX01).filter(Boolean);
+        D=Object.assign(blankD(),o);normD();D.x01=D.x01.map(cleanX01).filter(Boolean);D.cricket=D.cricket.map(cleanCricket).filter(Boolean);
         // forget what the cloud was told, so a restore merges with it rather than
         // reading every record missing from the file as a deletion
         SY.ledger={};SY.cursor=EPOCH;persistSY();
@@ -2318,8 +2606,8 @@ document.addEventListener('pointerdown',()=>{if(X&&!X.parked)gAudio()},{passive:
 const SUPA_URL='https://tocczuoekymnvlevxdke.supabase.co';
 const SUPA_ANON='sb_publishable_TmZptCMDbuGpccsABC3lhQ_QV9UJJV4';
 const AUTH_KEY='tm_auth_v1', SYNC_KEY='tm_sync_v1';
-const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings', T_GAME='tm_games', T_X01='tm_x01';
-const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET,T_GAME,T_X01];
+const T_SESS='tm_sessions', T_FREE='tm_free', T_DRILL='tm_drills', T_PLAN='tm_plans', T_SET='tm_settings', T_GAME='tm_games', T_X01='tm_x01', T_CRI='tm_cricket';
+const SYNC_TABLES=[T_SESS,T_FREE,T_DRILL,T_PLAN,T_SET,T_GAME,T_X01,T_CRI];
 const EPOCH='1970-01-01T00:00:00Z';
 let AU=load(AUTH_KEY,null);
 let SY=load(SYNC_KEY,null);
@@ -2366,6 +2654,7 @@ function localRows(){
   m[T_FREE]=D.free.map(x=>({id:x.id,sig:1,data:x}));
   m[T_GAME]=D.games.map(x=>({id:x.id,sig:1,data:x}));
   m[T_X01]=D.x01.map(x=>({id:x.id,sig:1,data:x}));
+  m[T_CRI]=D.cricket.map(x=>({id:x.id,sig:1,data:x}));
   m[T_DRILL]=D.drills.map(x=>({id:x.id,sig:x.at||'-',data:x}));
   m[T_PLAN]=Object.keys(D.plans).filter(k=>D.plans[k].items.length).map(k=>({id:k,sig:D.plans[k].at||'-',data:D.plans[k]}));
   const v={freeCounters:D.freeCounters};SETTINGS_SYNCED.forEach(k=>{if(D.settings[k]!=null)v[k]=D.settings[k]});
@@ -2414,6 +2703,13 @@ function cleanX01(g){
   if(!turns.length)return null;
   return {id:g.id,date:g.date,at:typeof g.at==='string'?g.at:'',start:+g.start,
     out:g.out==='double'?'double':'open',bull:g.bull==='split'?'split':'fat',turns:turns}}
+/* an in-app Cricket game: the darts only — every stat is recomputed */
+function cleanCricket(g){
+  if(!g||typeof g.id!=='string'||!isDate(g.date)||!Array.isArray(g.turns))return null;
+  const turns=g.turns.filter(Array.isArray).slice(0,500)
+    .map(t=>t.filter(x=>typeof x==='string'&&SEG_RE.test(x)).slice(0,3)).filter(t=>t.length);
+  if(!turns.length)return null;
+  return {id:g.id,date:g.date,at:typeof g.at==='string'?g.at:'',mode:'solo',turns:turns}}
 function cleanDrill(d){
   if(!d||typeof d.id!=='string'||!TPL(d.templateKey))return null;
   return {id:d.id,templateKey:d.templateKey,name:typeof d.name==='string'&&d.name?d.name:TPL(d.templateKey).name,
@@ -2431,11 +2727,11 @@ function cleanPlan(p){
 /* Merge one remote row. Returns true only if local data actually changed. */
 function applyRemote(row){
   const t=row.table_name,id=row.record_id,d=row.data,L=ledgerOf(t);
-  if(t===T_SESS||t===T_FREE||t===T_GAME||t===T_X01){
-    const arr=t===T_SESS?'sessions':t===T_FREE?'free':t===T_GAME?'games':'x01';
+  if(t===T_SESS||t===T_FREE||t===T_GAME||t===T_X01||t===T_CRI){
+    const arr=t===T_SESS?'sessions':t===T_FREE?'free':t===T_GAME?'games':t===T_X01?'x01':'cricket';
     if(row.deleted){const n=D[arr].length;D[arr]=D[arr].filter(x=>x.id!==id);delete L[id];return D[arr].length!==n}
     if(D[arr].some(x=>x.id===id))return false;          // a logged record never changes
-    const x=t===T_SESS?cleanSession(d):t===T_FREE?cleanFree(d):t===T_GAME?cleanGame(d):cleanX01(d);if(!x)return false;
+    const x=t===T_SESS?cleanSession(d):t===T_FREE?cleanFree(d):t===T_GAME?cleanGame(d):t===T_X01?cleanX01(d):cleanCricket(d);if(!x)return false;
     D[arr].push(x);L[id]=1;return true}
   if(t===T_DRILL){
     if(row.deleted)return false;                          // drills are archived, never deleted
