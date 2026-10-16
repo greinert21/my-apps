@@ -1278,10 +1278,10 @@ function bestsCard(){
     '<table class="btab pb">'+rows.map(r=>'<tr'+(r[3]?' data-tip="'+esc(r[3])+'"':'')+'><td>'+esc(r[0])+'</td><td><b>'+esc(String(r[1]))+'</b></td><td class="dim">'+(r[2]?fmtDay(r[2]):'')+'</td></tr>').join('')+
     '</table><div class="hint" style="margin-top:6px">'+RANGE_LBL[ST.range].replace(/^./,c=>c.toUpperCase())+'. Timed drills compare points per dart, so different paces line up.</div></div>'}
 function pinsCard(){
-  const aw={low:0,high:0,ton80:0,hat:0};
+  const aw={low:0,high:0,ton80:0,hat:0,black:0};
   inRange(x01Sorted(),g=>g.date).forEach(g=>x01Stats(g).vs.forEach(v=>{const k=visitAward(v);if(k)aw[k]++}));
   const pin=(n,l,off)=>'<div class="pin'+(off||!n?' off':'')+'"><b>'+(off?'·':n)+'</b><span>'+l+'</span></div>';
-  return '<div class="card"><h3>Pin case</h3><div class="pins">'+pin(aw.low,'Low ton')+pin(aw.high,'High ton')+pin(aw.ton80,'Ton 80')+pin(aw.hat,'Hat trick')+'</div>'+
+  return '<div class="card"><h3>Pin case</h3><div class="pins">'+pin(aw.low,'Low ton')+pin(aw.high,'High ton')+pin(aw.ton80,'Ton 80')+pin(aw.hat,'Hat trick')+pin(aw.black,'3 in the Black')+'</div>'+
     '<div class="pins" style="margin-top:6px">'+['5 mark','6 mark','7 mark','8 mark','9 mark','White horse'].map(l=>pin(0,l,1)).join('')+'</div>'+
     '<div class="hint" style="margin-top:6px">x01 awards, '+RANGE_LBL[ST.range]+'. The mark and white horse pins fill in when Cricket arrives.</div></div>'}
 
@@ -1515,12 +1515,13 @@ function x01Stats(g){
     o.closeDarts=S(vs.filter((v,i)=>v.start<=100||i===vs.length-1),'darts');
     o.checkout=vs[vs.length-1].start}
   return o}
-/* NDA awards, one per visit, bigger wins: ton-80 > hat trick > high ton > low ton.
+/* NDA awards, one per visit, bigger wins: ton-80 > 3 in the Black > hat trick > high ton > low ton.
    A ton+ checkout counts; a bust never does. */
-const AWARD={low:'LOW TON',high:'HIGH TON',ton80:'TON 80',hat:'HAT TRICK'};
+const AWARD={low:'LOW TON',high:'HIGH TON',ton80:'TON 80',hat:'HAT TRICK',black:'3 IN THE BLACK'};
 function visitAward(v){if(v.bust)return null;
   const b=v.segs.filter(s=>s==='SB'||s==='DB').length;
-  return v.pts===180?'ton80':b===3?'hat':v.pts>=151?'high':v.pts>=100?'low':null}
+  // 3 in the Black (Matt, 2026-10-16): three bull's-eyes — a hat trick of the best kind
+  return v.pts===180?'ton80':v.segs.length===3&&v.segs.every(s=>s==='DB')?'black':b===3?'hat':v.pts>=151?'high':v.pts>=100?'low':null}
 /* Brackets: where a visit started. 101+ only counts a score 3 darts can actually
    finish under the game's rules (bogeys come from the rules, never a table). */
 const BRK=[[1,20,'1–20'],[21,29,'21–29'],[30,39,'30s'],[40,49,'40s'],[50,59,'50s'],[60,69,'60s'],
@@ -1549,7 +1550,7 @@ const x01Sorted=()=>D.x01.slice().sort((a,b)=>(a.at||a.date)<(b.at||b.date)?-1:1
    out (40 left is a different problem in each); they pool across 301/501/701. */
 function x01Agg(mode,list){
   const A={byStart:{},close:{n:0,darts:0,best:null},high:0,atDbl:0,outs:0,games:0,busts:0,
-    aw:{low:0,high:0,ton80:0,hat:0},brk:BRK.map(()=>({n:0,out:0,left:0,bust:0,d:0,min:0}))};
+    aw:{low:0,high:0,ton80:0,hat:0,black:0},brk:BRK.map(()=>({n:0,out:0,left:0,bust:0,d:0,min:0}))};
   (list||x01Sorted()).filter(g=>g.out===mode).forEach(g=>{
     const s=x01Stats(g),vs=s.vs;
     A.games++;A.busts+=vs.filter(v=>v.bust).length;
@@ -1676,7 +1677,7 @@ function x01HTML(){
     '<div class="none">Your turns show here.</div>';
   let sl='';
   for(let k=0;k<3;k++){const s=segs[k];
-    if(s==null){sl+='<div class="slot e'+(!done&&!wait&&k===segs.length?' nx':'')+'">'+(!done&&!wait&&k===segs.length?k+1:'·')+'</div>';continue}
+    if(s==null){sl+='<div class="slot e'+(!done&&!wait&&k===segs.length?' nx':'')+'">'+(!done&&!wait&&k===segs.length?'–':'·')+'</div>';continue}
     sl+='<button class="slot '+segCls(s)+'" data-a="xfix" data-v="'+k+'">'+segLabel(s)+'</button>'}
   const who=done?'<span class="nm st fin">Game shot</span>':
     wait?'<span class="nm st wait">Turn over · pull your darts</span>':
@@ -1852,8 +1853,9 @@ function jingle(spec,delay){
    pulse, 50 ms a note — repeated, each climb a step higher (C, D, E, G, high C),
    always ending on the climb. Low ton 2, hat trick 3, high ton 4, ton-80 5. */
 const climb=(t0,root,step)=>{step=step||.05;return [0,4,7,12].map((iv,i)=>[t0+i*step,root+iv,step*1.1,.22,'p'])};
-const climbs=n=>[72,74,76,79,84].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
-const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5)};
+const climbs=n=>[72,74,76,79,84,88].slice(0,n).flatMap((r,i)=>climb(i*.22,r));
+// 3 in the Black is the rarest, so the longest: six climbs, the sixth on high E
+const JINGLES={low:climbs(2),hat:climbs(3),high:climbs(4),ton80:climbs(5),black:climbs(6)};
 const after=c=>c?(c-1)*.18+.22:.03;   // let the last dart's coin finish first
 /* Bulls get their own voice (Matt, 2026-10-16: "bulls need different sounds than
    regular darts, same with double bull"): a sine bell — nothing else in the game

@@ -46,6 +46,10 @@ h1{margin:0;font-size:22px;font-weight:800}
   <h1>Hit Sound Board</h1>
   <div class="sub">Tap each one. A single plays once, a double twice, a treble three times. Round 2 — Coin is #1. Tell Claude the numbers you like.</div>
   <div class="bar"><label for="vol">Volume</label><input id="vol" type="range" min="0.2" max="2.5" step="0.1" value="1.2"><span class="v" id="volv">1.2×</span></div>
+  <h2 style="font-size:19px;margin:18px 0 4px">Bull sounds — pick one</h2>
+  <div class="sub" style="margin-bottom:10px">The bell (doorbell) is out. Each option has an outer-bull sound and a bull's-eye sound. Tell Claude the number you like.</div>
+  <div class="grid" id="bgrid"></div>
+  <h2 style="font-size:19px;margin:22px 0 4px">Dart hits</h2>
   <div class="grid" id="grid"></div>
   <h2 style="font-size:19px;margin:22px 0 4px">Award jingles</h2>
   <div class="sub" style="margin-bottom:10px">Same tone as Soft coin. These play after the last dart of a big turn.</div>
@@ -179,14 +183,14 @@ function jingle(spec, delay){
   for (const [dt, m, dur, pk, w] of spec) (w ? n8 : jnote)(t0 + dt, m, dur, pk || .5, w);   // w = 8-bit wave
 }
 const after = c => c ? (c - 1) * 0.18 + 0.22 : 0.03;    // let the last dart's coin finish first
-const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK'};
+const AWARD = {low:'LOW TON', high:'HIGH TON', ton80:'TON 80', hat:'HAT TRICK', black:'3 IN THE BLACK'};
 
 function play(i, n){
   const ac = audio(); if (!ac) return;
   if (ac.state !== 'running'){ ac.resume().then(() => play(i, n)); return; }
   const s = SOUNDS[i], t0 = ac.currentTime + 0.03;
   for (let k = 0; k < n; k++) s.hit(t0 + k * s.gap, k);
-  document.querySelectorAll('.card').forEach((c, j) => c.classList.toggle('on', j === i));
+  document.querySelectorAll('#grid .card').forEach((c, j) => c.classList.toggle('on', j === i));
 }
 
 document.getElementById('grid').innerHTML = SOUNDS.map((s, i) =>
@@ -195,6 +199,7 @@ document.getElementById('grid').innerHTML = SOUNDS.map((s, i) =>
   [['Single',1],['Double',2],['Treble',3]].map(([l, n]) => '<button data-i="' + i + '" data-n="' + n + '">' + n + '<small>' + l + '</small></button>').join('') +
   '</div></div>').join('');
 const JLIST = [['Low ton','100–150','low'],['High ton','151–179','high'],['Ton 80','180','ton80'],['Hat trick','3 bulls in a turn','hat'],
+  ['3 in the Black','3 bull’s-eyes in a turn — six climbs','black'],
   ['4 mark','cricket',4],['5 mark','cricket',5],['6 mark','cricket',6],['7 mark','cricket',7],['8 mark','cricket',8],['9 mark','cricket',9]];
 document.getElementById('jgrid').innerHTML = JLIST.map((j, i) =>
   '<div class="card"><div class="hd"><span class="nm">' + j[0] + '</span></div><div class="ds" style="min-height:0">' + j[1] + '</div>' +
@@ -219,7 +224,7 @@ function n8(t, m, dur, peak, wave){
 }
 // a quick climb: root, third, fifth, octave
 const climb = (t0, root, step = .05) => [0, 4, 7, 12].map((iv, i) => [t0 + i * step, root + iv, step * 1.1, .22, 'p']);
-const climbs = n => [72, 74, 76, 79, 84].slice(0, n).flatMap((r, i) => climb(i * .22, r));
+const climbs = n => [72, 74, 76, 79, 84, 88].slice(0, n).flatMap((r, i) => climb(i * .22, r));
 const SET8 = [
   {name:'Level-up', ds:'Arpeggio climbs. Bigger award, more climbs, each starting higher.', j:{
     // final (Matt): climbs a step higher each time, ending on the climb — low 2, hat 3, high 4, ton-80 5
@@ -239,6 +244,45 @@ const SET8 = [
 ];
 // the final 501 picks, all from set A (Level-up); hat trick is also Cricket's and the end of 9 marks
 for (const k of ['low', 'high', 'ton80', 'hat']) JINGLES[k] = SET8[0].j[k];
+JINGLES.black = climbs(6);   // 3 in the Black, as live in the app
+
+/* ---------- bull sounds, round 1 (2026-10-16): the sine bell is out ("doorbell") ---------- */
+const coin = (t, f, pk = .6) => { tone(t, f, .06, pk, {type:'triangle', hold:.03}); tone(t + .06, f * 1.335, .16, pk, {type:'triangle', hold:.05}); };
+const coinDown = (t, f) => { tone(t, f * 1.335, .06, .6, {type:'triangle', hold:.03}); tone(t + .06, f, .16, .6, {type:'triangle', hold:.05}); };
+const thunk = t => tone(t, 190, .13, .9, {type:'triangle', to:70, glide:.1, attack:.002});
+const blip = (t, m) => n8(t, m, .07, .22, 'p');
+const zap = t => tone(t, 1700, .15, .2, {type:'square', to:380, glide:.13, attack:.002});
+const bing = (t, f) => { tone(t, f, .22, .55, {type:'triangle', attack:.002}); tone(t, f * 2, .05, .12, {type:'square', attack:.002}); };
+const BULLS = [
+  {name:'Low coin', ds:'Soft coin an octave down — same family as every dart, but clearly deeper. Bull’s-eye: two.',
+   sb:t => coin(t, 494), db:t => { coin(t, 494); coin(t + .18, 494 * 1.12); }},
+  {name:'Thunk + coin', ds:'A low thump like the dart sinking into the bull, then a coin. Bull’s-eye: thump and two coins.',
+   sb:t => { thunk(t); coin(t + .05, 988); }, db:t => { thunk(t); coin(t + .05, 988); coin(t + .23, 988 * 1.12); }},
+  {name:'8-bit blip', ds:'The award jingles’ 8-bit voice, short: two notes up for the outer bull, three for the bull’s-eye.',
+   sb:t => [67, 72].forEach((m, i) => blip(t + i * .06, m)), db:t => [67, 72, 76].forEach((m, i) => blip(t + i * .06, m))},
+  {name:'Laser', ds:'A quick zap sliding down. Bull’s-eye: two zaps.',
+   sb:t => zap(t), db:t => { zap(t); zap(t + .14); }},
+  {name:'Coin drop', ds:'Soft coin stepping down instead of up — reads as “different” at once. Bull’s-eye: two, the second lower.',
+   sb:t => coinDown(t, 1319), db:t => { coinDown(t, 1319); coinDown(t + .18, 1319 / 1.12); }},
+  {name:'Pinball', ds:'The pinball bumper bing. Bull’s-eye: two bings, the second higher.',
+   sb:t => bing(t, 1245), db:t => { bing(t, 1245); bing(t + .12, 1568); }}
+];
+function playBull(i, k){
+  const ac = audio(); if (!ac) return;
+  if (ac.state !== 'running'){ ac.resume().then(() => playBull(i, k)); return; }
+  const t0 = ac.currentTime + 0.03, b = BULLS[i];
+  if (k === 'sb') b.sb(t0); else if (k === 'db') b.db(t0);
+  else { b.db(t0); b.db(t0 + .6); b.db(t0 + 1.2); }   // three bull's-eyes, like a turn
+  document.querySelectorAll('#bgrid .card').forEach((c, j) => c.classList.toggle('on', j === i));
+}
+document.getElementById('bgrid').innerHTML = BULLS.map((b, i) =>
+  '<div class="card"><div class="hd"><span class="n">' + (i + 1) + '</span><span class="nm">' + b.name + '</span></div>' +
+  '<div class="ds">' + b.ds + '</div><div class="b3">' +
+  [['sb','Outer bull'],['db','Bull’s-eye'],['3db','3 bull’s-eyes']].map(([k, l]) =>
+    '<button data-bull="' + i + '" data-k="' + k + '">▶<small>' + l + '</small></button>').join('') + '</div></div>').join('');
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-bull]'); if (b) playBull(+b.dataset.bull, b.dataset.k);
+});
 function play8(si, k){
   const ac = audio(); if (!ac) return;
   if (ac.state !== 'running'){ ac.resume().then(() => play8(si, k)); return; }
